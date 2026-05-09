@@ -1,7 +1,10 @@
 """CLI entry point (SPEC-VISUALIZER §7).
 
-v0.1 Phase 3 wires Mode 1 (file path). Other modes (directory, shell-out,
-stdin) are added in Phase 8.
+Wires all four input modes:
+  Mode 1: file path
+  Mode 2: snapshot directory (latest, or `--at TIMESTAMP`)
+  Mode 3: shell out to cja_auto_sdr (`--dataview ID`) or aa_auto_sdr (`--rsid ID`)
+  Mode 4: stdin (path argument is `-`)
 """
 
 from __future__ import annotations
@@ -23,6 +26,7 @@ from sdr_visualizer.core.exceptions import (
 )
 from sdr_visualizer.core.visualizer import build_implementation
 from sdr_visualizer.input.loader import STDIN_TOKEN, load_snapshot
+from sdr_visualizer.input.shell_out import shell_aa, shell_cja
 from sdr_visualizer.render.renderer import render
 
 
@@ -30,8 +34,13 @@ def main(argv: list[str] | None = None) -> int:
     parser = _build_parser()
     args = parser.parse_args(argv)
 
+    if not _exactly_one_input_source(args):
+        parser.error(
+            "provide exactly one of: snapshot path/directory/'-', --dataview ID, or --rsid ID"
+        )
+
     try:
-        snapshot, source = load_snapshot(args.path, at=args.at)
+        snapshot, source = _load(args)
         impl = build_implementation(
             snapshot,
             source=source,
@@ -52,6 +61,19 @@ def main(argv: list[str] | None = None) -> int:
     return SUCCESS
 
 
+def _exactly_one_input_source(args: argparse.Namespace) -> bool:
+    sources = [bool(args.path), bool(args.dataview), bool(args.rsid)]
+    return sum(sources) == 1
+
+
+def _load(args: argparse.Namespace) -> tuple[dict, str]:
+    if args.dataview:
+        return shell_cja(args.dataview)
+    if args.rsid:
+        return shell_aa(args.rsid)
+    return load_snapshot(args.path, at=args.at)
+
+
 def _build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(
         prog="sdr-visualizer",
@@ -59,10 +81,19 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     p.add_argument(
         "path",
+        nargs="?",
         help=(
             "Snapshot file path, snapshot directory, or '-' for stdin. "
-            "Mode 3 (--dataview / --rsid) is wired in Phase 8."
+            "Mutually exclusive with --dataview / --rsid."
         ),
+    )
+    p.add_argument(
+        "--dataview",
+        help="Mode 3 (CJA): shell out to cja_auto_sdr against this Data View ID.",
+    )
+    p.add_argument(
+        "--rsid",
+        help="Mode 3 (AA): shell out to aa_auto_sdr against this Report Suite ID.",
     )
     p.add_argument(
         "--platform",
@@ -71,7 +102,9 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     p.add_argument(
         "--at",
-        help="When path is a directory, pick the snapshot closest to (and not after) this timestamp.",
+        help=(
+            "When path is a directory, pick the snapshot closest to (and not after) this timestamp."
+        ),
     )
     p.add_argument(
         "--output",
