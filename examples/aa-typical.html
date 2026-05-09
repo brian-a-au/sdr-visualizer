@@ -1,0 +1,1026 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Messy Production — Implementation Visualizer</title>
+<style>
+/* ---------- Reset & base ---------- */
+*, *::before, *::after { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; }
+body {
+  margin: 0;
+  font-family: "Charter", "Iowan Old Style", "Source Serif Pro", Georgia, "Times New Roman", serif;
+  font-size: 16px;
+  line-height: 1.55;
+  color: #1a1a1a;
+  background: #fafaf7;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+.ui   { font-family: "Söhne", "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+.mono { font-family: "JetBrains Mono", "SF Mono", "Menlo", "Consolas", monospace; }
+
+a { color: #1a1a1a; text-decoration: underline; text-decoration-thickness: 1px; text-underline-offset: 2px; }
+a:hover { text-decoration-color: #1a1a1a; }
+button { font: inherit; color: inherit; background: none; border: 0; cursor: pointer; }
+
+/* ---------- Header ---------- */
+.header {
+  border-bottom: 1px solid #2a2a2a;
+  background: #fafaf7;
+}
+.header-inner {
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: 40px 32px 24px;
+}
+.eyebrow {
+  font-family: "Söhne", "Inter", system-ui, sans-serif;
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: #6b6b66;
+  display: block;
+  margin-bottom: 8px;
+}
+h1 {
+  font-weight: 500;
+  font-size: 32px;
+  line-height: 1.15;
+  letter-spacing: -0.01em;
+  margin: 0 0 12px;
+}
+.subtitle {
+  font-size: 13px;
+  color: #6b6b66;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 28px;
+}
+.subtitle .separator { color: #c8c4b8; }
+.platform-tag {
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  font-weight: 500;
+  padding: 3px 8px;
+  border: 1px solid #c8c4b8;
+  border-radius: 2px;
+  color: #2a2a2a;
+}
+.platform-tag.platform-cja { border-color: #4a6f6f; color: #3a5e5e; }
+.platform-tag.platform-aa  { border-color: #8a6a4a; color: #6a4f30; }
+
+.meta-strip {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 28px;
+  padding: 14px 0 0;
+  border-top: 1px solid #ece9e0;
+  font-size: 13px;
+}
+.meta-item { display: flex; flex-direction: column; gap: 2px; }
+.meta-label {
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: #8a8a82;
+  font-weight: 500;
+}
+.meta-value { font-size: 18px; color: #1a1a1a; font-weight: 500; }
+
+/* ---------- View nav ---------- */
+.view-nav {
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: 14px 32px;
+  display: flex;
+  gap: 24px;
+  border-bottom: 1px solid #ece9e0;
+  background: #fafaf7;
+  position: sticky;
+  top: 0;
+  z-index: 5;
+}
+.view-button {
+  font-size: 12px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #6b6b66;
+  font-weight: 500;
+  padding: 4px 0;
+  border-bottom: 2px solid transparent;
+  transition: color 0.12s, border-color 0.12s;
+}
+.view-button:hover:not([disabled]) { color: #1a1a1a; }
+.view-button.is-active { color: #1a1a1a; border-bottom-color: #1a1a1a; }
+.view-button[disabled] { color: #c8c4b8; cursor: not-allowed; }
+
+/* ---------- Catalog controls ---------- */
+.view {
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: 24px 32px 96px;
+}
+.catalog-controls {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid #ece9e0;
+  margin-bottom: 16px;
+}
+.search-row {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+.search-label {
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: #8a8a82;
+  font-weight: 500;
+}
+#search-input {
+  flex: 1;
+  max-width: 480px;
+  font: inherit;
+  font-family: "Söhne", "Inter", system-ui, sans-serif;
+  font-size: 14px;
+  padding: 8px 12px;
+  border: 1px solid #d8d6cf;
+  border-radius: 2px;
+  background: #fff;
+  color: #1a1a1a;
+}
+#search-input:focus {
+  outline: none;
+  border-color: #1a1a1a;
+}
+.result-count {
+  font-size: 12px;
+  color: #6b6b66;
+}
+.filter-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 24px;
+  align-items: flex-start;
+}
+.filter-group {
+  border: 0;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.filter-group legend {
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: #8a8a82;
+  font-weight: 500;
+  padding: 0;
+  margin-bottom: 2px;
+}
+.filter-group select {
+  font: inherit;
+  font-family: "Söhne", "Inter", system-ui, sans-serif;
+  font-size: 13px;
+  padding: 5px 28px 5px 10px;
+  border: 1px solid #d8d6cf;
+  border-radius: 2px;
+  background: #fff;
+  color: #1a1a1a;
+  appearance: none;
+  background-image: linear-gradient(45deg, transparent 50%, #6b6b66 50%), linear-gradient(135deg, #6b6b66 50%, transparent 50%);
+  background-position: calc(100% - 14px) 50%, calc(100% - 9px) 50%;
+  background-size: 5px 5px;
+  background-repeat: no-repeat;
+}
+
+.chip-group { display: flex; flex-wrap: wrap; gap: 6px; }
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-family: "Söhne", "Inter", system-ui, sans-serif;
+  padding: 4px 10px;
+  border: 1px solid #d8d6cf;
+  border-radius: 999px;
+  cursor: pointer;
+  user-select: none;
+  background: #fff;
+  color: #6b6b66;
+  transition: border-color 0.12s, color 0.12s, background 0.12s;
+}
+.chip input { display: none; }
+.chip:has(input:checked) {
+  border-color: #1a1a1a;
+  color: #1a1a1a;
+  background: #f5f3eb;
+}
+.dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #6b6b66;
+}
+.dot-metric            { background: #2a2a2a; }
+.dot-dimension         { background: #4a6f6f; }
+.dot-derived_field     { background: #5e6b78; }
+.dot-segment           { background: #8a6a4a; }
+.dot-calculated_metric { background: #a08018; }
+
+/* ---------- Catalog table ---------- */
+.catalog-table-wrap { overflow-x: auto; }
+.catalog-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+}
+.catalog-table thead th {
+  font-family: "Söhne", "Inter", system-ui, sans-serif;
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #6b6b66;
+  font-weight: 500;
+  text-align: left;
+  padding: 10px 12px;
+  border-bottom: 1px solid #2a2a2a;
+  white-space: nowrap;
+}
+.catalog-table thead th.num { text-align: right; }
+.catalog-table thead th.sortable { cursor: pointer; user-select: none; }
+.catalog-table thead th.sortable:hover { color: #1a1a1a; }
+.catalog-table thead th.is-sorted::after {
+  content: "↑";
+  display: inline-block;
+  margin-left: 6px;
+  font-size: 10px;
+}
+.catalog-table thead th.is-sorted.is-desc::after { content: "↓"; }
+
+.catalog-table tbody tr {
+  border-bottom: 1px solid #ece9e0;
+  cursor: pointer;
+  transition: background 0.08s;
+}
+.catalog-table tbody tr:hover { background: #f5f3eb; }
+.catalog-table tbody td {
+  padding: 12px;
+  vertical-align: top;
+}
+.catalog-table tbody td.num { text-align: right; }
+.catalog-table .col-name {
+  font-weight: 500;
+  max-width: 280px;
+}
+.catalog-table .row-name-cell {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+.catalog-table .row-id {
+  font-family: "JetBrains Mono", "SF Mono", "Menlo", monospace;
+  font-size: 11px;
+  color: #8a8a82;
+  display: block;
+  margin-top: 2px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.catalog-table .col-type {
+  font-family: "Söhne", "Inter", system-ui, sans-serif;
+  font-size: 12px;
+  color: #6b6b66;
+  white-space: nowrap;
+}
+.catalog-table .col-type .dot { margin-right: 6px; }
+.catalog-table .col-description {
+  color: #4a4a44;
+  max-width: 360px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.catalog-table .col-description.is-missing {
+  color: #b8651a;
+  font-style: italic;
+}
+.catalog-table .col-tags {
+  font-family: "Söhne", "Inter", system-ui, sans-serif;
+  font-size: 12px;
+  color: #6b6b66;
+}
+.catalog-table .tag {
+  display: inline-block;
+  padding: 1px 6px;
+  margin-right: 4px;
+  margin-bottom: 2px;
+  background: #ece9e0;
+  border-radius: 2px;
+  color: #4a4a44;
+}
+.catalog-table .col-refs {
+  font-family: "Söhne", "Inter", system-ui, sans-serif;
+  font-size: 13px;
+  color: #1a1a1a;
+}
+.catalog-table .col-refs.zero { color: #c8c4b8; }
+.catalog-table .col-modified, .catalog-table .col-owner {
+  font-family: "Söhne", "Inter", system-ui, sans-serif;
+  font-size: 12px;
+  color: #6b6b66;
+  white-space: nowrap;
+}
+.catalog-empty {
+  padding: 56px 0;
+  text-align: center;
+  color: #8a8a82;
+  font-size: 14px;
+}
+
+/* ---------- Detail panel ---------- */
+.detail-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(20, 20, 18, 0.18);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.14s;
+  z-index: 10;
+}
+.detail-overlay.is-open { opacity: 1; pointer-events: auto; }
+
+.detail-panel {
+  position: fixed;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: 480px;
+  max-width: 92vw;
+  background: #fafaf7;
+  border-left: 1px solid #d8d6cf;
+  box-shadow: -8px 0 24px rgba(20, 20, 18, 0.06);
+  transform: translateX(100%);
+  transition: transform 0.14s ease-out;
+  z-index: 11;
+  overflow-y: auto;
+}
+.detail-panel.is-open { transform: translateX(0); }
+
+.detail-panel-inner { padding: 32px 32px 64px; }
+.detail-close {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  font-size: 24px;
+  line-height: 1;
+  color: #6b6b66;
+  padding: 4px 8px;
+}
+.detail-close:hover { color: #1a1a1a; }
+
+.detail-eyebrow {
+  font-family: "Söhne", "Inter", system-ui, sans-serif;
+  font-size: 11px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: #6b6b66;
+  margin-bottom: 8px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.detail-name {
+  font-size: 26px;
+  font-weight: 500;
+  line-height: 1.2;
+  margin: 0 0 8px;
+}
+.detail-id {
+  font-family: "JetBrains Mono", "SF Mono", monospace;
+  font-size: 12px;
+  color: #6b6b66;
+  word-break: break-all;
+  margin-bottom: 24px;
+}
+.detail-section {
+  border-top: 1px solid #ece9e0;
+  padding-top: 16px;
+  margin-bottom: 16px;
+}
+.detail-section h3 {
+  font-family: "Söhne", "Inter", system-ui, sans-serif;
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: #8a8a82;
+  font-weight: 500;
+  margin: 0 0 8px;
+}
+.detail-grid {
+  display: grid;
+  grid-template-columns: 120px 1fr;
+  gap: 6px 16px;
+  font-family: "Söhne", "Inter", system-ui, sans-serif;
+  font-size: 13px;
+}
+.detail-grid dt { color: #6b6b66; }
+.detail-grid dd { margin: 0; color: #1a1a1a; }
+.detail-grid .mono-value {
+  font-family: "JetBrains Mono", "SF Mono", monospace;
+  font-size: 12px;
+  word-break: break-all;
+}
+.detail-description {
+  color: #2a2a2a;
+  font-size: 15px;
+  line-height: 1.55;
+}
+.detail-description.is-missing {
+  color: #b8651a;
+  font-style: italic;
+}
+.detail-references {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  font-family: "JetBrains Mono", "SF Mono", monospace;
+  font-size: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.detail-references li button {
+  text-align: left;
+  color: #1a1a1a;
+  border-bottom: 1px solid transparent;
+  padding: 0;
+}
+.detail-references li button:hover { border-bottom-color: #1a1a1a; }
+
+.formula-block {
+  font-family: "JetBrains Mono", "SF Mono", monospace;
+  font-size: 13px;
+  background: #f5f3eb;
+  border-left: 2px solid #a08018;
+  padding: 10px 12px;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+/* ---------- Footer ---------- */
+.footer {
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: 32px;
+  border-top: 1px solid #ece9e0;
+  font-size: 11px;
+  color: #8a8a82;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+.footer .separator { color: #c8c4b8; }
+
+/* ---------- Mobile ---------- */
+@media (max-width: 720px) {
+  .header-inner, .view-nav, .view, .footer { padding-left: 20px; padding-right: 20px; }
+  h1 { font-size: 26px; }
+  .filter-row { gap: 16px; }
+  .col-modified, .col-owner, .col-tags { display: none; }
+  .detail-panel {
+    top: auto;
+    width: 100%;
+    max-width: 100%;
+    height: 90vh;
+    transform: translateY(100%);
+    border-left: 0;
+    border-top: 1px solid #d8d6cf;
+  }
+  .detail-panel.is-open { transform: translateY(0); }
+}
+
+/* ---------- A11y ---------- */
+@media (prefers-reduced-motion: reduce) {
+  .detail-overlay, .detail-panel, .catalog-table tbody tr, .view-button { transition: none; }
+}
+
+</style>
+</head>
+<body>
+<header class="header">
+  <div class="header-inner">
+    <div class="brand">
+      <span class="eyebrow">Implementation Visualizer</span>
+      <h1>Messy Production</h1>
+      <div class="subtitle ui">
+        <span class="platform-tag platform-aa">AA</span>
+        <span class="instance-id mono">messy.prod</span>
+        
+          <span class="separator">·</span>
+          <span>Snapshot 2026-04-25T09:14:00+00:00</span>
+        
+      </div>
+    </div>
+    <div class="meta-strip ui">
+      <div class="meta-item">
+        <span class="meta-label">Components</span>
+        <span class="meta-value">79</span>
+      </div>
+      <div class="meta-item">
+        <span class="meta-label">Metrics</span>
+        <span class="meta-value">15</span>
+      </div>
+      <div class="meta-item">
+        <span class="meta-label">Dimensions</span>
+        <span class="meta-value">60</span>
+      </div>
+      
+      <div class="meta-item">
+        <span class="meta-label">Segments</span>
+        <span class="meta-value">2</span>
+      </div>
+      <div class="meta-item">
+        <span class="meta-label">Calc metrics</span>
+        <span class="meta-value">2</span>
+      </div>
+    </div>
+  </div>
+</header>
+
+<nav class="view-nav ui">
+  <button type="button" class="view-button is-active" data-view="catalog">Catalog</button>
+  <button type="button" class="view-button" data-view="graph" disabled title="Graph view coming in Phase 4">Reference graph</button>
+</nav>
+
+<section id="catalog-view" class="view view-catalog">
+  <div class="catalog-controls ui">
+    <div class="search-row">
+      <label class="search-label" for="search-input">Search</label>
+      <input
+        type="search"
+        id="search-input"
+        placeholder="Name, ID, description, formula…"
+        autocomplete="off"
+        spellcheck="false"
+      />
+      <span class="result-count" id="result-count" aria-live="polite"></span>
+    </div>
+    <div class="filter-row">
+      <fieldset class="filter-group">
+        <legend>Type</legend>
+        <div class="chip-group" id="type-filter">
+          <label class="chip"><input type="checkbox" value="metric" checked /><span class="dot dot-metric"></span>Metric</label>
+          <label class="chip"><input type="checkbox" value="dimension" checked /><span class="dot dot-dimension"></span>Dimension</label>
+          <label class="chip"><input type="checkbox" value="derived_field" checked /><span class="dot dot-derived_field"></span>Derived field</label>
+          <label class="chip"><input type="checkbox" value="segment" checked /><span class="dot dot-segment"></span>Segment</label>
+          <label class="chip"><input type="checkbox" value="calculated_metric" checked /><span class="dot dot-calculated_metric"></span>Calc metric</label>
+        </div>
+      </fieldset>
+      <fieldset class="filter-group">
+        <legend>Description</legend>
+        <select id="description-filter">
+          <option value="all">All</option>
+          <option value="has">Has description</option>
+          <option value="missing">Missing description</option>
+        </select>
+      </fieldset>
+      <fieldset class="filter-group">
+        <legend>References</legend>
+        <select id="references-filter">
+          <option value="all">All</option>
+          <option value="referenced">Referenced</option>
+          <option value="orphaned">Orphaned</option>
+        </select>
+      </fieldset>
+      <fieldset class="filter-group">
+        <legend>Modified</legend>
+        <select id="modified-filter">
+          <option value="all">Any time</option>
+          <option value="7">Last 7 days</option>
+          <option value="30">Last 30 days</option>
+          <option value="90">Last 90 days</option>
+          <option value="365">Last year</option>
+        </select>
+      </fieldset>
+    </div>
+  </div>
+
+  <div class="catalog-table-wrap">
+    <table class="catalog-table">
+      <thead>
+        <tr>
+          <th class="col-name sortable" data-sort="name">Name</th>
+          <th class="col-type sortable" data-sort="type">Type</th>
+          <th class="col-description">Description</th>
+          <th class="col-tags">Tags</th>
+          <th class="col-refs sortable num" data-sort="in_degree">Refs in</th>
+          <th class="col-modified sortable" data-sort="modified_at">Modified</th>
+          <th class="col-owner">Owner</th>
+        </tr>
+      </thead>
+      <tbody id="catalog-body">
+        <!-- populated by visualizer.js -->
+      </tbody>
+    </table>
+    <div id="catalog-empty" class="catalog-empty ui" hidden>No components match the current filters.</div>
+  </div>
+</section>
+
+<aside id="detail-panel" class="detail-panel" aria-hidden="true">
+  <div class="detail-panel-inner">
+    <button type="button" id="detail-close" class="detail-close ui" aria-label="Close detail panel">×</button>
+    <div id="detail-body"></div>
+  </div>
+</aside>
+<div id="detail-overlay" class="detail-overlay" aria-hidden="true"></div>
+
+<footer class="footer ui">
+  <span>Generated by sdr-visualizer 0.1.0</span>
+  <span class="separator">·</span>
+  <span>See also <a href="https://github.com/brian-a-au/sdr-grader" rel="noopener">sdr-grader</a> for implementation grading.</span>
+</footer>
+
+<script id="sdr-data" type="application/json">{"meta":{"instance_id":"messy.prod","instance_name":"Messy Production","platform":"aa","snapshot_taken_at":"2026-04-25T09:14:00+00:00","snapshot_source":"/Users/bau/DEV/sdr-visualizer/tests/fixtures/aa_snapshot_messy.json","adapter_version":"1.0.0","visualizer_version":"0.1.0","generated_at":"2026-05-09T21:26:27Z","component_count":79},"components":[{"id":"metrics/event1","type":"metric","name":"Event 1","description":null,"data_type":"int","polarity":null,"tags":[],"owner":null,"created_at":null,"modified_at":null,"in_degree":0,"out_degree":0,"platform_specific":{"category":"Conversion","data_group":"Conversion","precision":0,"segmentable":true}},{"id":"metrics/event2","type":"metric","name":"Event 2","description":"Event description.","data_type":"int","polarity":null,"tags":[],"owner":null,"created_at":null,"modified_at":null,"in_degree":0,"out_degree":0,"platform_specific":{"category":"Conversion","data_group":"Conversion","precision":0,"segmentable":true}},{"id":"metrics/event3","type":"metric","name":"Event 3","description":"Event description.","data_type":"int","polarity":null,"tags":[],"owner":null,"created_at":null,"modified_at":null,"in_degree":0,"out_degree":0,"platform_specific":{"category":"Conversion","data_group":"Conversion","precision":0,"segmentable":true}},{"id":"metrics/event4","type":"metric","name":"Event 4","description":null,"data_type":"int","polarity":null,"tags":[],"owner":null,"created_at":null,"modified_at":null,"in_degree":0,"out_degree":0,"platform_specific":{"category":"Conversion","data_group":"Conversion","precision":0,"segmentable":true}},{"id":"metrics/event5","type":"metric","name":"Event 5","description":"Event description.","data_type":"int","polarity":null,"tags":[],"owner":null,"created_at":null,"modified_at":null,"in_degree":0,"out_degree":0,"platform_specific":{"category":"Conversion","data_group":"Conversion","precision":0,"segmentable":true}},{"id":"metrics/event6","type":"metric","name":"Event 6","description":"Event description.","data_type":"int","polarity":null,"tags":[],"owner":null,"created_at":null,"modified_at":null,"in_degree":0,"out_degree":0,"platform_specific":{"category":"Conversion","data_group":"Conversion","precision":0,"segmentable":true}},{"id":"metrics/event7","type":"metric","name":"Event 7","description":null,"data_type":"int","polarity":null,"tags":[],"owner":null,"created_at":null,"modified_at":null,"in_degree":0,"out_degree":0,"platform_specific":{"category":"Conversion","data_group":"Conversion","precision":0,"segmentable":true}},{"id":"metrics/event8","type":"metric","name":"Event 8","description":"Event description.","data_type":"int","polarity":null,"tags":[],"owner":null,"created_at":null,"modified_at":null,"in_degree":0,"out_degree":0,"platform_specific":{"category":"Conversion","data_group":"Conversion","precision":0,"segmentable":true}},{"id":"metrics/event9","type":"metric","name":"Event 9","description":"Event description.","data_type":"int","polarity":null,"tags":[],"owner":null,"created_at":null,"modified_at":null,"in_degree":0,"out_degree":0,"platform_specific":{"category":"Conversion","data_group":"Conversion","precision":0,"segmentable":true}},{"id":"metrics/event10","type":"metric","name":"Event 10","description":null,"data_type":"int","polarity":null,"tags":[],"owner":null,"created_at":null,"modified_at":null,"in_degree":0,"out_degree":0,"platform_specific":{"category":"Conversion","data_group":"Conversion","precision":0,"segmentable":true}},{"id":"metrics/event11","type":"metric","name":"Event 11","description":"Event description.","data_type":"int","polarity":null,"tags":[],"owner":null,"created_at":null,"modified_at":null,"in_degree":0,"out_degree":0,"platform_specific":{"category":"Conversion","data_group":"Conversion","precision":0,"segmentable":true}},{"id":"metrics/event12","type":"metric","name":"Event 12","description":"Event description.","data_type":"int","polarity":null,"tags":[],"owner":null,"created_at":null,"modified_at":null,"in_degree":0,"out_degree":0,"platform_specific":{"category":"Conversion","data_group":"Conversion","precision":0,"segmentable":true}},{"id":"metrics/event13","type":"metric","name":"Event 13","description":null,"data_type":"int","polarity":null,"tags":[],"owner":null,"created_at":null,"modified_at":null,"in_degree":0,"out_degree":0,"platform_specific":{"category":"Conversion","data_group":"Conversion","precision":0,"segmentable":true}},{"id":"metrics/event14","type":"metric","name":"Event 14","description":"Event description.","data_type":"int","polarity":null,"tags":[],"owner":null,"created_at":null,"modified_at":null,"in_degree":0,"out_degree":0,"platform_specific":{"category":"Conversion","data_group":"Conversion","precision":0,"segmentable":true}},{"id":"metrics/event15","type":"metric","name":"Event 15","description":"Event description.","data_type":"int","polarity":null,"tags":[],"owner":null,"created_at":null,"modified_at":null,"in_degree":0,"out_degree":0,"platform_specific":{"category":"Conversion","data_group":"Conversion","precision":0,"segmentable":true}},{"id":"variables/evar1","type":"dimension","name":"eVar 1","description":null,"data_type":"string","polarity":null,"tags":["Campaign Metadata","custom"],"owner":null,"created_at":null,"modified_at":null,"in_degree":0,"out_degree":0,"platform_specific":{"category":"Custom","parent":"","pathable":false,"extra":{"allocation":"linear","expiration":"visitor"}}},{"id":"variables/evar2","type":"dimension","name":"eVar 2","description":null,"data_type":"string","polarity":null,"tags":[],"owner":null,"created_at":null,"modified_at":null,"in_degree":0,"out_degree":0,"platform_specific":{"category":"Custom","parent":"","pathable":false,"extra":{"allocation":"most-recent","expiration":"visit"}}},{"id":"variables/evar3","type":"dimension","name":"eVar 3","description":null,"data_type":"string","polarity":null,"tags":[],"owner":null,"created_at":null,"modified_at":null,"in_degree":0,"out_degree":0,"platform_specific":{"category":"Custom","parent":"","pathable":false,"extra":{"allocation":"most-recent","expiration":"visit"}}},{"id":"variables/evar4","type":"dimension","name":"eVar 4","description":null,"data_type":"string","polarity":null,"tags":["custom"],"owner":null,"created_at":null,"modified_at":null,"in_degree":0,"out_degree":0,"platform_specific":{"category":"Custom","parent":"","pathable":false,"extra":{"allocation":"most-recent","expiration":"visit"}}},{"id":"variables/evar5","type":"dimension","name":"eVar 5","description":null,"data_type":"string","polarity":null,"tags":[],"owner":null,"created_at":null,"modified_at":null,"in_degree":0,"out_degree":0,"platform_specific":{"category":"Custom","parent":"","pathable":false,"extra":{"allocation":"most-recent","expiration":"visit"}}},{"id":"variables/evar6","type":"dimension","name":"eVar 6","description":null,"data_type":"string","polarity":null,"tags":[],"owner":null,"created_at":null,"modified_at":null,"in_degree":0,"out_degree":0,"platform_specific":{"category":"Custom","parent":"","pathable":false,"extra":{"allocation":"most-recent","expiration":"visitor"}}},{"id":"variables/evar7","type":"dimension","name":"eVar 7","description":null,"data_type":"string","polarity":null,"tags":["custom"],"owner":null,"created_at":null,"modified_at":null,"in_degree":0,"out_degree":0,"platform_specific":{"category":"Custom","parent":"","pathable":false,"extra":{"allocation":"most-recent","expiration":"visit"}}},{"id":"variables/evar8","type":"dimension","name":"eVar 8","description":null,"data_type":"string","polarity":null,"tags":[],"owner":null,"created_at":null,"modified_at":null,"in_degree":0,"out_degree":0,"platform_specific":{"category":"Custom","parent":"","pathable":false,"extra":{"allocation":"linear","expiration":"visit"}}},{"id":"variables/evar9","type":"dimension","name":"eVar 9","description":null,"data_type":"string","polarity":null,"tags":[],"owner":null,"created_at":null,"modified_at":null,"in_degree":0,"out_degree":0,"platform_specific":{"category":"Custom","parent":"","pathable":false,"extra":{"allocation":"most-recent","expiration":"visit"}}},{"id":"variables/evar10","type":"dimension","name":"eVar 10","description":null,"data_type":"string","polarity":null,"tags":["custom"],"owner":null,"created_at":null,"modified_at":null,"in_degree":0,"out_degree":0,"platform_specific":{"category":"Custom","parent":"","pathable":false,"extra":{"allocation":"most-recent","expiration":"visit"}}},{"id":"variables/evar11","type":"dimension","name":"eVar 11","description":"eVar 11 description.","data_type":"string","polarity":null,"tags":[],"owner":null,"created_at":null,"modified_at":null,"in_degree":0,"out_degree":0,"platform_specific":{"category":"Custom","parent":"","pathable":false,"extra":{"allocation":"most-recent","expiration":"visitor"}}},{"id":"variables/evar12","type":"dimension","name":"eVar 12","description":"eVar 12 description.","data_type":"string","polarity":null,"tags":[],"owner":null,"created_at":null,"modified_at":null,"in_degree":0,"out_degree":0,"platform_specific":{"category":"Custom","parent":"","pathable":false,"extra":{"allocation":"most-recent","expiration":"visit"}}},{"id":"variables/evar13","type":"dimension","name":"eVar 13","description":"eVar 13 description.","data_type":"string","polarity":null,"tags":["custom"],"owner":null,"created_at":null,"modified_at":null,"in_degree":0,"out_degree":0,"platform_specific":{"category":"Custom","parent":"","pathable":false,"extra":{"allocation":"most-recent","expiration":"visit"}}},{"id":"variables/evar14","type":"dimension","name":"eVar 14","description":"eVar 14 description.","data_type":"string","polarity":null,"tags":[],"owner":null,"created_at":null,"modified_at":null,"in_degree":0,"out_degree":0,"platform_specific":{"category":"Custom","parent":"","pathable":false,"extra":{"allocation":"most-recent","expiration":"visit"}}},{"id":"variables/evar15","type":"dimension","name":"eVar 15","description":"eVar 15 description.","data_type":"string","polarity":null,"tags":[],"owner":null,"created_at":null,"modified_at":null,"in_degree":0,"out_degree":0,"platform_specific":{"category":"Custom","parent":"","pathable":false,"extra":{"allocation":"linear","expiration":"visit"}}},{"id":"variables/evar16","type":"dimension","name":"eVar 16","description":"eVar 16 description.","data_type":"string","polarity":null,"tags":["custom"],"owner":null,"created_at":null,"modified_at":null,"in_degree":0,"out_degree":0,"platform_specific":{"category":"Custom","parent":"","pathable":false,"extra":{"allocation":"most-recent","expiration":"visitor"}}},{"id":"variables/evar17","type":"dimension","name":"eVar 17","description":"eVar 17 description.","data_type":"string","polarity":null,"tags":[],"owner":null,"created_at":null,"modified_at":null,"in_degree":0,"out_degree":0,"platform_specific":{"category":"Custom","parent":"","pathable":false,"extra":{"allocation":"most-recent","expiration":"visit"}}},{"id":"variables/evar18","type":"dimension","name":"eVar 18","description":"eVar 18 description.","data_type":"string","polarity":null,"tags":[],"owner":null,"created_at":null,"modified_at":null,"in_degree":0,"out_degree":0,"platform_specific":{"category":"Custom","parent":"","pathable":false,"extra":{"allocation":"most-recent","expiration":"visit"}}},{"id":"variables/evar19","type":"dimension","name":"eVar 19","description":"eVar 19 description.","data_type":"string","polarity":null,"tags":["custom"],"owner":null,"created_at":null,"modified_at":null,"in_degree":0,"out_degree":0,"platform_specific":{"category":"Custom","parent":"","pathable":false,"extra":{"allocation":"most-recent","expiration":"visit"}}},{"id":"variables/evar20","type":"dimension","name":"eVar 20","description":"eVar 20 description.","data_type":"string","polarity":null,"tags":[],"owner":null,"created_at":null,"modified_at":null,"in_degree":0,"out_degree":0,"platform_specific":{"category":"Custom","parent":"","pathable":false,"extra":{"allocation":"most-recent","expiration":"visit"}}},{"id":"variables/evar21","type":"dimension","name":"eVar 21","description":"eVar 21 description.","data_type":"string","polarity":null,"tags":[],"owner":null,"created_at":null,"modified_at":null,"in_degree":0,"out_degree":0,"platform_specific":{"category":"Custom","parent":"","pathable":false,"extra":{"allocation":"most-recent","expiration":"visitor"}}},{"id":"variables/evar22","type":"dimension","name":"eVar 22","description":"eVar 22 description.","data_type":"string","polarity":null,"tags":["custom"],"owner":null,"created_at":null,"modified_at":null,"in_degree":0,"out_degree":0,"platform_specific":{"category":"Custom","parent":"","pathable":false,"extra":{"allocation":"linear","expiration":"visit"}}},{"id":"variables/evar23","type":"dimension","name":"eVar 23","description":"eVar 23 description.","data_type":"string","polarity":null,"tags":[],"owner":null,"created_at":null,"modified_at":null,"in_degree":0,"out_degree":0,"platform_specific":{"category":"Custom","parent":"","pathable":false,"extra":{"allocation":"most-recent","expiration":"visit"}}},{"id":"variables/evar24","type":"dimension","name":"eVar 24","description":"eVar 24 description.","data_type":"string","polarity":null,"tags":[],"owner":null,"created_at":null,"modified_at":null,"in_degree":0,"out_degree":0,"platform_specific":{"category":"Custom","parent":"","pathable":false,"extra":{"allocation":"most-recent","expiration":"visit"}}},{"id":"variables/evar25","type":"dimension","name":"eVar 25","description":"eVar 25 description.","data_type":"string","polarity":null,"tags":["custom"],"owner":null,"created_at":null,"modified_at":null,"in_degree":0,"out_degree":0,"platform_specific":{"category":"Custom","parent":"","pathable":false,"extra":{"allocation":"most-recent","expiration":"visit"}}},{"id":"variables/evar26","type":"dimension","name":"eVar 26","description":"eVar 26 description.","data_type":"string","polarity":null,"tags":[],"owner":null,"created_at":null,"modified_at":null,"in_degree":0,"out_degree":0,"platform_specific":{"category":"Custom","parent":"","pathable":false,"extra":{"allocation":"most-recent","expiration":"visitor"}}},{"id":"variables/evar27","type":"dimension","name":"eVar 27","description":"eVar 27 description.","data_type":"string","polarity":null,"tags":[],"owner":null,"created_at":null,"modified_at":null,"in_degree":0,"out_degree":0,"platform_specific":{"category":"Custom","parent":"","pathable":false,"extra":{"allocation":"most-recent","expiration":"visit"}}},{"id":"variables/evar28","type":"dimension","name":"eVar 28","description":"eVar 28 description.","data_type":"string","polarity":null,"tags":["custom"],"owner":null,"created_at":null,"modified_at":null,"in_degree":0,"out_degree":0,"platform_specific":{"category":"Custom","parent":"","pathable":false,"extra":{"allocation":"most-recent","expiration":"visit"}}},{"id":"variables/evar29","type":"dimension","name":"eVar 29","description":"eVar 29 description.","data_type":"string","polarity":null,"tags":[],"owner":null,"created_at":null,"modified_at":null,"in_degree":0,"out_degree":0,"platform_specific":{"category":"Custom","parent":"","pathable":false,"extra":{"allocation":"linear","expiration":"visit"}}},{"id":"variables/evar30","type":"dimension","name":"eVar 30","description":"eVar 30 description.","data_type":"string","polarity":null,"tags":[],"owner":null,"created_at":null,"modified_at":null,"in_degree":0,"out_degree":0,"platform_specific":{"category":"Custom","parent":"","pathable":false,"extra":{"allocation":"most-recent","expiration":"visit"}}},{"id":"variables/evar31","type":"dimension","name":"eVar 31","description":"eVar 31 description.","data_type":"string","polarity":null,"tags":["custom"],"owner":null,"created_at":null,"modified_at":null,"in_degree":0,"out_degree":0,"platform_specific":{"category":"Custom","parent":"","pathable":false,"extra":{"allocation":"most-recent","expiration":"visitor"}}},{"id":"variables/evar32","type":"dimension","name":"eVar 32","description":"eVar 32 description.","data_type":"string","polarity":null,"tags":[],"owner":null,"created_at":null,"modified_at":null,"in_degree":0,"out_degree":0,"platform_specific":{"category":"Custom","parent":"","pathable":false,"extra":{"allocation":"most-recent","expiration":"visit"}}},{"id":"variables/evar33","type":"dimension","name":"eVar 33","description":"eVar 33 description.","data_type":"string","polarity":null,"tags":[],"owner":null,"created_at":null,"modified_at":null,"in_degree":0,"out_degree":0,"platform_specific":{"category":"Custom","parent":"","pathable":false,"extra":{"allocation":"most-recent","expiration":"visit"}}},{"id":"variables/evar34","type":"dimension","name":"eVar 34","description":"eVar 34 description.","data_type":"string","polarity":null,"tags":["custom"],"owner":null,"created_at":null,"modified_at":null,"in_degree":0,"out_degree":0,"platform_specific":{"category":"Custom","parent":"","pathable":false,"extra":{"allocation":"most-recent","expiration":"visit"}}},{"id":"variables/evar35","type":"dimension","name":"eVar 35","description":"eVar 35 description.","data_type":"string","polarity":null,"tags":[],"owner":null,"created_at":null,"modified_at":null,"in_degree":0,"out_degree":0,"platform_specific":{"category":"Custom","parent":"","pathable":false,"extra":{"allocation":"most-recent","expiration":"visit"}}},{"id":"variables/evar36","type":"dimension","name":"eVar 36","description":"eVar 36 description.","data_type":"string","polarity":null,"tags":[],"owner":null,"created_at":null,"modified_at":null,"in_degree":0,"out_degree":0,"platform_specific":{"category":"Custom","parent":"","pathable":false,"extra":{"allocation":"linear","expiration":"visitor"}}},{"id":"variables/evar37","type":"dimension","name":"eVar 37","description":"eVar 37 description.","data_type":"string","polarity":null,"tags":["custom"],"owner":null,"created_at":null,"modified_at":null,"in_degree":0,"out_degree":0,"platform_specific":{"category":"Custom","parent":"","pathable":false,"extra":{"allocation":"most-recent","expiration":"visit"}}},{"id":"variables/evar38","type":"dimension","name":"eVar 38","description":"eVar 38 description.","data_type":"string","polarity":null,"tags":[],"owner":null,"created_at":null,"modified_at":null,"in_degree":0,"out_degree":0,"platform_specific":{"category":"Custom","parent":"","pathable":false,"extra":{"allocation":"most-recent","expiration":"visit"}}},{"id":"variables/evar39","type":"dimension","name":"eVar 39","description":"eVar 39 description.","data_type":"string","polarity":null,"tags":[],"owner":null,"created_at":null,"modified_at":null,"in_degree":0,"out_degree":0,"platform_specific":{"category":"Custom","parent":"","pathable":false,"extra":{"allocation":"most-recent","expiration":"visit"}}},{"id":"variables/evar40","type":"dimension","name":"eVar 40","description":"eVar 40 description.","data_type":"string","polarity":null,"tags":["custom"],"owner":null,"created_at":null,"modified_at":null,"in_degree":0,"out_degree":0,"platform_specific":{"category":"Custom","parent":"","pathable":false,"extra":{"allocation":"most-recent","expiration":"visit"}}},{"id":"variables/prop1","type":"dimension","name":"Prop 1","description":null,"data_type":"string","polarity":null,"tags":["taxonomy"],"owner":null,"created_at":null,"modified_at":null,"in_degree":0,"out_degree":0,"platform_specific":{"category":"Content","parent":"","pathable":true,"extra":{}}},{"id":"variables/prop2","type":"dimension","name":"Prop 2","description":"Prop 2 description.","data_type":"string","polarity":null,"tags":["taxonomy"],"owner":null,"created_at":null,"modified_at":null,"in_degree":0,"out_degree":0,"platform_specific":{"category":"Content","parent":"","pathable":true,"extra":{}}},{"id":"variables/prop3","type":"dimension","name":"Prop 3","description":"Prop 3 description.","data_type":"string","polarity":null,"tags":["taxonomy"],"owner":null,"created_at":null,"modified_at":null,"in_degree":0,"out_degree":0,"platform_specific":{"category":"Content","parent":"","pathable":true,"extra":{}}},{"id":"variables/prop4","type":"dimension","name":"Prop 4","description":"Prop 4 description.","data_type":"string","polarity":null,"tags":["taxonomy"],"owner":null,"created_at":null,"modified_at":null,"in_degree":0,"out_degree":0,"platform_specific":{"category":"Content","parent":"","pathable":true,"extra":{}}},{"id":"variables/prop5","type":"dimension","name":"Prop 5","description":null,"data_type":"string","polarity":null,"tags":["taxonomy"],"owner":null,"created_at":null,"modified_at":null,"in_degree":0,"out_degree":0,"platform_specific":{"category":"Content","parent":"","pathable":true,"extra":{}}},{"id":"variables/prop6","type":"dimension","name":"Prop 6","description":"Prop 6 description.","data_type":"string","polarity":null,"tags":["taxonomy"],"owner":null,"created_at":null,"modified_at":null,"in_degree":0,"out_degree":0,"platform_specific":{"category":"Content","parent":"","pathable":true,"extra":{}}},{"id":"variables/prop7","type":"dimension","name":"Prop 7","description":"Prop 7 description.","data_type":"string","polarity":null,"tags":["taxonomy"],"owner":null,"created_at":null,"modified_at":null,"in_degree":0,"out_degree":0,"platform_specific":{"category":"Content","parent":"","pathable":true,"extra":{}}},{"id":"variables/prop8","type":"dimension","name":"Prop 8","description":"Prop 8 description.","data_type":"string","polarity":null,"tags":["taxonomy"],"owner":null,"created_at":null,"modified_at":null,"in_degree":0,"out_degree":0,"platform_specific":{"category":"Content","parent":"","pathable":true,"extra":{}}},{"id":"variables/prop9","type":"dimension","name":"Prop 9","description":null,"data_type":"string","polarity":null,"tags":["taxonomy"],"owner":null,"created_at":null,"modified_at":null,"in_degree":0,"out_degree":0,"platform_specific":{"category":"Content","parent":"","pathable":true,"extra":{}}},{"id":"variables/prop10","type":"dimension","name":"Prop 10","description":"Prop 10 description.","data_type":"string","polarity":null,"tags":["taxonomy"],"owner":null,"created_at":null,"modified_at":null,"in_degree":0,"out_degree":0,"platform_specific":{"category":"Content","parent":"","pathable":true,"extra":{}}},{"id":"variables/prop11","type":"dimension","name":"Prop 11","description":"Prop 11 description.","data_type":"string","polarity":null,"tags":["taxonomy"],"owner":null,"created_at":null,"modified_at":null,"in_degree":0,"out_degree":0,"platform_specific":{"category":"Content","parent":"","pathable":true,"extra":{}}},{"id":"variables/prop12","type":"dimension","name":"Prop 12","description":"Prop 12 description.","data_type":"string","polarity":null,"tags":["taxonomy"],"owner":null,"created_at":null,"modified_at":null,"in_degree":0,"out_degree":0,"platform_specific":{"category":"Content","parent":"","pathable":true,"extra":{}}},{"id":"variables/prop13","type":"dimension","name":"Prop 13","description":null,"data_type":"string","polarity":null,"tags":["taxonomy"],"owner":null,"created_at":null,"modified_at":null,"in_degree":0,"out_degree":0,"platform_specific":{"category":"Content","parent":"","pathable":true,"extra":{}}},{"id":"variables/prop14","type":"dimension","name":"Prop 14","description":"Prop 14 description.","data_type":"string","polarity":null,"tags":["taxonomy"],"owner":null,"created_at":null,"modified_at":null,"in_degree":0,"out_degree":0,"platform_specific":{"category":"Content","parent":"","pathable":true,"extra":{}}},{"id":"variables/prop15","type":"dimension","name":"Prop 15","description":"Prop 15 description.","data_type":"string","polarity":null,"tags":["taxonomy"],"owner":null,"created_at":null,"modified_at":null,"in_degree":0,"out_degree":0,"platform_specific":{"category":"Content","parent":"","pathable":true,"extra":{}}},{"id":"variables/prop16","type":"dimension","name":"Prop 16","description":"Prop 16 description.","data_type":"string","polarity":null,"tags":["taxonomy"],"owner":null,"created_at":null,"modified_at":null,"in_degree":0,"out_degree":0,"platform_specific":{"category":"Content","parent":"","pathable":true,"extra":{}}},{"id":"variables/prop17","type":"dimension","name":"Prop 17","description":null,"data_type":"string","polarity":null,"tags":["taxonomy"],"owner":null,"created_at":null,"modified_at":null,"in_degree":0,"out_degree":0,"platform_specific":{"category":"Content","parent":"","pathable":true,"extra":{}}},{"id":"variables/prop18","type":"dimension","name":"Prop 18","description":"Prop 18 description.","data_type":"string","polarity":null,"tags":["taxonomy"],"owner":null,"created_at":null,"modified_at":null,"in_degree":0,"out_degree":0,"platform_specific":{"category":"Content","parent":"","pathable":true,"extra":{}}},{"id":"variables/prop19","type":"dimension","name":"Prop 19","description":"Prop 19 description.","data_type":"string","polarity":null,"tags":["taxonomy"],"owner":null,"created_at":null,"modified_at":null,"in_degree":0,"out_degree":0,"platform_specific":{"category":"Content","parent":"","pathable":true,"extra":{}}},{"id":"variables/prop20","type":"dimension","name":"Prop 20","description":"Prop 20 description.","data_type":"string","polarity":null,"tags":["taxonomy"],"owner":null,"created_at":null,"modified_at":null,"in_degree":0,"out_degree":0,"platform_specific":{"category":"Content","parent":"","pathable":true,"extra":{}}}],"segments":[{"id":"s_mobile","type":"segment","name":"Mobile Users","description":"Mobile device traffic.","nesting_depth":3,"container_types":["hits"],"references":[],"tags":[],"owner":"42","created_at":"2025-01-01T00:00:00Z","modified_at":"2025-06-01T00:00:00Z","in_degree":0,"out_degree":0},{"id":"s_returning","type":"segment","name":"Returning Visitors","description":null,"nesting_depth":6,"container_types":["visitors","visits","hits"],"references":[],"tags":[],"owner":"42","created_at":null,"modified_at":null,"in_degree":0,"out_degree":0}],"calculated_metrics":[{"id":"cm_conversion_rate","type":"calculated_metric","name":"Conversion Rate","description":"Orders / Visits.","formula_text":"divide(metrics/orders, metrics/visits)","attribution_model":null,"allocation":null,"complexity_score":0.0,"references":["metrics/orders","metrics/visits"],"tags":[],"owner":"42","created_at":null,"modified_at":null,"in_degree":0,"out_degree":0},{"id":"cm_revenue_per_visit","type":"calculated_metric","name":"Revenue per Visit","description":null,"formula_text":"divide(metrics/revenue, metrics/visits)","attribution_model":null,"allocation":null,"complexity_score":0.0,"references":["metrics/revenue","metrics/visits"],"tags":[],"owner":"42","created_at":null,"modified_at":null,"in_degree":0,"out_degree":0}],"graph":{"nodes":[{"id":"metrics/event1","type":"metric","label":"Event 1"},{"id":"metrics/event2","type":"metric","label":"Event 2"},{"id":"metrics/event3","type":"metric","label":"Event 3"},{"id":"metrics/event4","type":"metric","label":"Event 4"},{"id":"metrics/event5","type":"metric","label":"Event 5"},{"id":"metrics/event6","type":"metric","label":"Event 6"},{"id":"metrics/event7","type":"metric","label":"Event 7"},{"id":"metrics/event8","type":"metric","label":"Event 8"},{"id":"metrics/event9","type":"metric","label":"Event 9"},{"id":"metrics/event10","type":"metric","label":"Event 10"},{"id":"metrics/event11","type":"metric","label":"Event 11"},{"id":"metrics/event12","type":"metric","label":"Event 12"},{"id":"metrics/event13","type":"metric","label":"Event 13"},{"id":"metrics/event14","type":"metric","label":"Event 14"},{"id":"metrics/event15","type":"metric","label":"Event 15"},{"id":"variables/evar1","type":"dimension","label":"eVar 1"},{"id":"variables/evar2","type":"dimension","label":"eVar 2"},{"id":"variables/evar3","type":"dimension","label":"eVar 3"},{"id":"variables/evar4","type":"dimension","label":"eVar 4"},{"id":"variables/evar5","type":"dimension","label":"eVar 5"},{"id":"variables/evar6","type":"dimension","label":"eVar 6"},{"id":"variables/evar7","type":"dimension","label":"eVar 7"},{"id":"variables/evar8","type":"dimension","label":"eVar 8"},{"id":"variables/evar9","type":"dimension","label":"eVar 9"},{"id":"variables/evar10","type":"dimension","label":"eVar 10"},{"id":"variables/evar11","type":"dimension","label":"eVar 11"},{"id":"variables/evar12","type":"dimension","label":"eVar 12"},{"id":"variables/evar13","type":"dimension","label":"eVar 13"},{"id":"variables/evar14","type":"dimension","label":"eVar 14"},{"id":"variables/evar15","type":"dimension","label":"eVar 15"},{"id":"variables/evar16","type":"dimension","label":"eVar 16"},{"id":"variables/evar17","type":"dimension","label":"eVar 17"},{"id":"variables/evar18","type":"dimension","label":"eVar 18"},{"id":"variables/evar19","type":"dimension","label":"eVar 19"},{"id":"variables/evar20","type":"dimension","label":"eVar 20"},{"id":"variables/evar21","type":"dimension","label":"eVar 21"},{"id":"variables/evar22","type":"dimension","label":"eVar 22"},{"id":"variables/evar23","type":"dimension","label":"eVar 23"},{"id":"variables/evar24","type":"dimension","label":"eVar 24"},{"id":"variables/evar25","type":"dimension","label":"eVar 25"},{"id":"variables/evar26","type":"dimension","label":"eVar 26"},{"id":"variables/evar27","type":"dimension","label":"eVar 27"},{"id":"variables/evar28","type":"dimension","label":"eVar 28"},{"id":"variables/evar29","type":"dimension","label":"eVar 29"},{"id":"variables/evar30","type":"dimension","label":"eVar 30"},{"id":"variables/evar31","type":"dimension","label":"eVar 31"},{"id":"variables/evar32","type":"dimension","label":"eVar 32"},{"id":"variables/evar33","type":"dimension","label":"eVar 33"},{"id":"variables/evar34","type":"dimension","label":"eVar 34"},{"id":"variables/evar35","type":"dimension","label":"eVar 35"},{"id":"variables/evar36","type":"dimension","label":"eVar 36"},{"id":"variables/evar37","type":"dimension","label":"eVar 37"},{"id":"variables/evar38","type":"dimension","label":"eVar 38"},{"id":"variables/evar39","type":"dimension","label":"eVar 39"},{"id":"variables/evar40","type":"dimension","label":"eVar 40"},{"id":"variables/prop1","type":"dimension","label":"Prop 1"},{"id":"variables/prop2","type":"dimension","label":"Prop 2"},{"id":"variables/prop3","type":"dimension","label":"Prop 3"},{"id":"variables/prop4","type":"dimension","label":"Prop 4"},{"id":"variables/prop5","type":"dimension","label":"Prop 5"},{"id":"variables/prop6","type":"dimension","label":"Prop 6"},{"id":"variables/prop7","type":"dimension","label":"Prop 7"},{"id":"variables/prop8","type":"dimension","label":"Prop 8"},{"id":"variables/prop9","type":"dimension","label":"Prop 9"},{"id":"variables/prop10","type":"dimension","label":"Prop 10"},{"id":"variables/prop11","type":"dimension","label":"Prop 11"},{"id":"variables/prop12","type":"dimension","label":"Prop 12"},{"id":"variables/prop13","type":"dimension","label":"Prop 13"},{"id":"variables/prop14","type":"dimension","label":"Prop 14"},{"id":"variables/prop15","type":"dimension","label":"Prop 15"},{"id":"variables/prop16","type":"dimension","label":"Prop 16"},{"id":"variables/prop17","type":"dimension","label":"Prop 17"},{"id":"variables/prop18","type":"dimension","label":"Prop 18"},{"id":"variables/prop19","type":"dimension","label":"Prop 19"},{"id":"variables/prop20","type":"dimension","label":"Prop 20"},{"id":"s_mobile","type":"segment","label":"Mobile Users"},{"id":"s_returning","type":"segment","label":"Returning Visitors"},{"id":"cm_conversion_rate","type":"calculated_metric","label":"Conversion Rate"},{"id":"cm_revenue_per_visit","type":"calculated_metric","label":"Revenue per Visit"}],"edges":[],"in_degree":{"metrics/event1":0,"metrics/event2":0,"metrics/event3":0,"metrics/event4":0,"metrics/event5":0,"metrics/event6":0,"metrics/event7":0,"metrics/event8":0,"metrics/event9":0,"metrics/event10":0,"metrics/event11":0,"metrics/event12":0,"metrics/event13":0,"metrics/event14":0,"metrics/event15":0,"variables/evar1":0,"variables/evar2":0,"variables/evar3":0,"variables/evar4":0,"variables/evar5":0,"variables/evar6":0,"variables/evar7":0,"variables/evar8":0,"variables/evar9":0,"variables/evar10":0,"variables/evar11":0,"variables/evar12":0,"variables/evar13":0,"variables/evar14":0,"variables/evar15":0,"variables/evar16":0,"variables/evar17":0,"variables/evar18":0,"variables/evar19":0,"variables/evar20":0,"variables/evar21":0,"variables/evar22":0,"variables/evar23":0,"variables/evar24":0,"variables/evar25":0,"variables/evar26":0,"variables/evar27":0,"variables/evar28":0,"variables/evar29":0,"variables/evar30":0,"variables/evar31":0,"variables/evar32":0,"variables/evar33":0,"variables/evar34":0,"variables/evar35":0,"variables/evar36":0,"variables/evar37":0,"variables/evar38":0,"variables/evar39":0,"variables/evar40":0,"variables/prop1":0,"variables/prop2":0,"variables/prop3":0,"variables/prop4":0,"variables/prop5":0,"variables/prop6":0,"variables/prop7":0,"variables/prop8":0,"variables/prop9":0,"variables/prop10":0,"variables/prop11":0,"variables/prop12":0,"variables/prop13":0,"variables/prop14":0,"variables/prop15":0,"variables/prop16":0,"variables/prop17":0,"variables/prop18":0,"variables/prop19":0,"variables/prop20":0,"s_mobile":0,"s_returning":0,"cm_conversion_rate":0,"cm_revenue_per_visit":0},"out_degree":{"metrics/event1":0,"metrics/event2":0,"metrics/event3":0,"metrics/event4":0,"metrics/event5":0,"metrics/event6":0,"metrics/event7":0,"metrics/event8":0,"metrics/event9":0,"metrics/event10":0,"metrics/event11":0,"metrics/event12":0,"metrics/event13":0,"metrics/event14":0,"metrics/event15":0,"variables/evar1":0,"variables/evar2":0,"variables/evar3":0,"variables/evar4":0,"variables/evar5":0,"variables/evar6":0,"variables/evar7":0,"variables/evar8":0,"variables/evar9":0,"variables/evar10":0,"variables/evar11":0,"variables/evar12":0,"variables/evar13":0,"variables/evar14":0,"variables/evar15":0,"variables/evar16":0,"variables/evar17":0,"variables/evar18":0,"variables/evar19":0,"variables/evar20":0,"variables/evar21":0,"variables/evar22":0,"variables/evar23":0,"variables/evar24":0,"variables/evar25":0,"variables/evar26":0,"variables/evar27":0,"variables/evar28":0,"variables/evar29":0,"variables/evar30":0,"variables/evar31":0,"variables/evar32":0,"variables/evar33":0,"variables/evar34":0,"variables/evar35":0,"variables/evar36":0,"variables/evar37":0,"variables/evar38":0,"variables/evar39":0,"variables/evar40":0,"variables/prop1":0,"variables/prop2":0,"variables/prop3":0,"variables/prop4":0,"variables/prop5":0,"variables/prop6":0,"variables/prop7":0,"variables/prop8":0,"variables/prop9":0,"variables/prop10":0,"variables/prop11":0,"variables/prop12":0,"variables/prop13":0,"variables/prop14":0,"variables/prop15":0,"variables/prop16":0,"variables/prop17":0,"variables/prop18":0,"variables/prop19":0,"variables/prop20":0,"s_mobile":0,"s_returning":0,"cm_conversion_rate":0,"cm_revenue_per_visit":0}},"catalog_index":{"by_id":{"metrics/event1":{"search":"metrics/event1 event 1   ","type":"metric","tags":[]},"metrics/event2":{"search":"metrics/event2 event 2 event description.  ","type":"metric","tags":[]},"metrics/event3":{"search":"metrics/event3 event 3 event description.  ","type":"metric","tags":[]},"metrics/event4":{"search":"metrics/event4 event 4   ","type":"metric","tags":[]},"metrics/event5":{"search":"metrics/event5 event 5 event description.  ","type":"metric","tags":[]},"metrics/event6":{"search":"metrics/event6 event 6 event description.  ","type":"metric","tags":[]},"metrics/event7":{"search":"metrics/event7 event 7   ","type":"metric","tags":[]},"metrics/event8":{"search":"metrics/event8 event 8 event description.  ","type":"metric","tags":[]},"metrics/event9":{"search":"metrics/event9 event 9 event description.  ","type":"metric","tags":[]},"metrics/event10":{"search":"metrics/event10 event 10   ","type":"metric","tags":[]},"metrics/event11":{"search":"metrics/event11 event 11 event description.  ","type":"metric","tags":[]},"metrics/event12":{"search":"metrics/event12 event 12 event description.  ","type":"metric","tags":[]},"metrics/event13":{"search":"metrics/event13 event 13   ","type":"metric","tags":[]},"metrics/event14":{"search":"metrics/event14 event 14 event description.  ","type":"metric","tags":[]},"metrics/event15":{"search":"metrics/event15 event 15 event description.  ","type":"metric","tags":[]},"variables/evar1":{"search":"variables/evar1 evar 1   campaign metadata custom","type":"dimension","tags":["Campaign Metadata","custom"]},"variables/evar2":{"search":"variables/evar2 evar 2   ","type":"dimension","tags":[]},"variables/evar3":{"search":"variables/evar3 evar 3   ","type":"dimension","tags":[]},"variables/evar4":{"search":"variables/evar4 evar 4   custom","type":"dimension","tags":["custom"]},"variables/evar5":{"search":"variables/evar5 evar 5   ","type":"dimension","tags":[]},"variables/evar6":{"search":"variables/evar6 evar 6   ","type":"dimension","tags":[]},"variables/evar7":{"search":"variables/evar7 evar 7   custom","type":"dimension","tags":["custom"]},"variables/evar8":{"search":"variables/evar8 evar 8   ","type":"dimension","tags":[]},"variables/evar9":{"search":"variables/evar9 evar 9   ","type":"dimension","tags":[]},"variables/evar10":{"search":"variables/evar10 evar 10   custom","type":"dimension","tags":["custom"]},"variables/evar11":{"search":"variables/evar11 evar 11 evar 11 description.  ","type":"dimension","tags":[]},"variables/evar12":{"search":"variables/evar12 evar 12 evar 12 description.  ","type":"dimension","tags":[]},"variables/evar13":{"search":"variables/evar13 evar 13 evar 13 description.  custom","type":"dimension","tags":["custom"]},"variables/evar14":{"search":"variables/evar14 evar 14 evar 14 description.  ","type":"dimension","tags":[]},"variables/evar15":{"search":"variables/evar15 evar 15 evar 15 description.  ","type":"dimension","tags":[]},"variables/evar16":{"search":"variables/evar16 evar 16 evar 16 description.  custom","type":"dimension","tags":["custom"]},"variables/evar17":{"search":"variables/evar17 evar 17 evar 17 description.  ","type":"dimension","tags":[]},"variables/evar18":{"search":"variables/evar18 evar 18 evar 18 description.  ","type":"dimension","tags":[]},"variables/evar19":{"search":"variables/evar19 evar 19 evar 19 description.  custom","type":"dimension","tags":["custom"]},"variables/evar20":{"search":"variables/evar20 evar 20 evar 20 description.  ","type":"dimension","tags":[]},"variables/evar21":{"search":"variables/evar21 evar 21 evar 21 description.  ","type":"dimension","tags":[]},"variables/evar22":{"search":"variables/evar22 evar 22 evar 22 description.  custom","type":"dimension","tags":["custom"]},"variables/evar23":{"search":"variables/evar23 evar 23 evar 23 description.  ","type":"dimension","tags":[]},"variables/evar24":{"search":"variables/evar24 evar 24 evar 24 description.  ","type":"dimension","tags":[]},"variables/evar25":{"search":"variables/evar25 evar 25 evar 25 description.  custom","type":"dimension","tags":["custom"]},"variables/evar26":{"search":"variables/evar26 evar 26 evar 26 description.  ","type":"dimension","tags":[]},"variables/evar27":{"search":"variables/evar27 evar 27 evar 27 description.  ","type":"dimension","tags":[]},"variables/evar28":{"search":"variables/evar28 evar 28 evar 28 description.  custom","type":"dimension","tags":["custom"]},"variables/evar29":{"search":"variables/evar29 evar 29 evar 29 description.  ","type":"dimension","tags":[]},"variables/evar30":{"search":"variables/evar30 evar 30 evar 30 description.  ","type":"dimension","tags":[]},"variables/evar31":{"search":"variables/evar31 evar 31 evar 31 description.  custom","type":"dimension","tags":["custom"]},"variables/evar32":{"search":"variables/evar32 evar 32 evar 32 description.  ","type":"dimension","tags":[]},"variables/evar33":{"search":"variables/evar33 evar 33 evar 33 description.  ","type":"dimension","tags":[]},"variables/evar34":{"search":"variables/evar34 evar 34 evar 34 description.  custom","type":"dimension","tags":["custom"]},"variables/evar35":{"search":"variables/evar35 evar 35 evar 35 description.  ","type":"dimension","tags":[]},"variables/evar36":{"search":"variables/evar36 evar 36 evar 36 description.  ","type":"dimension","tags":[]},"variables/evar37":{"search":"variables/evar37 evar 37 evar 37 description.  custom","type":"dimension","tags":["custom"]},"variables/evar38":{"search":"variables/evar38 evar 38 evar 38 description.  ","type":"dimension","tags":[]},"variables/evar39":{"search":"variables/evar39 evar 39 evar 39 description.  ","type":"dimension","tags":[]},"variables/evar40":{"search":"variables/evar40 evar 40 evar 40 description.  custom","type":"dimension","tags":["custom"]},"variables/prop1":{"search":"variables/prop1 prop 1   taxonomy","type":"dimension","tags":["taxonomy"]},"variables/prop2":{"search":"variables/prop2 prop 2 prop 2 description.  taxonomy","type":"dimension","tags":["taxonomy"]},"variables/prop3":{"search":"variables/prop3 prop 3 prop 3 description.  taxonomy","type":"dimension","tags":["taxonomy"]},"variables/prop4":{"search":"variables/prop4 prop 4 prop 4 description.  taxonomy","type":"dimension","tags":["taxonomy"]},"variables/prop5":{"search":"variables/prop5 prop 5   taxonomy","type":"dimension","tags":["taxonomy"]},"variables/prop6":{"search":"variables/prop6 prop 6 prop 6 description.  taxonomy","type":"dimension","tags":["taxonomy"]},"variables/prop7":{"search":"variables/prop7 prop 7 prop 7 description.  taxonomy","type":"dimension","tags":["taxonomy"]},"variables/prop8":{"search":"variables/prop8 prop 8 prop 8 description.  taxonomy","type":"dimension","tags":["taxonomy"]},"variables/prop9":{"search":"variables/prop9 prop 9   taxonomy","type":"dimension","tags":["taxonomy"]},"variables/prop10":{"search":"variables/prop10 prop 10 prop 10 description.  taxonomy","type":"dimension","tags":["taxonomy"]},"variables/prop11":{"search":"variables/prop11 prop 11 prop 11 description.  taxonomy","type":"dimension","tags":["taxonomy"]},"variables/prop12":{"search":"variables/prop12 prop 12 prop 12 description.  taxonomy","type":"dimension","tags":["taxonomy"]},"variables/prop13":{"search":"variables/prop13 prop 13   taxonomy","type":"dimension","tags":["taxonomy"]},"variables/prop14":{"search":"variables/prop14 prop 14 prop 14 description.  taxonomy","type":"dimension","tags":["taxonomy"]},"variables/prop15":{"search":"variables/prop15 prop 15 prop 15 description.  taxonomy","type":"dimension","tags":["taxonomy"]},"variables/prop16":{"search":"variables/prop16 prop 16 prop 16 description.  taxonomy","type":"dimension","tags":["taxonomy"]},"variables/prop17":{"search":"variables/prop17 prop 17   taxonomy","type":"dimension","tags":["taxonomy"]},"variables/prop18":{"search":"variables/prop18 prop 18 prop 18 description.  taxonomy","type":"dimension","tags":["taxonomy"]},"variables/prop19":{"search":"variables/prop19 prop 19 prop 19 description.  taxonomy","type":"dimension","tags":["taxonomy"]},"variables/prop20":{"search":"variables/prop20 prop 20 prop 20 description.  taxonomy","type":"dimension","tags":["taxonomy"]},"s_mobile":{"search":"s_mobile mobile users mobile device traffic.  ","type":"segment","tags":[]},"s_returning":{"search":"s_returning returning visitors   ","type":"segment","tags":[]},"cm_conversion_rate":{"search":"cm_conversion_rate conversion rate orders / visits. divide(metrics/orders, metrics/visits) ","type":"calculated_metric","tags":[]},"cm_revenue_per_visit":{"search":"cm_revenue_per_visit revenue per visit  divide(metrics/revenue, metrics/visits) ","type":"calculated_metric","tags":[]}}},"segment_trees":{"s_mobile":{"kind":"container","context":"hits","child":{"kind":"criterion","op":"eq","target_id":null,"target_label":"value","value":"mobile","refs":[],"summary":"value equals 'mobile'"}},"s_returning":{"kind":"container","context":"visitors","child":{"kind":"logical","op":"and","children":[{"kind":"container","context":"visits","child":{"kind":"criterion","op":"eq","target_id":null,"target_label":"value","value":"v1","refs":[],"summary":"value equals 'v1'"}},{"kind":"container","context":"hits","child":{"kind":"criterion","op":"eq","target_id":null,"target_label":"value","value":"h1","refs":[],"summary":"value equals 'h1'"}}]}}},"formula_trees":{"cm_conversion_rate":{"kind":"operation","op":"divide","args":[{"kind":"metric_ref","metric_id":"metrics/orders","label":"metrics/orders"},{"kind":"metric_ref","metric_id":"metrics/visits","label":"metrics/visits"}]},"cm_revenue_per_visit":{"kind":"operation","op":"divide","args":[{"kind":"metric_ref","metric_id":"metrics/revenue","label":"metrics/revenue"},{"kind":"metric_ref","metric_id":"metrics/visits","label":"metrics/visits"}]}}}</script>
+<script>
+/* sdr-visualizer client-side logic.
+ *
+ * Reads the embedded JSON payload, drives catalog rendering, search,
+ * filtering, sorting, and the detail panel. No framework, no fetches,
+ * no external state.
+ */
+(function () {
+  "use strict";
+
+  var dataNode = document.getElementById("sdr-data");
+  if (!dataNode) {
+    console.error("sdr-visualizer: payload script element missing");
+    return;
+  }
+  var payload;
+  try {
+    payload = JSON.parse(dataNode.textContent);
+  } catch (e) {
+    console.error("sdr-visualizer: payload is not valid JSON", e);
+    return;
+  }
+
+  /* ----- Build a flat catalog list ----- */
+
+  var catalog = [];
+  payload.components.forEach(function (c) { catalog.push(c); });
+  payload.segments.forEach(function (s) { catalog.push(s); });
+  payload.calculated_metrics.forEach(function (c) { catalog.push(c); });
+
+  // Map id -> entry for O(1) lookup (used by detail panel reference links).
+  var byId = {};
+  catalog.forEach(function (entry) { byId[entry.id] = entry; });
+
+  var indexById = (payload.catalog_index && payload.catalog_index.by_id) || {};
+
+  /* ----- DOM refs ----- */
+
+  var $body = document.getElementById("catalog-body");
+  var $empty = document.getElementById("catalog-empty");
+  var $resultCount = document.getElementById("result-count");
+  var $search = document.getElementById("search-input");
+  var $typeFilter = document.getElementById("type-filter");
+  var $descriptionFilter = document.getElementById("description-filter");
+  var $referencesFilter = document.getElementById("references-filter");
+  var $modifiedFilter = document.getElementById("modified-filter");
+  var $detailPanel = document.getElementById("detail-panel");
+  var $detailOverlay = document.getElementById("detail-overlay");
+  var $detailBody = document.getElementById("detail-body");
+  var $detailClose = document.getElementById("detail-close");
+  var $headers = document.querySelectorAll(".catalog-table th.sortable");
+
+  /* ----- State ----- */
+
+  var sortKey = "type";
+  var sortDir = "asc";
+  // Always sort by name as a secondary key for stable ordering.
+
+  /* ----- Helpers ----- */
+
+  function escapeHtml(value) {
+    if (value == null) return "";
+    return String(value)
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&#39;");
+  }
+
+  function formatTypeLabel(type) {
+    switch (type) {
+      case "metric": return "Metric";
+      case "dimension": return "Dimension";
+      case "derived_field": return "Derived field";
+      case "segment": return "Segment";
+      case "calculated_metric": return "Calc metric";
+      default: return type;
+    }
+  }
+
+  function formatDate(value) {
+    if (!value) return "—";
+    // Tolerate both ISO 8601 and the cja_auto_sdr "YYYY-MM-DD HH:MM:SS" shape.
+    var date = new Date(value);
+    if (isNaN(date.getTime())) return value;
+    var y = date.getUTCFullYear();
+    var m = String(date.getUTCMonth() + 1).padStart(2, "0");
+    var d = String(date.getUTCDate()).padStart(2, "0");
+    return y + "-" + m + "-" + d;
+  }
+
+  function daysSince(value) {
+    if (!value) return Infinity;
+    var date = new Date(value);
+    if (isNaN(date.getTime())) return Infinity;
+    var diff = Date.now() - date.getTime();
+    return diff / 86400000;
+  }
+
+  function tagsOf(entry) {
+    return entry.tags || [];
+  }
+
+  function descriptionOf(entry) {
+    return entry.description || (entry.formula_text ? entry.formula_text : "");
+  }
+
+  /* ----- Filtering ----- */
+
+  function selectedTypes() {
+    var checked = $typeFilter.querySelectorAll("input:checked");
+    var out = [];
+    for (var i = 0; i < checked.length; i++) out.push(checked[i].value);
+    return out;
+  }
+
+  function applyFilters() {
+    var query = ($search.value || "").trim().toLowerCase();
+    var types = selectedTypes();
+    var typeSet = {};
+    types.forEach(function (t) { typeSet[t] = true; });
+    var descriptionMode = $descriptionFilter.value;
+    var referencesMode = $referencesFilter.value;
+    var modifiedMode = $modifiedFilter.value;
+    var modifiedDays = modifiedMode === "all" ? Infinity : Number(modifiedMode);
+
+    var filtered = catalog.filter(function (entry) {
+      if (!typeSet[entry.type]) return false;
+
+      if (query) {
+        var idx = indexById[entry.id];
+        var hay = idx ? idx.search : ((entry.name || "") + " " + (entry.id || "")).toLowerCase();
+        if (hay.indexOf(query) === -1) return false;
+      }
+
+      if (descriptionMode === "has" && !entry.description) return false;
+      if (descriptionMode === "missing" && entry.description) return false;
+
+      if (referencesMode === "referenced" && !((entry.in_degree || 0) > 0)) return false;
+      if (referencesMode === "orphaned" && (entry.in_degree || 0) > 0) return false;
+
+      if (modifiedDays !== Infinity) {
+        if (daysSince(entry.modified_at) > modifiedDays) return false;
+      }
+
+      return true;
+    });
+
+    filtered.sort(compareEntries);
+    renderRows(filtered);
+  }
+
+  function compareEntries(a, b) {
+    var primary = compareByKey(a, b, sortKey);
+    if (primary !== 0) return sortDir === "desc" ? -primary : primary;
+    if (sortKey !== "name") return compareByKey(a, b, "name");
+    return 0;
+  }
+
+  function compareByKey(a, b, key) {
+    var av = a[key];
+    var bv = b[key];
+    if (key === "in_degree") {
+      av = av || 0;
+      bv = bv || 0;
+      return av - bv;
+    }
+    if (key === "modified_at") {
+      var ad = av ? new Date(av).getTime() : 0;
+      var bd = bv ? new Date(bv).getTime() : 0;
+      return ad - bd;
+    }
+    av = (av || "").toString().toLowerCase();
+    bv = (bv || "").toString().toLowerCase();
+    if (av < bv) return -1;
+    if (av > bv) return 1;
+    return 0;
+  }
+
+  /* ----- Rendering ----- */
+
+  function renderRows(entries) {
+    var html = entries.map(rowHtml).join("");
+    $body.innerHTML = html;
+    $empty.hidden = entries.length > 0;
+    $resultCount.textContent = entries.length === catalog.length
+      ? entries.length + " components"
+      : entries.length + " of " + catalog.length;
+    updateHeaderSortIndicators();
+  }
+
+  function rowHtml(entry) {
+    var tags = tagsOf(entry).slice(0, 4).map(function (t) {
+      return '<span class="tag">' + escapeHtml(t) + "</span>";
+    }).join("");
+    if (tagsOf(entry).length > 4) {
+      tags += '<span class="tag">+' + (tagsOf(entry).length - 4) + "</span>";
+    }
+    var desc = entry.description;
+    var descHtml = desc
+      ? escapeHtml(desc)
+      : (entry.formula_text
+          ? '<span class="mono">' + escapeHtml(entry.formula_text) + "</span>"
+          : '<span class="is-missing-marker">(no description)</span>');
+    var descClass = desc || entry.formula_text ? "col-description" : "col-description is-missing";
+    var refs = entry.in_degree || 0;
+    return (
+      '<tr data-id="' + escapeHtml(entry.id) + '">' +
+        '<td class="col-name">' +
+          '<div class="row-name-cell">' +
+            '<span>' + escapeHtml(entry.name) + "</span>" +
+          "</div>" +
+          '<span class="row-id mono">' + escapeHtml(entry.id) + "</span>" +
+        "</td>" +
+        '<td class="col-type"><span class="dot dot-' + escapeHtml(entry.type) + '"></span>' + escapeHtml(formatTypeLabel(entry.type)) + "</td>" +
+        '<td class="' + descClass + '">' + descHtml + "</td>" +
+        '<td class="col-tags">' + tags + "</td>" +
+        '<td class="col-refs num' + (refs === 0 ? " zero" : "") + '">' + refs + "</td>" +
+        '<td class="col-modified">' + escapeHtml(formatDate(entry.modified_at)) + "</td>" +
+        '<td class="col-owner">' + escapeHtml(entry.owner || "—") + "</td>" +
+      "</tr>"
+    );
+  }
+
+  function updateHeaderSortIndicators() {
+    $headers.forEach(function (th) {
+      th.classList.remove("is-sorted", "is-desc");
+      if (th.getAttribute("data-sort") === sortKey) {
+        th.classList.add("is-sorted");
+        if (sortDir === "desc") th.classList.add("is-desc");
+      }
+    });
+  }
+
+  /* ----- Detail panel ----- */
+
+  function openDetail(id) {
+    var entry = byId[id];
+    if (!entry) return;
+    $detailBody.innerHTML = detailHtml(entry);
+    $detailPanel.classList.add("is-open");
+    $detailPanel.setAttribute("aria-hidden", "false");
+    $detailOverlay.classList.add("is-open");
+    $detailOverlay.setAttribute("aria-hidden", "false");
+    document.body.style.overflow = "hidden";
+  }
+
+  function closeDetail() {
+    $detailPanel.classList.remove("is-open");
+    $detailPanel.setAttribute("aria-hidden", "true");
+    $detailOverlay.classList.remove("is-open");
+    $detailOverlay.setAttribute("aria-hidden", "true");
+    document.body.style.overflow = "";
+  }
+
+  function detailHtml(entry) {
+    var typeColor = '<span class="dot dot-' + escapeHtml(entry.type) + '"></span>';
+    var pieces = [
+      '<div class="detail-eyebrow">' + typeColor + escapeHtml(formatTypeLabel(entry.type)) + "</div>",
+      '<h2 class="detail-name">' + escapeHtml(entry.name) + "</h2>",
+      '<div class="detail-id mono">' + escapeHtml(entry.id) + "</div>",
+    ];
+
+    if (entry.description) {
+      pieces.push('<div class="detail-section"><h3>Description</h3><p class="detail-description">' + escapeHtml(entry.description) + "</p></div>");
+    } else {
+      pieces.push('<div class="detail-section"><h3>Description</h3><p class="detail-description is-missing">No description.</p></div>');
+    }
+
+    if (entry.type === "calculated_metric") {
+      if (entry.formula_text) {
+        pieces.push('<div class="detail-section"><h3>Formula</h3><div class="formula-block">' + escapeHtml(entry.formula_text) + "</div></div>");
+      }
+      var calcMeta = '<dl class="detail-grid">';
+      calcMeta += "<dt>Attribution</dt><dd>" + escapeHtml(entry.attribution_model || "—") + "</dd>";
+      calcMeta += "<dt>Allocation</dt><dd>" + escapeHtml(entry.allocation || "—") + "</dd>";
+      if (typeof entry.complexity_score === "number") {
+        calcMeta += "<dt>Complexity</dt><dd>" + entry.complexity_score + "</dd>";
+      }
+      calcMeta += "</dl>";
+      pieces.push('<div class="detail-section"><h3>Properties</h3>' + calcMeta + "</div>");
+    } else if (entry.type === "segment") {
+      var segMeta = '<dl class="detail-grid">';
+      segMeta += "<dt>Nesting depth</dt><dd>" + (entry.nesting_depth || 0) + "</dd>";
+      segMeta += "<dt>Containers</dt><dd>" + escapeHtml((entry.container_types || []).join(", ") || "—") + "</dd>";
+      segMeta += "</dl>";
+      pieces.push('<div class="detail-section"><h3>Anatomy</h3>' + segMeta + "</div>");
+    } else {
+      var compMeta = '<dl class="detail-grid">';
+      compMeta += "<dt>Type</dt><dd>" + escapeHtml(formatTypeLabel(entry.type)) + "</dd>";
+      compMeta += "<dt>Data type</dt><dd>" + escapeHtml(entry.data_type || "—") + "</dd>";
+      if (entry.polarity) compMeta += "<dt>Polarity</dt><dd>" + escapeHtml(entry.polarity) + "</dd>";
+      compMeta += "</dl>";
+      pieces.push('<div class="detail-section"><h3>Properties</h3>' + compMeta + "</div>");
+    }
+
+    var meta = '<dl class="detail-grid">';
+    meta += "<dt>References in</dt><dd>" + (entry.in_degree || 0) + "</dd>";
+    meta += "<dt>References out</dt><dd>" + (entry.out_degree || 0) + "</dd>";
+    meta += "<dt>Owner</dt><dd>" + escapeHtml(entry.owner || "—") + "</dd>";
+    meta += "<dt>Modified</dt><dd>" + escapeHtml(formatDate(entry.modified_at)) + "</dd>";
+    meta += "<dt>Created</dt><dd>" + escapeHtml(formatDate(entry.created_at)) + "</dd>";
+    if (tagsOf(entry).length) {
+      meta += "<dt>Tags</dt><dd>" + tagsOf(entry).map(function (t) {
+        return '<span class="tag">' + escapeHtml(t) + "</span>";
+      }).join(" ") + "</dd>";
+    }
+    meta += "</dl>";
+    pieces.push('<div class="detail-section"><h3>Catalog</h3>' + meta + "</div>");
+
+    var refs = entry.references || [];
+    if (refs.length) {
+      var listed = refs.map(function (r) {
+        var label = byId[r] ? byId[r].name + " · " + r : r;
+        var resolvable = !!byId[r];
+        return "<li>" + (resolvable
+          ? '<button type="button" class="ref-link" data-id="' + escapeHtml(r) + '">' + escapeHtml(label) + "</button>"
+          : '<span class="ref-dangling mono">' + escapeHtml(r) + " (not in inventory)</span>") + "</li>";
+      }).join("");
+      pieces.push('<div class="detail-section"><h3>References</h3><ul class="detail-references">' + listed + "</ul></div>");
+    }
+
+    return pieces.join("");
+  }
+
+  /* ----- Wiring ----- */
+
+  $search.addEventListener("input", applyFilters);
+  $typeFilter.addEventListener("change", applyFilters);
+  $descriptionFilter.addEventListener("change", applyFilters);
+  $referencesFilter.addEventListener("change", applyFilters);
+  $modifiedFilter.addEventListener("change", applyFilters);
+
+  $headers.forEach(function (th) {
+    th.addEventListener("click", function () {
+      var key = th.getAttribute("data-sort");
+      if (sortKey === key) {
+        sortDir = sortDir === "asc" ? "desc" : "asc";
+      } else {
+        sortKey = key;
+        sortDir = key === "in_degree" || key === "modified_at" ? "desc" : "asc";
+      }
+      applyFilters();
+    });
+  });
+
+  $body.addEventListener("click", function (event) {
+    var row = event.target.closest("tr[data-id]");
+    if (row) openDetail(row.getAttribute("data-id"));
+  });
+
+  $detailClose.addEventListener("click", closeDetail);
+  $detailOverlay.addEventListener("click", closeDetail);
+  document.addEventListener("keydown", function (event) {
+    if (event.key === "Escape") closeDetail();
+  });
+
+  $detailBody.addEventListener("click", function (event) {
+    var btn = event.target.closest("button.ref-link");
+    if (btn) openDetail(btn.getAttribute("data-id"));
+  });
+
+  applyFilters();
+})();
+
+</script>
+</body>
+</html>

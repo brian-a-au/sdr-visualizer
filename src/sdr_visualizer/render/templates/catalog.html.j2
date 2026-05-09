@@ -1,0 +1,73 @@
+<section id="catalog-view" class="view view-catalog">
+  <div class="catalog-controls ui">
+    <div class="search-row">
+      <label class="search-label" for="search-input">Search</label>
+      <input
+        type="search"
+        id="search-input"
+        placeholder="Name, ID, description, formula…"
+        autocomplete="off"
+        spellcheck="false"
+      />
+      <span class="result-count" id="result-count" aria-live="polite"></span>
+    </div>
+    <div class="filter-row">
+      <fieldset class="filter-group">
+        <legend>Type</legend>
+        <div class="chip-group" id="type-filter">
+          <label class="chip"><input type="checkbox" value="metric" checked /><span class="dot dot-metric"></span>Metric</label>
+          <label class="chip"><input type="checkbox" value="dimension" checked /><span class="dot dot-dimension"></span>Dimension</label>
+          <label class="chip"><input type="checkbox" value="derived_field" checked /><span class="dot dot-derived_field"></span>Derived field</label>
+          <label class="chip"><input type="checkbox" value="segment" checked /><span class="dot dot-segment"></span>Segment</label>
+          <label class="chip"><input type="checkbox" value="calculated_metric" checked /><span class="dot dot-calculated_metric"></span>Calc metric</label>
+        </div>
+      </fieldset>
+      <fieldset class="filter-group">
+        <legend>Description</legend>
+        <select id="description-filter">
+          <option value="all">All</option>
+          <option value="has">Has description</option>
+          <option value="missing">Missing description</option>
+        </select>
+      </fieldset>
+      <fieldset class="filter-group">
+        <legend>References</legend>
+        <select id="references-filter">
+          <option value="all">All</option>
+          <option value="referenced">Referenced</option>
+          <option value="orphaned">Orphaned</option>
+        </select>
+      </fieldset>
+      <fieldset class="filter-group">
+        <legend>Modified</legend>
+        <select id="modified-filter">
+          <option value="all">Any time</option>
+          <option value="7">Last 7 days</option>
+          <option value="30">Last 30 days</option>
+          <option value="90">Last 90 days</option>
+          <option value="365">Last year</option>
+        </select>
+      </fieldset>
+    </div>
+  </div>
+
+  <div class="catalog-table-wrap">
+    <table class="catalog-table">
+      <thead>
+        <tr>
+          <th class="col-name sortable" data-sort="name">Name</th>
+          <th class="col-type sortable" data-sort="type">Type</th>
+          <th class="col-description">Description</th>
+          <th class="col-tags">Tags</th>
+          <th class="col-refs sortable num" data-sort="in_degree">Refs in</th>
+          <th class="col-modified sortable" data-sort="modified_at">Modified</th>
+          <th class="col-owner">Owner</th>
+        </tr>
+      </thead>
+      <tbody id="catalog-body">
+        <!-- populated by visualizer.js -->
+      </tbody>
+    </table>
+    <div id="catalog-empty" class="catalog-empty ui" hidden>No components match the current filters.</div>
+  </div>
+</section>
