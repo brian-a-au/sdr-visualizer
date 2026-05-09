@@ -15,9 +15,7 @@ from sdr_visualizer.core.exceptions import UnknownPlatformError
 def detect_platform(snapshot: Any) -> str:
     """Return 'cja' or 'aa'. Raise UnknownPlatformError on ambiguous shape."""
     if not isinstance(snapshot, dict):
-        raise UnknownPlatformError(
-            "snapshot is not a JSON object; cannot auto-detect platform"
-        )
+        raise UnknownPlatformError("snapshot is not a JSON object; cannot auto-detect platform")
     metadata = snapshot.get("metadata")
     if isinstance(metadata, dict) and any(
         k in metadata for k in ("Data View ID", "data_view_id", "dataViewId")
@@ -29,6 +27,5 @@ def detect_platform(snapshot: Any) -> str:
     if "data_view" in snapshot or "dataView" in snapshot:
         return "cja"
     raise UnknownPlatformError(
-        "could not auto-detect platform from snapshot shape; "
-        "pass --platform cja|aa to override"
+        "could not auto-detect platform from snapshot shape; pass --platform cja|aa to override"
     )

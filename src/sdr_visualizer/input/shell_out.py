@@ -27,9 +27,7 @@ def shell_cja(
     )
 
 
-def shell_aa(
-    rsid: str, *, extra_args: list[str] | None = None
-) -> tuple[dict[str, Any], str]:
+def shell_aa(rsid: str, *, extra_args: list[str] | None = None) -> tuple[dict[str, Any], str]:
     """Shell out to aa_auto_sdr against an AA report suite ID."""
     return _shell_out(
         "aa_auto_sdr",
@@ -38,9 +36,7 @@ def shell_aa(
     )
 
 
-def _shell_out(
-    tool: str, argv: list[str], *, flag: str
-) -> tuple[dict[str, Any], str]:
+def _shell_out(tool: str, argv: list[str], *, flag: str) -> tuple[dict[str, Any], str]:
     binary = shutil.which(tool)
     if not binary:
         raise InvalidSnapshotError(
@@ -66,7 +62,5 @@ def _shell_out(
     try:
         snapshot = json.loads(result.stdout)
     except json.JSONDecodeError as exc:
-        raise InvalidSnapshotError(
-            f"{tool} produced output that is not valid JSON: {exc}"
-        ) from exc
+        raise InvalidSnapshotError(f"{tool} produced output that is not valid JSON: {exc}") from exc
     return snapshot, f"shell-out:{tool} {argv[0]}"

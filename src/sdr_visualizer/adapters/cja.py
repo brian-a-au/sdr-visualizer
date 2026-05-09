@@ -25,18 +25,14 @@ from sdr_visualizer.core.models import (
 def adapt(snapshot: dict[str, Any], *, source: str = "<unknown>") -> Implementation:
     """Convert a parsed cja_auto_sdr JSON snapshot into an Implementation."""
     if not isinstance(snapshot, dict):
-        raise InvalidSnapshotError(
-            f"expected top-level JSON object, got {type(snapshot).__name__}"
-        )
+        raise InvalidSnapshotError(f"expected top-level JSON object, got {type(snapshot).__name__}")
 
     metadata = _require_dict(snapshot, "metadata")
     metrics_raw = _require_list(snapshot, "metrics")
     dimensions_raw = _require_list(snapshot, "dimensions")
 
     instance_id = (
-        metadata.get("Data View ID")
-        or metadata.get("data_view_id")
-        or metadata.get("dataViewId")
+        metadata.get("Data View ID") or metadata.get("data_view_id") or metadata.get("dataViewId")
     )
     if not instance_id:
         raise InvalidSnapshotError(
@@ -57,11 +53,7 @@ def adapt(snapshot: dict[str, Any], *, source: str = "<unknown>") -> Implementat
     if isinstance(snapshot_taken_at, str):
         snapshot_taken_at = snapshot_taken_at.strip() or None
 
-    adapter_version = (
-        metadata.get("Tool Version")
-        or metadata.get("tool_version")
-        or "unknown"
-    )
+    adapter_version = metadata.get("Tool Version") or metadata.get("tool_version") or "unknown"
 
     metrics = [_component_from_record(r, "metric") for r in metrics_raw]
     dimensions = [_component_from_record(r, "dimension") for r in dimensions_raw]
@@ -105,8 +97,21 @@ def _component_from_record(record: dict[str, Any], component_type: str) -> Compo
     data_type = record.get("dataType") or record.get("type")
     polarity = _normalize_polarity(record.get("polarity"))
 
-    handled = {"id", "name", "title", "description", "dataType", "type", "polarity",
-               "tags", "owner", "created", "modified", "created_at", "modified_at"}
+    handled = {
+        "id",
+        "name",
+        "title",
+        "description",
+        "dataType",
+        "type",
+        "polarity",
+        "tags",
+        "owner",
+        "created",
+        "modified",
+        "created_at",
+        "modified_at",
+    }
     platform_specific = {k: v for k, v in record.items() if k not in handled}
 
     return Component(
@@ -147,8 +152,19 @@ def _derived_field_from_record(record: dict[str, Any]) -> Component:
 
     name = record.get("component_name") or record.get("name") or component_id
     description = _normalize_description(record.get("description"))
-    handled = {"component_id", "component_name", "id", "name", "description",
-               "tags", "owner", "created", "modified", "created_at", "modified_at"}
+    handled = {
+        "component_id",
+        "component_name",
+        "id",
+        "name",
+        "description",
+        "tags",
+        "owner",
+        "created",
+        "modified",
+        "created_at",
+        "modified_at",
+    }
     platform_specific = {k: v for k, v in record.items() if k not in handled}
 
     return Component(
@@ -185,19 +201,14 @@ def _calc_metric_from_record(record: dict[str, Any]) -> CalculatedMetric:
         )
     metric_id = record.get("metric_id") or record.get("id")
     if not metric_id:
-        raise InvalidSnapshotError(
-            f"calculated metric record is missing 'metric_id': {record!r}"
-        )
+        raise InvalidSnapshotError(f"calculated metric record is missing 'metric_id': {record!r}")
 
     name = record.get("metric_name") or record.get("name") or metric_id
     description = _normalize_description(record.get("description"))
     formula = _parse_definition_json(record.get("definition_json"))
     formula_text = record.get("formula_summary") or record.get("definition_summary") or ""
     references = list(
-        dict.fromkeys(
-            [*record.get("metric_references", []),
-             *record.get("segment_references", [])]
-        )
+        dict.fromkeys([*record.get("metric_references", []), *record.get("segment_references", [])])
     )
     complexity = float(record.get("complexity_score") or 0.0)
 
@@ -230,9 +241,7 @@ def _extract_attribution(formula: dict[str, Any]) -> tuple[str | None, str | Non
     if not isinstance(formula, dict):
         return None, None
     attribution_model = (
-        formula.get("attribution")
-        or formula.get("attribution_model")
-        or formula.get("model")
+        formula.get("attribution") or formula.get("attribution_model") or formula.get("model")
     )
     allocation = formula.get("allocation")
     func = formula.get("func")
@@ -273,9 +282,11 @@ def _segment_from_record(record: dict[str, Any]) -> Segment:
     container_types = _extract_container_types(record.get("container_type"), definition)
     references = list(
         dict.fromkeys(
-            [*record.get("dimension_references", []),
-             *record.get("metric_references", []),
-             *record.get("other_segment_references", [])]
+            [
+                *record.get("dimension_references", []),
+                *record.get("metric_references", []),
+                *record.get("other_segment_references", []),
+            ]
         )
     )
 
@@ -293,9 +304,7 @@ def _segment_from_record(record: dict[str, Any]) -> Segment:
     )
 
 
-def _extract_container_types(
-    declared_container: Any, definition: dict[str, Any]
-) -> list[str]:
+def _extract_container_types(declared_container: Any, definition: dict[str, Any]) -> list[str]:
     """Collect distinct container 'context' values from a CJA segment definition.
 
     Falls back to the upstream-declared container_type if the definition shape
@@ -368,9 +377,7 @@ def _section_records(section: Any, records_key: str) -> list[dict[str, Any]]:
                 f"section '{records_key}' must be a list, got {type(records).__name__}"
             )
         return records
-    raise InvalidSnapshotError(
-        f"section must be object or list, got {type(section).__name__}"
-    )
+    raise InvalidSnapshotError(f"section must be object or list, got {type(section).__name__}")
 
 
 def _parse_definition_json(value: Any) -> dict[str, Any]:

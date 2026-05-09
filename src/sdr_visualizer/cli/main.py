@@ -4,6 +4,4 @@ from __future__ import annotations
 
 
 def main(argv: list[str] | None = None) -> int:
-    raise SystemExit(
-        "sdr-visualizer CLI is not implemented yet (Phase 3 in SPEC-VISUALIZER §10)."
-    )
+    raise SystemExit("sdr-visualizer CLI is not implemented yet (Phase 3 in SPEC-VISUALIZER §10).")

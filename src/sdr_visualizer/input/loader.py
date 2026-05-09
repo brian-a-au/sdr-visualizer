@@ -30,9 +30,7 @@ _TIMESTAMP_RE = re.compile(
 )
 
 
-def load_snapshot(
-    path_or_token: str, *, at: str | None = None
-) -> tuple[dict[str, Any], str]:
+def load_snapshot(path_or_token: str, *, at: str | None = None) -> tuple[dict[str, Any], str]:
     """Read and parse a snapshot from a file path, directory, or stdin token.
 
     Returns (parsed_snapshot, source_label).
@@ -70,9 +68,7 @@ def _load_from_file(path: Path) -> tuple[dict[str, Any], str]:
     return snapshot, str(path)
 
 
-def _load_from_directory(
-    directory: Path, *, at: str | None
-) -> tuple[dict[str, Any], str]:
+def _load_from_directory(directory: Path, *, at: str | None) -> tuple[dict[str, Any], str]:
     candidates = sorted(directory.glob("*.json"))
     if not candidates:
         raise InvalidSnapshotError(f"no .json snapshots found in {directory}")
@@ -80,25 +76,19 @@ def _load_from_directory(
     return _load_from_file(chosen)
 
 
-def _pick_snapshot(
-    candidates: list[Path], *, at: str | None
-) -> Path:
+def _pick_snapshot(candidates: list[Path], *, at: str | None) -> Path:
     """Pick a single snapshot file from a directory.
 
     Without `at`: use the most recent by extracted timestamp, falling back
     to mtime when filenames don't carry one.
     With `at`: use the snapshot closest to (and not after) the target.
     """
-    annotated: list[tuple[Path, datetime | None]] = [
-        (p, _extract_timestamp(p)) for p in candidates
-    ]
+    annotated: list[tuple[Path, datetime | None]] = [(p, _extract_timestamp(p)) for p in candidates]
     has_timestamp = [(p, ts) for p, ts in annotated if ts is not None]
     if not has_timestamp:
         # Fall back to filesystem mtime — deterministic across runs on the
         # same machine, even if not portable.
-        annotated_mtime = [
-            (p, datetime.fromtimestamp(p.stat().st_mtime)) for p in candidates
-        ]
+        annotated_mtime = [(p, datetime.fromtimestamp(p.stat().st_mtime)) for p in candidates]
         has_timestamp = annotated_mtime
 
     if at is None:
@@ -113,9 +103,7 @@ def _pick_snapshot(
     not_after = [(p, ts) for p, ts in has_timestamp if ts <= target]
     if not_after:
         return max(not_after, key=lambda pair: pair[1])[0]
-    raise InvalidSnapshotError(
-        f"no snapshot in directory is at or before {at!r}"
-    )
+    raise InvalidSnapshotError(f"no snapshot in directory is at or before {at!r}")
 
 
 def _extract_timestamp(path: Path) -> datetime | None:

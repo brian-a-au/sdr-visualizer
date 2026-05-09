@@ -166,7 +166,9 @@ def test_segment_references_combined_from_three_lists(messy_impl: Implementation
     assert "metrics/cm_metric_001" in seg.references
 
 
-def test_shallow_segment_falls_back_to_declared_container_when_no_nested(messy_impl: Implementation) -> None:
+def test_shallow_segment_falls_back_to_declared_container_when_no_nested(
+    messy_impl: Implementation,
+) -> None:
     # The shallow segments do contain a container in their definition; this also
     # exercises that the walk finds it correctly.
     seg = next(s for s in messy_impl.segments if s.id == "segments/seg_simple_001")
@@ -185,15 +187,16 @@ def test_messy_has_30_calc_metrics(messy_impl: Implementation) -> None:
 
 def test_seven_near_duplicate_revenue_calc_metrics(messy_impl: Implementation) -> None:
     near_dups = [
-        cm for cm in messy_impl.calculated_metrics
-        if cm.formula_text == "Revenue / Visits"
+        cm for cm in messy_impl.calculated_metrics if cm.formula_text == "Revenue / Visits"
     ]
     assert len(near_dups) == 7
     assert all(set(cm.references) == {"metrics/revenue", "metrics/visits"} for cm in near_dups)
 
 
 def test_calc_metric_round_trip(messy_impl: Implementation) -> None:
-    cm = next(c for c in messy_impl.calculated_metrics if c.id == "calculatedMetrics/cm_revenue_per_visit")
+    cm = next(
+        c for c in messy_impl.calculated_metrics if c.id == "calculatedMetrics/cm_revenue_per_visit"
+    )
     assert isinstance(cm, CalculatedMetric)
     assert cm.complexity_score == 42.0
     assert cm.formula_text == "Revenue / Visits"
@@ -203,7 +206,9 @@ def test_calc_metric_round_trip(messy_impl: Implementation) -> None:
 
 
 def test_calc_metric_distinct_complexity_preserved(messy_impl: Implementation) -> None:
-    distinct = next(c for c in messy_impl.calculated_metrics if c.id == "calculatedMetrics/cm_orders_per_visit")
+    distinct = next(
+        c for c in messy_impl.calculated_metrics if c.id == "calculatedMetrics/cm_orders_per_visit"
+    )
     assert distinct.complexity_score == 25.0
     assert distinct.formula_text == "Orders / Visits"
 
@@ -261,8 +266,10 @@ def test_adapt_rejects_snapshot_without_data_view_id() -> None:
 
 def test_adapt_rejects_non_list_metrics() -> None:
     with pytest.raises(InvalidSnapshotError, match="metrics"):
-        adapt({
-            "metadata": {"Data View ID": "dv_x"},
-            "metrics": {"not": "a list"},
-            "dimensions": [],
-        })
+        adapt(
+            {
+                "metadata": {"Data View ID": "dv_x"},
+                "metrics": {"not": "a list"},
+                "dimensions": [],
+            }
+        )

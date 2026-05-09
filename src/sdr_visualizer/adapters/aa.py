@@ -21,18 +21,14 @@ from sdr_visualizer.core.models import (
 def adapt(snapshot: dict[str, Any], *, source: str = "<unknown>") -> Implementation:
     """Convert a parsed aa_auto_sdr JSON snapshot into an Implementation."""
     if not isinstance(snapshot, dict):
-        raise InvalidSnapshotError(
-            f"expected top-level JSON object, got {type(snapshot).__name__}"
-        )
+        raise InvalidSnapshotError(f"expected top-level JSON object, got {type(snapshot).__name__}")
 
     if "report_suite" in snapshot:
         rs = snapshot["report_suite"]
     elif "reportSuite" in snapshot:
         rs = snapshot["reportSuite"]
     else:
-        raise InvalidSnapshotError(
-            "AA snapshot missing 'report_suite' object; not an AA snapshot?"
-        )
+        raise InvalidSnapshotError("AA snapshot missing 'report_suite' object; not an AA snapshot?")
     if not isinstance(rs, dict):
         raise InvalidSnapshotError(
             f"AA snapshot 'report_suite' must be an object; got {type(rs).__name__}"
@@ -51,16 +47,10 @@ def adapt(snapshot: dict[str, Any], *, source: str = "<unknown>") -> Implementat
     classifications_by_parent = _index_classifications(snapshot.get("classifications"))
 
     dimensions = [
-        _component_from_record(r, "dimension", classifications_by_parent)
-        for r in dims_raw
+        _component_from_record(r, "dimension", classifications_by_parent) for r in dims_raw
     ]
-    metrics = [
-        _component_from_record(r, "metric", classifications_by_parent)
-        for r in metrics_raw
-    ]
-    calculated_metrics = [
-        _calc_from_record(r) for r in (snapshot.get("calculated_metrics") or [])
-    ]
+    metrics = [_component_from_record(r, "metric", classifications_by_parent) for r in metrics_raw]
+    calculated_metrics = [_calc_from_record(r) for r in (snapshot.get("calculated_metrics") or [])]
     segments = [_segment_from_record(r) for r in (snapshot.get("segments") or [])]
 
     return Implementation(
@@ -214,9 +204,7 @@ def _extract_aa_calc_refs(formula: Any) -> list[str]:
 
 def _segment_from_record(record: Any) -> Segment:
     if not isinstance(record, dict):
-        raise InvalidSnapshotError(
-            f"expected segment to be an object, got {type(record).__name__}"
-        )
+        raise InvalidSnapshotError(f"expected segment to be an object, got {type(record).__name__}")
     segment_id = record.get("id")
     if not segment_id:
         raise InvalidSnapshotError(f"segment missing 'id': {record!r}")
