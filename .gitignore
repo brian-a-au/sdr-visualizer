@@ -54,6 +54,10 @@ coverage.xml
 /visualize-*.html
 /visualize-*.json
 
+# Generated fixtures (materialized on demand by conftest.py / CI)
+/tests/fixtures/cja_snapshot_large.json
+/tests/fixtures/aa_snapshot_large.json
+
 # Environment
 .env
 .env.local

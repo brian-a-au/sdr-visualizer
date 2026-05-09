@@ -27,7 +27,7 @@ from sdr_visualizer.core.exceptions import (
 from sdr_visualizer.core.visualizer import build_implementation
 from sdr_visualizer.input.loader import STDIN_TOKEN, load_snapshot
 from sdr_visualizer.input.shell_out import shell_aa, shell_cja
-from sdr_visualizer.render.renderer import render
+from sdr_visualizer.render.renderer import build_payload_with_options, render_payload
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -46,7 +46,12 @@ def main(argv: list[str] | None = None) -> int:
             source=source,
             platform=args.platform,
         )
-        html = render(impl, title=args.title)
+        payload = build_payload_with_options(
+            impl,
+            exclude_orphans=args.exclude_orphans,
+            max_graph_nodes=args.max_graph_nodes,
+        )
+        html = render_payload(payload, title=args.title)
     except (InvalidSnapshotError, UnknownPlatformError) as exc:
         print(f"sdr-visualizer: {exc}", file=sys.stderr)
         return INPUT_VALIDATION_ERROR
@@ -58,6 +63,15 @@ def main(argv: list[str] | None = None) -> int:
     output_path.write_text(html, encoding="utf-8")
     if not args.quiet:
         print(f"sdr-visualizer: wrote {output_path}", file=sys.stderr)
+
+    if args.json:
+        Path(args.json).write_text(
+            __import__("json").dumps(payload, indent=2),
+            encoding="utf-8",
+        )
+        if not args.quiet:
+            print(f"sdr-visualizer: wrote {args.json}", file=sys.stderr)
+
     return SUCCESS
 
 
@@ -111,6 +125,20 @@ def _build_parser() -> argparse.ArgumentParser:
         help="HTML output path. Default: ./visualize-{instance_id}-{timestamp}.html",
     )
     p.add_argument("--title", help="Override the document title.")
+    p.add_argument(
+        "--exclude-orphans",
+        action="store_true",
+        help="Default the catalog's references filter to 'Referenced' so orphans are hidden.",
+    )
+    p.add_argument(
+        "--max-graph-nodes",
+        type=int,
+        help="Override the graph-rendering threshold (default 1000).",
+    )
+    p.add_argument(
+        "--json",
+        help="Also emit the embedded data payload as a separate JSON file at this path.",
+    )
     p.add_argument("--quiet", action="store_true", help="Suppress informational stderr output.")
     p.add_argument("--version", action="version", version=f"sdr-visualizer {__version__}")
     return p

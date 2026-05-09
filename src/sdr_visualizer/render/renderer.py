@@ -23,10 +23,33 @@ _env = Environment(
 )
 
 
-def render(impl: Implementation, *, title: str | None = None) -> str:
+def render(
+    impl: Implementation,
+    *,
+    title: str | None = None,
+    exclude_orphans: bool = False,
+    max_graph_nodes: int | None = None,
+) -> str:
     """Build the HTML for an Implementation."""
     payload = build_payload(impl)
+    payload["meta"]["exclude_orphans_default"] = bool(exclude_orphans)
+    if max_graph_nodes is not None:
+        payload["meta"]["max_graph_nodes"] = int(max_graph_nodes)
     return _render_from_payload(payload, title=title)
+
+
+def build_payload_with_options(
+    impl: Implementation,
+    *,
+    exclude_orphans: bool = False,
+    max_graph_nodes: int | None = None,
+) -> dict[str, Any]:
+    """Build the payload (mostly for `--json` output)."""
+    payload = build_payload(impl)
+    payload["meta"]["exclude_orphans_default"] = bool(exclude_orphans)
+    if max_graph_nodes is not None:
+        payload["meta"]["max_graph_nodes"] = int(max_graph_nodes)
+    return payload
 
 
 def render_payload(payload: dict[str, Any], *, title: str | None = None) -> str:

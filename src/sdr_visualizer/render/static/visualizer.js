@@ -55,6 +55,12 @@
   var sortDir = "asc";
   // Always sort by name as a secondary key for stable ordering.
 
+  // Honor --exclude-orphans by defaulting the references-filter dropdown.
+  if (payload.meta && payload.meta.exclude_orphans_default) {
+    var refSelect = document.getElementById("references-filter");
+    if (refSelect) refSelect.value = "referenced";
+  }
+
   /* ----- Helpers ----- */
 
   function escapeHtml(value) {
@@ -476,7 +482,9 @@
    * Graph view (D3 force-directed)
    * =========================================================== */
 
-  var GRAPH_NODE_THRESHOLD = 1000;
+  var GRAPH_NODE_THRESHOLD = (payload.meta && typeof payload.meta.max_graph_nodes === "number")
+    ? payload.meta.max_graph_nodes
+    : 1000;
 
   var $viewButtons = document.querySelectorAll(".view-button[data-view]");
   var $catalogView = document.getElementById("catalog-view");
