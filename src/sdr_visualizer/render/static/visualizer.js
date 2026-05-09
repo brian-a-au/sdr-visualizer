@@ -361,4 +361,255 @@
   });
 
   applyFilters();
+
+  /* ===========================================================
+   * Graph view (D3 force-directed)
+   * =========================================================== */
+
+  var GRAPH_NODE_THRESHOLD = 1000;
+
+  var $viewButtons = document.querySelectorAll(".view-button[data-view]");
+  var $catalogView = document.getElementById("catalog-view");
+  var $graphView = document.getElementById("graph-view");
+  var $graphCanvas = document.getElementById("graph-canvas");
+  var $graphSearch = document.getElementById("graph-search");
+  var $graphTypeFilter = document.getElementById("graph-type-filter");
+  var $graphOrphanFilter = document.getElementById("graph-orphan-filter");
+  var $graphReset = document.getElementById("graph-reset");
+  var $graphStats = document.getElementById("graph-stats");
+  var $graphDegraded = document.getElementById("graph-degraded");
+  var $graphRenderAnyway = document.getElementById("graph-render-anyway");
+
+  var graphState = {
+    initialized: false,
+    simulation: null,
+    nodeSel: null,
+    linkSel: null,
+    zoom: null,
+    g: null,
+    nodes: [],
+    links: [],
+    neighborMap: {},
+    selectedTypes: {},
+    orphanMode: "all",
+    query: "",
+  };
+
+  function showView(name) {
+    $catalogView.hidden = name !== "catalog";
+    $graphView.hidden = name !== "graph";
+    $viewButtons.forEach(function (b) {
+      b.classList.toggle("is-active", b.getAttribute("data-view") === name);
+    });
+    if (name === "graph" && !graphState.initialized) {
+      maybeInitGraph();
+    }
+  }
+
+  $viewButtons.forEach(function (b) {
+    b.addEventListener("click", function () { showView(b.getAttribute("data-view")); });
+  });
+
+  function maybeInitGraph() {
+    var totalNodes = (payload.graph && payload.graph.nodes) ? payload.graph.nodes.length : 0;
+    if (totalNodes > GRAPH_NODE_THRESHOLD) {
+      $graphDegraded.hidden = false;
+      $graphRenderAnyway.addEventListener("click", function () {
+        $graphDegraded.hidden = true;
+        initGraph();
+      }, { once: true });
+      return;
+    }
+    initGraph();
+  }
+
+  function initGraph() {
+    if (graphState.initialized) return;
+    graphState.initialized = true;
+    if (!window.d3) {
+      console.error("sdr-visualizer: D3 not loaded; graph view unavailable");
+      return;
+    }
+    var d3 = window.d3;
+
+    // Node + link copies — D3 mutates them, so don't share with the catalog.
+    var srcNodes = (payload.graph && payload.graph.nodes) || [];
+    var srcEdges = (payload.graph && payload.graph.edges) || [];
+
+    var inDeg = (payload.graph && payload.graph.in_degree) || {};
+    graphState.nodes = srcNodes.map(function (n) {
+      return {
+        id: n.id,
+        type: n.type,
+        label: n.label,
+        in_degree: inDeg[n.id] || 0,
+      };
+    });
+    graphState.links = srcEdges.map(function (e) { return { source: e.source, target: e.target }; });
+
+    // Adjacency for hover-highlight.
+    graphState.neighborMap = {};
+    srcEdges.forEach(function (e) {
+      (graphState.neighborMap[e.source] = graphState.neighborMap[e.source] || {})[e.target] = true;
+      (graphState.neighborMap[e.target] = graphState.neighborMap[e.target] || {})[e.source] = true;
+    });
+
+    // SVG setup
+    var svg = d3.select($graphCanvas);
+    var rect = $graphCanvas.getBoundingClientRect();
+    var width = rect.width || 800;
+    var height = rect.height || 560;
+    svg.attr("viewBox", "0 0 " + width + " " + height);
+
+    var g = svg.append("g");
+    graphState.g = g;
+
+    graphState.zoom = d3.zoom()
+      .scaleExtent([0.2, 6])
+      .on("zoom", function (event) { g.attr("transform", event.transform); });
+    svg.call(graphState.zoom);
+
+    var color = {
+      metric: "#2a2a2a",
+      dimension: "#4a6f6f",
+      derived_field: "#5e6b78",
+      segment: "#8a6a4a",
+      calculated_metric: "#a08018",
+    };
+
+    var linkSel = g.append("g").attr("stroke", "#c8c4b8").attr("stroke-opacity", 0.6)
+      .selectAll("line")
+      .data(graphState.links)
+      .enter().append("line")
+      .attr("class", "graph-edge");
+    graphState.linkSel = linkSel;
+
+    var nodeSel = g.append("g")
+      .selectAll("g.graph-node")
+      .data(graphState.nodes)
+      .enter().append("g")
+      .attr("class", "graph-node");
+    graphState.nodeSel = nodeSel;
+
+    nodeSel.append("circle")
+      .attr("r", function (d) { return Math.max(3, Math.min(14, 3 + Math.sqrt(d.in_degree))); })
+      .attr("fill", function (d) { return color[d.type] || "#6b6b66"; });
+
+    nodeSel.append("text")
+      .attr("dx", function (d) { return Math.max(4, Math.min(16, 4 + Math.sqrt(d.in_degree))); })
+      .attr("dy", "0.32em")
+      .text(function (d) { return d.label; });
+
+    nodeSel.on("mouseover", function (event, d) { highlightNeighbors(d.id); })
+      .on("mouseout", function () { applyGraphFilters(); })
+      .on("click", function (event, d) { openDetail(d.id); });
+
+    nodeSel.call(d3.drag()
+      .on("start", function (event, d) {
+        if (!event.active) graphState.simulation.alphaTarget(0.3).restart();
+        d.fx = d.x; d.fy = d.y;
+      })
+      .on("drag", function (event, d) { d.fx = event.x; d.fy = event.y; })
+      .on("end", function (event, d) {
+        if (!event.active) graphState.simulation.alphaTarget(0);
+        d.fx = null; d.fy = null;
+      }));
+
+    graphState.simulation = d3.forceSimulation(graphState.nodes)
+      .force("link", d3.forceLink(graphState.links).id(function (d) { return d.id; }).distance(60).strength(0.5))
+      .force("charge", d3.forceManyBody().strength(-90))
+      .force("center", d3.forceCenter(width / 2, height / 2))
+      .force("collide", d3.forceCollide().radius(function (d) {
+        return Math.max(6, 5 + Math.sqrt(d.in_degree)) + 2;
+      }))
+      .alphaDecay(0.05)
+      .on("tick", tick);
+
+    function tick() {
+      linkSel
+        .attr("x1", function (d) { return d.source.x; })
+        .attr("y1", function (d) { return d.source.y; })
+        .attr("x2", function (d) { return d.target.x; })
+        .attr("y2", function (d) { return d.target.y; });
+      nodeSel.attr("transform", function (d) { return "translate(" + d.x + "," + d.y + ")"; });
+    }
+
+    // Wire filter UI.
+    selectedTypesFromUI();
+    applyGraphFilters();
+    $graphTypeFilter.addEventListener("change", function () { selectedTypesFromUI(); applyGraphFilters(); });
+    $graphOrphanFilter.addEventListener("change", function () { graphState.orphanMode = $graphOrphanFilter.value; applyGraphFilters(); });
+    $graphSearch.addEventListener("input", function () { graphState.query = $graphSearch.value.trim().toLowerCase(); applyGraphFilters(); });
+    $graphReset.addEventListener("click", function () {
+      svg.transition().duration(150).call(graphState.zoom.transform, d3.zoomIdentity);
+      graphState.simulation.alpha(0.6).restart();
+    });
+
+    $graphStats.textContent = graphState.nodes.length + " nodes · " + graphState.links.length + " edges";
+  }
+
+  function selectedTypesFromUI() {
+    graphState.selectedTypes = {};
+    var checked = $graphTypeFilter.querySelectorAll("input:checked");
+    for (var i = 0; i < checked.length; i++) graphState.selectedTypes[checked[i].value] = true;
+  }
+
+  function applyGraphFilters() {
+    if (!graphState.nodeSel) return;
+
+    var visibleIds = {};
+    graphState.nodes.forEach(function (n) {
+      var typeOk = !!graphState.selectedTypes[n.type];
+      var orphanOk = true;
+      if (graphState.orphanMode === "connected") {
+        orphanOk = (graphState.neighborMap[n.id] && Object.keys(graphState.neighborMap[n.id]).length > 0);
+      } else if (graphState.orphanMode === "orphans") {
+        orphanOk = !graphState.neighborMap[n.id];
+      }
+      var queryOk = true;
+      if (graphState.query) {
+        queryOk = (n.label || "").toLowerCase().indexOf(graphState.query) !== -1
+          || (n.id || "").toLowerCase().indexOf(graphState.query) !== -1;
+      }
+      var visible = typeOk && orphanOk;
+      n._matched = queryOk;
+      n._visible = visible;
+      if (visible) visibleIds[n.id] = true;
+    });
+
+    graphState.nodeSel.classed("is-faded", function (d) {
+      if (!d._visible) return true;
+      if (graphState.query) return !d._matched;
+      return false;
+    });
+    graphState.nodeSel.classed("is-highlighted", function (d) {
+      return graphState.query && d._matched && d._visible;
+    });
+    graphState.linkSel.classed("is-faded", function (d) {
+      var src = typeof d.source === "object" ? d.source.id : d.source;
+      var tgt = typeof d.target === "object" ? d.target.id : d.target;
+      return !visibleIds[src] || !visibleIds[tgt];
+    });
+  }
+
+  function highlightNeighbors(id) {
+    if (!graphState.nodeSel) return;
+    var neighbors = graphState.neighborMap[id] || {};
+    graphState.nodeSel.classed("is-hover", function (d) { return d.id === id; });
+    graphState.nodeSel.classed("is-faded", function (d) {
+      if (d.id === id) return false;
+      if (neighbors[d.id]) return false;
+      return true;
+    });
+    graphState.linkSel.classed("is-faded", function (d) {
+      var src = typeof d.source === "object" ? d.source.id : d.source;
+      var tgt = typeof d.target === "object" ? d.target.id : d.target;
+      return src !== id && tgt !== id;
+    });
+    graphState.linkSel.classed("is-highlighted", function (d) {
+      var src = typeof d.source === "object" ? d.source.id : d.source;
+      var tgt = typeof d.target === "object" ? d.target.id : d.target;
+      return src === id || tgt === id;
+    });
+  }
 })();

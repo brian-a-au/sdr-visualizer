@@ -1,0 +1,46 @@
+<section id="graph-view" class="view view-graph" hidden>
+  <div class="graph-controls ui">
+    <div class="graph-search-row">
+      <label class="search-label" for="graph-search">Highlight</label>
+      <input
+        type="search"
+        id="graph-search"
+        placeholder="Type to highlight matching nodes…"
+        autocomplete="off"
+        spellcheck="false"
+      />
+      <span class="graph-stats" id="graph-stats"></span>
+    </div>
+    <div class="graph-filter-row">
+      <fieldset class="filter-group">
+        <legend>Show</legend>
+        <div class="chip-group" id="graph-type-filter">
+          <label class="chip"><input type="checkbox" value="metric" checked /><span class="dot dot-metric"></span>Metric</label>
+          <label class="chip"><input type="checkbox" value="dimension" checked /><span class="dot dot-dimension"></span>Dimension</label>
+          <label class="chip"><input type="checkbox" value="derived_field" checked /><span class="dot dot-derived_field"></span>Derived</label>
+          <label class="chip"><input type="checkbox" value="segment" checked /><span class="dot dot-segment"></span>Segment</label>
+          <label class="chip"><input type="checkbox" value="calculated_metric" checked /><span class="dot dot-calculated_metric"></span>Calc metric</label>
+        </div>
+      </fieldset>
+      <fieldset class="filter-group">
+        <legend>Connections</legend>
+        <select id="graph-orphan-filter">
+          <option value="all">All nodes</option>
+          <option value="connected">Connected only</option>
+          <option value="orphans">Orphans only</option>
+        </select>
+      </fieldset>
+      <button type="button" id="graph-reset" class="ghost-button ui">Reset view</button>
+    </div>
+  </div>
+
+  <div id="graph-stage" class="graph-stage">
+    <div id="graph-degraded" class="graph-degraded ui" hidden>
+      <p>This implementation has more nodes than the default render
+        threshold. Showing the graph for thousands of nodes is slow and
+        often unhelpful.</p>
+      <button type="button" id="graph-render-anyway" class="ghost-button ui">Render anyway</button>
+    </div>
+    <svg id="graph-canvas" aria-label="Reference graph" role="img"></svg>
+  </div>
+</section>

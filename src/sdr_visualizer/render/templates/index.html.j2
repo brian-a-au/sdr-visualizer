@@ -56,10 +56,11 @@
 
 <nav class="view-nav ui">
   <button type="button" class="view-button is-active" data-view="catalog">Catalog</button>
-  <button type="button" class="view-button" data-view="graph" disabled title="Graph view coming in Phase 4">Reference graph</button>
+  <button type="button" class="view-button" data-view="graph">Reference graph</button>
 </nav>
 
 {% include "catalog.html.j2" %}
+{% include "graph.html.j2" %}
 
 <aside id="detail-panel" class="detail-panel" aria-hidden="true">
   <div class="detail-panel-inner">
@@ -76,6 +77,9 @@
 </footer>
 
 <script id="sdr-data" type="application/json">{{ payload_json | safe }}</script>
+<script>
+{{ d3_js | safe }}
+</script>
 <script>
 {{ js | safe }}
 </script>

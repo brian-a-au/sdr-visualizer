@@ -38,12 +38,14 @@ def _render_from_payload(payload: dict[str, Any], *, title: str | None) -> str:
     template = _env.get_template("index.html.j2")
     css = _read_static("visualizer.css")
     js = _read_static("visualizer.js")
+    d3_js = _read_static("d3.min.js")
     document_title = title or f"{payload['meta']['instance_name']} — Implementation Visualizer"
     return template.render(
         title=document_title,
         meta=payload["meta"],
         css=css,
         js=js,
+        d3_js=d3_js,
         # `tojson` would re-escape angle brackets etc.; we control the data
         # so plain `dumps` keeps the payload compact and readable.
         payload_json=json.dumps(payload, separators=(",", ":"), ensure_ascii=False),
