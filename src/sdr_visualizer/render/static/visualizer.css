@@ -473,6 +473,142 @@ h1 {
   word-break: break-word;
 }
 
+/* ---------- Segment anatomy ---------- */
+.anatomy {
+  font-family: "Söhne", "Inter", system-ui, sans-serif;
+  font-size: 13px;
+  color: #2a2a2a;
+}
+/* Each container slightly darkens — alpha stacks visually under nesting,
+ * so depth communicates through subtle shading rather than visible borders. */
+.anatomy-container {
+  margin: 4px 0;
+  padding: 8px 10px;
+  background: rgba(20, 20, 18, 0.035);
+  border-radius: 2px;
+}
+.anatomy-container > .anatomy-label {
+  display: inline-block;
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  font-weight: 500;
+  color: #6b6b66;
+  margin-bottom: 4px;
+}
+.anatomy-container[data-context] .anatomy-label::before {
+  content: "";
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #6b6b66;
+  margin-right: 6px;
+  vertical-align: 1px;
+}
+.anatomy-container[data-context*="event"] .anatomy-label::before     { background: #8a6a4a; }
+.anatomy-container[data-context*="session"] .anatomy-label::before   { background: #4a6f6f; }
+.anatomy-container[data-context*="person"] .anatomy-label::before    { background: #2a2a2a; }
+.anatomy-container[data-context*="hit"] .anatomy-label::before       { background: #8a6a4a; }
+.anatomy-container[data-context*="visit"] .anatomy-label::before     { background: #4a6f6f; }
+.anatomy-container[data-context*="visitor"] .anatomy-label::before   { background: #2a2a2a; }
+
+.anatomy-logical { margin: 3px 0; padding: 6px 0; }
+.anatomy-logical-op {
+  display: inline-block;
+  padding: 1px 6px;
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  font-weight: 500;
+  border-radius: 2px;
+  margin-bottom: 4px;
+}
+.anatomy-op-and { background: #e6e2d4; color: #2a2a2a; }
+.anatomy-op-or  { background: #f5dbb5; color: #6a4f30; }
+.anatomy-op-not, .anatomy-op-without { background: #f5d8d2; color: #8b2a1f; }
+
+.anatomy-children { padding-left: 4px; }
+.anatomy-criterion {
+  padding: 4px 8px;
+  margin: 2px 0;
+  font-family: "JetBrains Mono", "SF Mono", monospace;
+  font-size: 12px;
+  color: #2a2a2a;
+}
+.anatomy-criterion .criterion-target { font-weight: 500; color: #1a1a1a; }
+.anatomy-criterion .criterion-op { color: #6b6b66; padding: 0 4px; }
+.anatomy-criterion .criterion-value { color: #6a4f30; }
+
+.anatomy-segment-ref {
+  padding: 4px 8px;
+  margin: 2px 0;
+  font-family: "JetBrains Mono", "SF Mono", monospace;
+  font-size: 12px;
+}
+.anatomy-segment-ref button {
+  color: #2a2a2a;
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 2px;
+  padding: 0;
+}
+.anatomy-segment-ref button:hover { color: #1a1a1a; }
+
+.anatomy-unknown {
+  padding: 4px 8px;
+  font-size: 11px;
+  color: #b8651a;
+  font-style: italic;
+}
+
+/* ---------- Calc metric anatomy ---------- */
+.formula-tree {
+  font-family: "JetBrains Mono", "SF Mono", monospace;
+  font-size: 13px;
+  color: #2a2a2a;
+}
+.formula-op {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 0;
+}
+.formula-op-name {
+  font-family: "Söhne", "Inter", system-ui, sans-serif;
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  font-weight: 500;
+  color: #6a4f30;
+  background: #f5dbb5;
+  padding: 1px 6px;
+  border-radius: 2px;
+}
+.formula-args {
+  margin-top: 4px;
+  padding-left: 14px;
+  border-left: 2px solid #ece9e0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.formula-metric-ref {
+  color: #1a1a1a;
+}
+.formula-metric-ref button {
+  color: #1a1a1a;
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 2px;
+  font-family: inherit;
+  font-size: inherit;
+  padding: 0;
+}
+.formula-metric-ref button.is-dangling { color: #b8651a; cursor: default; text-decoration: none; }
+.formula-constant { color: #6b6b66; }
+.formula-segment-scope { color: #6a4f30; }
+
 /* ---------- Graph view ---------- */
 .view-graph { padding-top: 16px; }
 .graph-controls {

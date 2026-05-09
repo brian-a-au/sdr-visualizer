@@ -271,6 +271,10 @@
       if (entry.formula_text) {
         pieces.push('<div class="detail-section"><h3>Formula</h3><div class="formula-block">' + escapeHtml(entry.formula_text) + "</div></div>");
       }
+      var formulaTree = (payload.formula_trees || {})[entry.id];
+      if (formulaTree) {
+        pieces.push('<div class="detail-section"><h3>Anatomy</h3><div class="formula-tree">' + renderFormulaTree(formulaTree) + "</div></div>");
+      }
       var calcMeta = '<dl class="detail-grid">';
       calcMeta += "<dt>Attribution</dt><dd>" + escapeHtml(entry.attribution_model || "—") + "</dd>";
       calcMeta += "<dt>Allocation</dt><dd>" + escapeHtml(entry.allocation || "—") + "</dd>";
@@ -284,7 +288,12 @@
       segMeta += "<dt>Nesting depth</dt><dd>" + (entry.nesting_depth || 0) + "</dd>";
       segMeta += "<dt>Containers</dt><dd>" + escapeHtml((entry.container_types || []).join(", ") || "—") + "</dd>";
       segMeta += "</dl>";
-      pieces.push('<div class="detail-section"><h3>Anatomy</h3>' + segMeta + "</div>");
+      pieces.push('<div class="detail-section"><h3>Properties</h3>' + segMeta + "</div>");
+
+      var segTree = (payload.segment_trees || {})[entry.id];
+      if (segTree) {
+        pieces.push('<div class="detail-section"><h3>Anatomy</h3><div class="anatomy">' + renderSegmentTree(segTree) + "</div></div>");
+      }
     } else {
       var compMeta = '<dl class="detail-grid">';
       compMeta += "<dt>Type</dt><dd>" + escapeHtml(formatTypeLabel(entry.type)) + "</dd>";
@@ -321,6 +330,107 @@
     }
 
     return pieces.join("");
+  }
+
+  /* ----- Anatomy renderers (segment + formula trees) ----- */
+
+  function renderSegmentTree(node) {
+    if (!node || typeof node !== "object") return "";
+    switch (node.kind) {
+      case "container": {
+        var ctx = node.context || "";
+        var inner = node.child ? renderSegmentTree(node.child) : "";
+        return (
+          '<div class="anatomy-container" data-context="' + escapeHtml(ctx) + '">' +
+            '<div class="anatomy-label">' + escapeHtml(ctx) + "</div>" +
+            inner +
+          "</div>"
+        );
+      }
+      case "logical": {
+        var op = node.op || "and";
+        var children = (node.children || []).map(renderSegmentTree).join("");
+        return (
+          '<div class="anatomy-logical">' +
+            '<span class="anatomy-logical-op anatomy-op-' + escapeHtml(op) + '">' + escapeHtml(op) + "</span>" +
+            '<div class="anatomy-children">' + children + "</div>" +
+          "</div>"
+        );
+      }
+      case "criterion": {
+        var target = node.target_label || "value";
+        var opLabel = node.op || "";
+        var value = node.value !== undefined && node.value !== null ? JSON.stringify(node.value) : "";
+        return (
+          '<div class="anatomy-criterion">' +
+            '<span class="criterion-target">' + escapeHtml(target) + "</span>" +
+            '<span class="criterion-op">' + escapeHtml(opLabel) + "</span>" +
+            (value ? '<span class="criterion-value">' + escapeHtml(value) + "</span>" : "") +
+          "</div>"
+        );
+      }
+      case "segment_ref": {
+        var sid = node.segment_id || "";
+        var resolvable = !!byId[sid];
+        return (
+          '<div class="anatomy-segment-ref">' +
+            (resolvable
+              ? '<button type="button" class="ref-link" data-id="' + escapeHtml(sid) + '">' + escapeHtml(sid) + "</button>"
+              : '<span class="ref-dangling">' + escapeHtml(sid) + " (not in inventory)</span>") +
+          "</div>"
+        );
+      }
+      case "unknown":
+      default:
+        return '<div class="anatomy-unknown">' +
+          (node.func ? "Unrecognized: " + escapeHtml(node.func) : "Unrecognized expression") +
+          "</div>";
+    }
+  }
+
+  function renderFormulaTree(node) {
+    if (!node || typeof node !== "object") return "";
+    switch (node.kind) {
+      case "operation": {
+        var op = node.op || "?";
+        var args = (node.args || []).map(renderFormulaTree).join("");
+        return (
+          '<div class="formula-op">' +
+            '<span class="formula-op-name">' + escapeHtml(op) + "</span>" +
+          "</div>" +
+          '<div class="formula-args">' + args + "</div>"
+        );
+      }
+      case "metric_ref": {
+        var mid = node.metric_id || "";
+        var label = node.label || mid;
+        var resolvable = !!byId[mid];
+        return (
+          '<div class="formula-metric-ref">' +
+            (resolvable
+              ? '<button type="button" class="ref-link" data-id="' + escapeHtml(mid) + '">' + escapeHtml(label) + "</button>"
+              : '<button type="button" class="is-dangling" disabled>' + escapeHtml(label) + " (not in inventory)</button>") +
+          "</div>"
+        );
+      }
+      case "constant": {
+        return '<div class="formula-constant">' + escapeHtml(JSON.stringify(node.value)) + "</div>";
+      }
+      case "segment_scope": {
+        var sid = node.segment_id || "";
+        var inner = node.child ? renderFormulaTree(node.child) : "";
+        return (
+          '<div class="formula-segment-scope">' +
+            "scoped to " + escapeHtml(sid) +
+          "</div>" + inner
+        );
+      }
+      case "unknown":
+      default:
+        return '<div class="anatomy-unknown">' +
+          (node.func ? "Unrecognized: " + escapeHtml(node.func) : "Unrecognized expression") +
+          "</div>";
+    }
   }
 
   /* ----- Wiring ----- */

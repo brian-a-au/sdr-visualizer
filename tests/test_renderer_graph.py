@@ -34,11 +34,14 @@ def test_graph_nav_button_enabled(messy_html):
     """Phase 3 had it disabled; Phase 4 enables it."""
     nav_block = messy_html.split("</nav>")[0]
     assert 'data-view="graph"' in nav_block
-    assert "disabled" not in nav_block.split('data-view="graph"')[0].split('class="view-button"')[-1]
+    assert (
+        "disabled" not in nav_block.split('data-view="graph"')[0].split('class="view-button"')[-1]
+    )
 
 
 def test_graph_payload_has_nodes_and_edges(messy_html):
     import re
+
     match = re.search(
         r'<script id="sdr-data" type="application/json">(?P<json>.*?)</script>',
         messy_html,
