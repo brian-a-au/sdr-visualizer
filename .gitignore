@@ -1,0 +1,59 @@
+# Reference artifacts (kept in working directory, not tracked).
+# These are the spec inputs and the grader's render artifacts copied here
+# as references. The visualizer has its own templates under
+# src/sdr_visualizer/render/.
+/SPEC.md
+/SPEC-VISUALIZER.md
+/render.py
+/report.css
+/report.html.j2
+/sample-report.html
+/templated-report.html
+
+# macOS
+.DS_Store
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+dist/
+*.egg-info/
+.eggs/
+*.egg
+MANIFEST
+
+# uv / virtualenvs
+.venv/
+venv/
+env/
+
+# Testing
+.pytest_cache/
+.coverage
+.coverage.*
+htmlcov/
+coverage.xml
+.tox/
+
+# Linters / type checkers
+.ruff_cache/
+.mypy_cache/
+.pyre/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Local-only generated artifacts
+/visualize-*.html
+/visualize-*.json
+
+# Environment
+.env
+.env.local
