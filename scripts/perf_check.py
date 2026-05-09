@@ -19,51 +19,59 @@ import sys
 import time
 from pathlib import Path
 
-from sdr_visualizer.adapters.cja import adapt
+from sdr_visualizer.adapters.aa import adapt as aa_adapt
+from sdr_visualizer.adapters.cja import adapt as cja_adapt
 from sdr_visualizer.render.renderer import render
 
 REPO = Path(__file__).resolve().parent.parent
-LARGE = REPO / "tests" / "fixtures" / "cja_snapshot_large.json"
+CJA_LARGE = REPO / "tests" / "fixtures" / "cja_snapshot_large.json"
+AA_LARGE = REPO / "tests" / "fixtures" / "aa_snapshot_large.json"
 
 BUILD_BUDGET_S = 6.0
 SIZE_BUDGET_MB = 4.0
 
 
-def main() -> int:
-    if not LARGE.exists():
-        print(
-            f"sdr-visualizer: fixture {LARGE} missing; run "
-            "`uv run python scripts/generate_large_fixture.py` first.",
-            file=sys.stderr,
-        )
-        return 2
-
-    snap = json.loads(LARGE.read_text(encoding="utf-8"))
-    component_count = (
-        len(snap["metrics"])
-        + len(snap["dimensions"])
-        + len(snap["derived_fields"]["fields"])
-        + len(snap["segments"]["segments"])
-        + len(snap["calculated_metrics"]["metrics"])
-    )
-
+def _measure(label: str, snap: dict, adapt) -> tuple[bool, str]:
     start = time.perf_counter()
     impl = adapt(snap)
     html = render(impl)
     elapsed = time.perf_counter() - start
-
     size_mb = len(html.encode("utf-8")) / (1024 * 1024)
 
-    print(f"components: {component_count}")
-    print(f"build time: {elapsed:.2f}s   (budget {BUILD_BUDGET_S}s)")
-    print(f"HTML size : {size_mb:.2f}MB  (budget {SIZE_BUDGET_MB}MB)")
-
-    failed = []
+    msgs = [
+        f"[{label}] build time: {elapsed:.2f}s   (budget {BUILD_BUDGET_S}s)",
+        f"[{label}] HTML size : {size_mb:.2f}MB  (budget {SIZE_BUDGET_MB}MB)",
+    ]
+    failures = []
     if elapsed > BUILD_BUDGET_S:
-        failed.append(f"build time {elapsed:.2f}s > {BUILD_BUDGET_S}s budget")
+        failures.append(f"[{label}] build time {elapsed:.2f}s > {BUILD_BUDGET_S}s budget")
     if size_mb > SIZE_BUDGET_MB:
-        failed.append(f"HTML size {size_mb:.2f}MB > {SIZE_BUDGET_MB}MB budget")
+        failures.append(f"[{label}] HTML size {size_mb:.2f}MB > {SIZE_BUDGET_MB}MB budget")
+    return failures, "\n".join(msgs)
 
+
+def main() -> int:
+    for fixture, generator in [
+        (CJA_LARGE, "scripts/generate_large_fixture.py"),
+        (AA_LARGE,  "scripts/generate_aa_large_fixture.py"),
+    ]:
+        if not fixture.exists():
+            print(
+                f"sdr-visualizer: fixture {fixture} missing; run "
+                f"`uv run python {generator}` first.",
+                file=sys.stderr,
+            )
+            return 2
+
+    cja_snap = json.loads(CJA_LARGE.read_text(encoding="utf-8"))
+    aa_snap = json.loads(AA_LARGE.read_text(encoding="utf-8"))
+
+    cja_failures, cja_report = _measure("CJA", cja_snap, cja_adapt)
+    print(cja_report)
+    aa_failures, aa_report = _measure("AA", aa_snap, aa_adapt)
+    print(aa_report)
+
+    failed = [*cja_failures, *aa_failures]
     if failed:
         for msg in failed:
             print(f"FAIL: {msg}", file=sys.stderr)

@@ -41,7 +41,10 @@ jobs:
 
       - name: Upload distributions to PyPI
         uses: pypa/gh-action-pypi-publish@release/v1
+        continue-on-error: true
         # Trusted-publisher relationship must be configured on PyPI for the
-        # repo before this step succeeds. Until then, the GitHub release
-        # artifacts are still produced by the previous step, and this step
-        # will fail loudly.
+        # repo before this step succeeds. Until then, this step is allowed
+        # to fail without blocking the release — GitHub release artifacts
+        # are still produced by the previous step. To enforce PyPI
+        # publishing once trusted-publisher is configured, drop the
+        # `continue-on-error: true` line above.
