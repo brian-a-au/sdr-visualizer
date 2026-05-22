@@ -682,6 +682,7 @@ h1 {
   background: #fafaf7;
   z-index: 1;
 }
+.graph-degraded[hidden] { display: none; }
 .graph-degraded p {
   max-width: 480px;
   color: #4a4a44;

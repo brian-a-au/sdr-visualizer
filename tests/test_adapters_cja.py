@@ -63,12 +63,12 @@ def test_messy_implementation_metadata(messy_impl: Implementation) -> None:
     assert isinstance(messy_impl.raw, dict) and "metadata" in messy_impl.raw
 
 
-def test_messy_total_components_is_487(messy_impl: Implementation) -> None:
-    assert len(messy_impl.metrics) == 142
+def test_messy_total_components_is_520(messy_impl: Implementation) -> None:
+    assert len(messy_impl.metrics) == 175
     assert len(messy_impl.dimensions) == 203
     assert len(messy_impl.derived_fields) == 142
     total = len(messy_impl.metrics) + len(messy_impl.dimensions) + len(messy_impl.derived_fields)
-    assert total == 487
+    assert total == 520
 
 
 def test_messy_missing_descriptions_total_89(messy_impl: Implementation) -> None:

@@ -509,7 +509,7 @@
     links: [],
     neighborMap: {},
     selectedTypes: {},
-    orphanMode: "all",
+    orphanMode: "connected",
     query: "",
   };
 
@@ -654,6 +654,7 @@
 
     // Wire filter UI.
     selectedTypesFromUI();
+    graphState.orphanMode = $graphOrphanFilter.value;
     applyGraphFilters();
     $graphTypeFilter.addEventListener("change", function () { selectedTypesFromUI(); applyGraphFilters(); });
     $graphOrphanFilter.addEventListener("change", function () { graphState.orphanMode = $graphOrphanFilter.value; applyGraphFilters(); });

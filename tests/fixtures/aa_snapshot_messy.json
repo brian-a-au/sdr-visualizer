@@ -1023,6 +1023,39 @@
       "tags": [],
       "precision": 0,
       "segmentable": true
+    },
+    {
+      "id": "metrics/orders",
+      "name": "Orders",
+      "description": "Demo metric: orders.",
+      "type": "int",
+      "category": "Conversion",
+      "data_group": "Conversion",
+      "tags": [],
+      "precision": 0,
+      "segmentable": true
+    },
+    {
+      "id": "metrics/revenue",
+      "name": "Revenue",
+      "description": "Demo metric: revenue.",
+      "type": "currency",
+      "category": "Conversion",
+      "data_group": "Conversion",
+      "tags": [],
+      "precision": 2,
+      "segmentable": true
+    },
+    {
+      "id": "metrics/visits",
+      "name": "Visits",
+      "description": "Demo metric: visits.",
+      "type": "int",
+      "category": "Conversion",
+      "data_group": "Conversion",
+      "tags": [],
+      "precision": 0,
+      "segmentable": true
     }
   ],
   "calculated_metrics": [
