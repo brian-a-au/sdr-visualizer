@@ -1,5 +1,11 @@
 # sdr-visualizer
 
+[![Tests](https://github.com/brian-a-au/sdr-visualizer/actions/workflows/test.yml/badge.svg)](https://github.com/brian-a-au/sdr-visualizer/actions/workflows/test.yml)
+[![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-blue.svg)](https://www.python.org/downloads/)
+[![Ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json)](https://github.com/astral-sh/ruff)
+[![uv](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/uv/main/assets/badge/v0.json)](https://github.com/astral-sh/uv)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+
 Static-output visual catalog generator for Adobe Customer Journey Analytics (CJA) and Adobe Analytics (AA) implementations. Consumes JSON snapshots from [`cja_auto_sdr`](https://github.com/brian-a-au/cja_auto_sdr) and [`aa_auto_sdr`](https://github.com/brian-a-au/aa_auto_sdr) and produces a single self-contained HTML file with:
 
 - A searchable, filterable component catalog (the primary view)
@@ -97,7 +103,3 @@ uv run python scripts/perf_check.py          # Run the perf gate
 - [`docs/ADAPTER_GUIDE.md`](docs/ADAPTER_GUIDE.md) — how the CJA and AA adapters work, and how to add a new platform.
 - [`docs/PERFORMANCE.md`](docs/PERFORMANCE.md) — performance budgets and how they're enforced.
 - [`docs/EMBEDDED_DATA_FORMAT.md`](docs/EMBEDDED_DATA_FORMAT.md) — the JSON payload format embedded in the HTML output.
-
-## License
-
-MIT
