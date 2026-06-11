@@ -70,6 +70,8 @@ Open the generated HTML and you'll see four views, accessible from the top-level
 3. **Segment anatomy** (contextual) — opens from a segment's detail panel. Renders the segment's definition tree as nested containers with subtle alpha-stacked shading per nesting level, color-coded AND/OR/NOT chips, and clickable inline references to other segments.
 4. **Calculated metric anatomy** (contextual) — opens from a calc metric's detail panel. Renders the formula as a tree of operations and operands; metric refs are clickable.
 
+- **Shareable links** — filters, sort, view, and the open detail panel live in the URL hash, so a filtered view can be sent as a link.
+
 ## Performance budget
 
 The output is CI-gated against the budgets in [`docs/PERFORMANCE.md`](docs/PERFORMANCE.md). At 1,000 components:

@@ -2,6 +2,27 @@
 
 All notable changes to `sdr-visualizer` will be documented here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Security
+
+- The embedded JSON payload now escapes `<` as `<`. Previously a snapshot
+  field containing `</script>` (e.g. a hostile component description) could
+  terminate the data block and inject live markup into the generated HTML.
+
+### Added
+
+- **Shareable URL state.** Catalog search, type/description/references/modified
+  filters, sort, the active view, and the open detail panel are reflected in
+  `location.hash` — copy the URL to share a filtered view ("every undocumented
+  metric"). Restored on load. (SPEC §14 Q1)
+- **Radial layout for small graphs.** Implementations with fewer than 20
+  components skip the force simulation and place nodes evenly on a circle —
+  force-directed layouts look chaotic at that size. Drag and reset still work.
+  (SPEC §14 Q2)
+- Browser-level functional tests (Playwright) covering script-injection,
+  URL-state restore, and the radial layout; run in CI's browser-perf job.
+
 ## [0.2.0] - 2026-06-10
 
 Performance and scaling release. The embedded payload contract changed (see
