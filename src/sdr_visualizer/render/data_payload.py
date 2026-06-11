@@ -73,6 +73,23 @@ def build_payload(impl: Implementation) -> dict[str, Any]:
     }
 
 
+def _epoch_ms(value: Any) -> int | None:
+    """Parse ISO 8601 (incl. trailing Z) or 'YYYY-MM-DD HH:MM:SS' to epoch ms.
+
+    Precomputed server-side so the client never constructs Date objects in
+    sort comparators or filter passes. Naive timestamps are assumed UTC.
+    """
+    if not isinstance(value, str) or not value.strip():
+        return None
+    try:
+        dt = datetime.fromisoformat(value.strip().replace("Z", "+00:00"))
+    except ValueError:
+        return None
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=UTC)
+    return int(dt.timestamp() * 1000)
+
+
 def _component_node(
     c: Component,
     type_: str,
@@ -90,6 +107,7 @@ def _component_node(
         "owner": c.owner,
         "created_at": c.created_at,
         "modified_at": c.modified_at,
+        "modified_ts": _epoch_ms(c.modified_at),
         "in_degree": in_degree.get(c.id, 0),
         "out_degree": out_degree.get(c.id, 0),
         "platform_specific": c.platform_specific,
@@ -111,6 +129,7 @@ def _segment_node(
         "owner": s.owner,
         "created_at": s.created_at,
         "modified_at": s.modified_at,
+        "modified_ts": _epoch_ms(s.modified_at),
         "in_degree": in_degree.get(s.id, 0),
         "out_degree": out_degree.get(s.id, 0),
     }
@@ -133,6 +152,7 @@ def _calc_metric_node(
         "owner": c.owner,
         "created_at": c.created_at,
         "modified_at": c.modified_at,
+        "modified_ts": _epoch_ms(c.modified_at),
         "in_degree": in_degree.get(c.id, 0),
         "out_degree": out_degree.get(c.id, 0),
     }

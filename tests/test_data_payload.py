@@ -82,3 +82,27 @@ def test_payload_round_trips_through_json(messy_payload):
     text = json.dumps(messy_payload, separators=(",", ":"))
     parsed = json.loads(text)
     assert parsed["meta"]["platform"] == "cja"
+
+
+def test_epoch_ms_parses_iso_and_spaced_timestamps():
+    from sdr_visualizer.render.data_payload import _epoch_ms
+
+    assert _epoch_ms("2026-04-25T09:14:00Z") == 1777108440000
+    assert _epoch_ms("2026-04-25 09:14:00") == 1777108440000  # cja_auto_sdr shape
+    assert _epoch_ms("not a date") is None
+    assert _epoch_ms(None) is None
+    assert _epoch_ms("") is None
+    assert _epoch_ms("2026-04-25T09:14:00+05:30") != _epoch_ms("2026-04-25T09:14:00Z")
+
+
+def test_modified_ts_mirrors_modified_at(messy_payload):
+    from sdr_visualizer.render.data_payload import _epoch_ms
+
+    entries = [
+        *messy_payload["components"],
+        *messy_payload["segments"],
+        *messy_payload["calculated_metrics"],
+    ]
+    assert any(e.get("modified_ts") is not None for e in entries)
+    for e in entries:
+        assert e.get("modified_ts") == _epoch_ms(e.get("modified_at"))
