@@ -6,6 +6,7 @@ import json
 from pathlib import Path
 
 import pytest
+from conftest import extract_payload
 
 from sdr_visualizer.adapters.cja import adapt
 from sdr_visualizer.render.renderer import render
@@ -40,14 +41,7 @@ def test_graph_nav_button_enabled(messy_html):
 
 
 def test_graph_payload_has_edges(messy_html):
-    import re
-
-    match = re.search(
-        r'<script id="sdr-data" type="application/json">(?P<json>.*?)</script>',
-        messy_html,
-        re.DOTALL,
-    )
-    payload = json.loads(match.group("json"))
+    payload = extract_payload(messy_html)
     # Graph nodes are derived client-side from the catalog (0.2.0); only
     # edges ship in the graph section.
     assert payload["graph"]["edges"]

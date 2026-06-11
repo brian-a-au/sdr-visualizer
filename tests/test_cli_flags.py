@@ -3,21 +3,13 @@
 from __future__ import annotations
 
 import json
-import re
 from pathlib import Path
+
+from conftest import extract_payload as _embedded_payload
 
 from sdr_visualizer.cli.main import main
 
 FIXTURES = Path(__file__).parent / "fixtures"
-
-
-def _embedded_payload(html: str) -> dict:
-    match = re.search(
-        r'<script id="sdr-data" type="application/json">(?P<json>.*?)</script>',
-        html,
-        re.DOTALL,
-    )
-    return json.loads(match.group("json"))
 
 
 def test_exclude_orphans_flag_threads_to_payload(tmp_path):

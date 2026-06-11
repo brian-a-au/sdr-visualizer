@@ -72,14 +72,21 @@ def _segment(idx: int) -> dict:
         definition = {
             "version": [1, 0, 0],
             "container": {
-                "context": "visitors", "func": "container",
+                "context": "visitors",
+                "func": "container",
                 "pred": {
                     "func": "and",
                     "args": [
-                        {"func": "container", "context": "visits",
-                         "pred": {"func": "eq", "val": "v1"}},
-                        {"func": "container", "context": "hits",
-                         "pred": {"func": "eq", "val": "h1"}},
+                        {
+                            "func": "container",
+                            "context": "visits",
+                            "pred": {"func": "eq", "val": "v1"},
+                        },
+                        {
+                            "func": "container",
+                            "context": "hits",
+                            "pred": {"func": "eq", "val": "h1"},
+                        },
                     ],
                 },
             },
@@ -88,7 +95,8 @@ def _segment(idx: int) -> dict:
         definition = {
             "version": [1, 0, 0],
             "container": {
-                "context": "hits", "func": "container",
+                "context": "hits",
+                "func": "container",
                 "pred": {"func": "eq", "val": f"value_{idx}"},
             },
         }
@@ -125,11 +133,11 @@ def main() -> None:
         "report_suite": {"rsid": "large.synthetic.aa", "name": "Synthetic Large AA"},
         "captured_at": "2026-04-25T09:14:00Z",
         "tool_version": "1.0.0",
-        "dimensions":         [_dimension(i) for i in range(1, 501)],
-        "metrics":            [_metric(i) for i in range(1, 301)],
+        "dimensions": [_dimension(i) for i in range(1, 501)],
+        "metrics": [_metric(i) for i in range(1, 301)],
         "calculated_metrics": [_calc_metric(i) for i in range(1, 51)],
-        "segments":           [_segment(i) for i in range(1, 51)],
-        "classifications":    [_classification(i) for i in range(1, 81)],
+        "segments": [_segment(i) for i in range(1, 51)],
+        "classifications": [_classification(i) for i in range(1, 81)],
         "virtual_report_suites": [],
     }
     TARGET.write_text(json.dumps(snapshot), encoding="utf-8")

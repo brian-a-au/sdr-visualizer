@@ -7,10 +7,10 @@ no segments, no calc metrics).
 from __future__ import annotations
 
 import json
-import re
 from pathlib import Path
 
 import pytest
+from conftest import extract_payload
 
 from sdr_visualizer.adapters.cja import adapt
 from sdr_visualizer.render.renderer import render
@@ -31,12 +31,7 @@ def minimal_html(minimal_impl):
 
 @pytest.fixture(scope="module")
 def minimal_payload(minimal_html):
-    match = re.search(
-        r'<script id="sdr-data" type="application/json">(?P<json>.*?)</script>',
-        minimal_html,
-        re.DOTALL,
-    )
-    return json.loads(match.group("json"))
+    return extract_payload(minimal_html)
 
 
 def test_minimal_implementation_has_no_segments_or_calc_metrics(minimal_impl):

@@ -12,18 +12,17 @@ import json
 from importlib import resources
 from typing import Any
 
-from jinja2 import Environment, PackageLoader, select_autoescape
+from jinja2 import Environment, PackageLoader
 
 from sdr_visualizer.core.models import Implementation
 from sdr_visualizer.render.data_payload import build_payload
 
 _env = Environment(
     loader=PackageLoader("sdr_visualizer.render", "templates"),
-    # "j2" must be listed explicitly: select_autoescape matches on the final
-    # extension only, so "index.html.j2" does NOT match ["html"]. Without
-    # listing "j2", {{ title }} / {{ meta.instance_name }} etc. render raw,
-    # allowing XSS via hostile snapshot metadata.
-    autoescape=select_autoescape(["html", "j2"]),
+    # autoescape=True covers all templates unconditionally, eliminating the
+    # extension-matching gap that select_autoescape(["html"]) had with
+    # "index.html.j2" (final extension ".j2", not ".html").
+    autoescape=True,
 )
 
 
@@ -75,7 +74,10 @@ def _render_from_payload(payload: dict[str, Any], *, title: str | None) -> str:
         d3_js=d3_js,
         # Snapshot text is untrusted: a description containing "</script>"
         # would otherwise terminate the data block and become live markup
-        # (stored XSS). Escaping "<" as < is invisible to JSON.parse.
+        # (stored XSS). Escaping "<" as the JSON escape "\u003c" is invisible
+        # to JSON.parse. Applies to the whole blob (keys included — safe,
+        # all keys are fixed). Only "<" needs escaping: the block is
+        # type="application/json", which only "</script" can terminate.
         payload_json=json.dumps(payload, separators=(",", ":"), ensure_ascii=False).replace(
             "<", "\\u003c"
         ),

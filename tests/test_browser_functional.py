@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+from urllib.parse import quote
 
 import pytest
 
@@ -66,17 +67,24 @@ def test_hostile_snapshot_does_not_execute(browser_page, tmp_path):
 
 
 def test_url_hash_restores_catalog_state(browser_page, tmp_path):
+    # q=metric matches "Metric 001"..".Metric 038" (all have missing descriptions).
+    # types=metric + desc=missing + sort=name + dir=desc exercises all restore paths
+    # and yields 38 rows (empirically verified against cja_snapshot_messy.json).
     out = _render_to(tmp_path, "cja_snapshot_messy.json", "state.html")
-    browser_page.goto(out.as_uri() + "#q=evil&types=metric&desc=missing&sort=name&dir=desc")
+    browser_page.goto(out.as_uri() + "#q=metric&types=metric&desc=missing&sort=name&dir=desc")
     browser_page.wait_for_selector("#search-input", state="attached", timeout=10_000)
-    assert browser_page.evaluate("document.getElementById('search-input').value") == "evil"
+    assert browser_page.evaluate("document.getElementById('search-input').value") == "metric"
     checked = browser_page.evaluate(
         "Array.from(document.querySelectorAll('#type-filter input:checked')).map(i => i.value)"
     )
     assert checked == ["metric"]
     assert browser_page.evaluate("document.getElementById('description-filter').value") == "missing"
-    assert browser_page.evaluate("document.querySelector('th.is-sorted').getAttribute('data-sort')") == "name"
+    assert (
+        browser_page.evaluate("document.querySelector('th.is-sorted').getAttribute('data-sort')")
+        == "name"
+    )
     assert "dir=desc" in browser_page.evaluate("location.hash")
+    assert browser_page.evaluate("window.__sdrPerf.rowCount()") > 0
 
 
 def test_url_hash_written_on_filter_change(browser_page, tmp_path):
@@ -92,13 +100,15 @@ def test_url_hash_written_on_filter_change(browser_page, tmp_path):
 
 
 def test_url_hash_restores_open_detail(browser_page, tmp_path):
+    snap = json.loads((FIXTURES / "cja_snapshot_messy.json").read_text(encoding="utf-8"))
+    known_id = snap["metrics"][0]["id"]
     out = _render_to(tmp_path, "cja_snapshot_messy.json", "detail.html")
     # Navigate directly with a known fixture id encoded in the hash so the
     # deferred restore runs on initial load (not a fragment-only navigation).
-    known_id = "metrics%2Fcm_metric_001"
-    browser_page.goto(out.as_uri() + "#detail=" + known_id)
+    browser_page.goto(out.as_uri() + "#detail=" + quote(known_id, safe=""))
     browser_page.wait_for_selector("#detail-panel.is-open", state="attached", timeout=10_000)
     assert "detail=" in browser_page.evaluate("location.hash")
+    assert known_id in browser_page.evaluate("document.getElementById('detail-body').innerText")
 
 
 def test_url_hash_ignores_bogus_params(browser_page, tmp_path):

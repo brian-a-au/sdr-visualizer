@@ -7,6 +7,7 @@ import re
 from pathlib import Path
 
 import pytest
+from conftest import extract_payload, extract_payload_text
 
 from sdr_visualizer.adapters.aa import adapt as aa_adapt
 from sdr_visualizer.adapters.cja import adapt as cja_adapt
@@ -48,13 +49,7 @@ def test_html_contains_catalog_view_section(messy_html):
 
 def test_html_contains_payload_script_with_json(messy_html):
     """Payload must be embedded as a JSON script the JS can read."""
-    match = re.search(
-        r'<script id="sdr-data" type="application/json">(?P<json>.*?)</script>',
-        messy_html,
-        re.DOTALL,
-    )
-    assert match
-    parsed = json.loads(match.group("json"))
+    parsed = extract_payload(messy_html)
     assert parsed["meta"]["platform"] == "cja"
     assert parsed["meta"]["component_count"] > 0
 
@@ -113,33 +108,22 @@ def hostile_html():
     return render(cja_adapt(snap))
 
 
-def test_payload_cannot_break_out_of_script_block(hostile_html):
+def test_payload_cannot_break_out_of_script_block(hostile_html, messy_html):
     """A '</script>' inside snapshot text must not terminate the data block.
 
-    json.dumps does not escape angle brackets by default; without explicit
-    escaping a hostile description becomes live markup — stored XSS in a
-    file users share with each other.
+    Detection is count-based: an injected '</script>' surviving into the
+    payload adds closing tags relative to a clean render. (Content checks on
+    the extracted block are vacuous on unfixed code — the extraction itself
+    truncates at the injected tag.)
     """
-    # Exactly three closing script tags exist in the document: the sdr-data
-    # JSON block, the inlined D3 bundle, and the inlined visualizer JS.  An
-    # injected '</script>' surviving into the payload would add a fourth.
-    assert hostile_html.count("</script>") == 3
-    # The data block itself must contain no raw angle brackets at all.
-    start = hostile_html.index('<script id="sdr-data" type="application/json">')
-    start = hostile_html.index(">", start) + 1
-    end = hostile_html.index("</script>", start)
-    block = hostile_html[start:end]
-    assert "<" not in block
+    assert hostile_html.count("</script>") == messy_html.count("</script>")
+    # Defense-in-depth: the (first-tag-delimited) data block holds no raw "<".
+    assert "<" not in extract_payload_text(hostile_html)
 
 
 def test_hostile_payload_round_trips(hostile_html):
     """Escaping must not change what JSON.parse / json.loads recovers."""
-    match = re.search(
-        r'<script id="sdr-data" type="application/json">(?P<json>.*?)</script>',
-        hostile_html,
-        re.DOTALL,
-    )
-    payload = json.loads(match.group("json"))
+    payload = extract_payload(hostile_html)
     by_id = {c["id"]: c for c in payload["components"]}
     assert (
         by_id["metrics/cm_evil_desc"]["description"]

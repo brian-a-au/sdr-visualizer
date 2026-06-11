@@ -11,10 +11,10 @@ exercise it in pytest without a headless browser. We assert that:
 from __future__ import annotations
 
 import json
-import re
 from pathlib import Path
 
 import pytest
+from conftest import extract_payload
 
 from sdr_visualizer.adapters.cja import adapt
 from sdr_visualizer.render.renderer import render
@@ -27,12 +27,7 @@ def messy_html_and_payload():
     snap = json.loads((FIXTURES / "cja_snapshot_messy.json").read_text(encoding="utf-8"))
     impl = adapt(snap)
     html = render(impl)
-    match = re.search(
-        r'<script id="sdr-data" type="application/json">(?P<json>.*?)</script>',
-        html,
-        re.DOTALL,
-    )
-    return html, json.loads(match.group("json"))
+    return html, extract_payload(html)
 
 
 def test_every_segment_has_a_tree(messy_html_and_payload):
@@ -88,11 +83,6 @@ def test_aa_segments_also_have_trees():
 
     impl = aa_adapt(snap)
     html = render(impl)
-    match = re.search(
-        r'<script id="sdr-data" type="application/json">(?P<json>.*?)</script>',
-        html,
-        re.DOTALL,
-    )
-    payload = json.loads(match.group("json"))
+    payload = extract_payload(html)
     seg_ids = {s["id"] for s in payload["segments"]}
     assert seg_ids == set(payload["segment_trees"].keys())

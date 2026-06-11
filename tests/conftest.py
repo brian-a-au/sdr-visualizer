@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import json
+import re
 import subprocess
 import sys
 from pathlib import Path
@@ -30,3 +32,21 @@ def pytest_configure(config):  # noqa: ARG001
         if fixture.exists():
             continue
         subprocess.check_call([sys.executable, str(generator)])
+
+
+SDR_DATA_RE = re.compile(
+    r'<script id="sdr-data" type="application/json">(?P<json>.*?)</script>',
+    re.DOTALL,
+)
+
+
+def extract_payload_text(html: str) -> str:
+    """Return the raw text of the embedded sdr-data block."""
+    match = SDR_DATA_RE.search(html)
+    assert match is not None, "sdr-data block not found in rendered HTML"
+    return match.group("json")
+
+
+def extract_payload(html: str) -> dict:
+    """Parse the embedded sdr-data payload out of rendered HTML."""
+    return json.loads(extract_payload_text(html))
