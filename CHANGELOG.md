@@ -12,6 +12,12 @@ All notable changes to `sdr-visualizer` will be documented here. The format foll
 
 ### Added
 
+- `THIRD_PARTY_LICENSES` with the D3 v7.9.0 ISC license notice — D3 is
+  redistributed in the repo, in built packages (wheel `dist-info/licenses/`,
+  sdist), and inlined into every generated report. `pyproject.toml` now uses
+  the SPDX `license` string + `license-files` so both files ship in
+  distributions.
+
 - **Shareable URL state.** Catalog search, type/description/references/modified
   filters, sort, the active view, and the open detail panel are reflected in
   `location.hash` — copy the URL to share a filtered view ("every undocumented

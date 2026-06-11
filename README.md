@@ -105,3 +105,9 @@ uv run python scripts/perf_check.py          # Run the perf gate
 - [`docs/ADAPTER_GUIDE.md`](docs/ADAPTER_GUIDE.md) — how the CJA and AA adapters work, and how to add a new platform.
 - [`docs/PERFORMANCE.md`](docs/PERFORMANCE.md) — performance budgets and how they're enforced.
 - [`docs/EMBEDDED_DATA_FORMAT.md`](docs/EMBEDDED_DATA_FORMAT.md) — the JSON payload format embedded in the HTML output.
+
+## License
+
+MIT — see [`LICENSE`](LICENSE). The output bundles [D3](https://d3js.org) v7,
+vendored under the ISC license; see
+[`THIRD_PARTY_LICENSES`](THIRD_PARTY_LICENSES) for the full notice.
