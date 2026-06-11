@@ -785,34 +785,73 @@
 
     nodeSel.call(d3.drag()
       .on("start", function (event, d) {
+        if (!graphState.simulation) return;
         if (!event.active) graphState.simulation.alphaTarget(0.3).restart();
         d.fx = d.x; d.fy = d.y;
       })
-      .on("drag", function (event, d) { d.fx = event.x; d.fy = event.y; })
+      .on("drag", function (event, d) {
+        if (graphState.simulation) {
+          d.fx = event.x; d.fy = event.y;
+        } else {
+          // Radial mode: no simulation — move the node and repaint.
+          d.x = event.x; d.y = event.y;
+          tick();
+        }
+      })
       .on("end", function (event, d) {
+        if (!graphState.simulation) return;
         if (!event.active) graphState.simulation.alphaTarget(0);
         d.fx = null; d.fy = null;
       }));
 
-    graphState.simulation = d3.forceSimulation(graphState.nodes)
-      .force("link", d3.forceLink(graphState.links).id(function (d) { return d.id; }).distance(60).strength(0.5))
-      .force("charge", d3.forceManyBody().strength(-90))
-      .force("center", d3.forceCenter(width / 2, height / 2))
-      .force("collide", d3.forceCollide().radius(function (d) {
-        return Math.max(6, 5 + Math.sqrt(d.in_degree)) + 2;
-      }))
-      .alphaDecay(0.05)
-      .on("tick", tick)
-      .stop();
+    // SPEC §14 Q2: force-directed looks weird with very few nodes — below 20,
+    // skip the simulation and place nodes evenly on a circle. d3.forceLink is
+    // still used (when simulating) to resolve edge endpoints; in radial mode
+    // we resolve them ourselves before painting.
+    var RADIAL_THRESHOLD = 20;
+    if (graphState.nodes.length > 0 && graphState.nodes.length < RADIAL_THRESHOLD) {
+      graphState.simulation = null;
+      radialLayout();
+      tick();
+    } else {
+      graphState.simulation = d3.forceSimulation(graphState.nodes)
+        .force("link", d3.forceLink(graphState.links).id(function (d) { return d.id; }).distance(60).strength(0.5))
+        .force("charge", d3.forceManyBody().strength(-90))
+        .force("center", d3.forceCenter(width / 2, height / 2))
+        .force("collide", d3.forceCollide().radius(function (d) {
+          return Math.max(6, 5 + Math.sqrt(d.in_degree)) + 2;
+        }))
+        .alphaDecay(0.05)
+        .on("tick", tick)
+        .stop();
 
-    // Warm-start: run the early high-energy ticks synchronously before first
-    // paint so the graph appears mostly settled instead of exploding into
-    // place. Manual tick() does not dispatch the tick event, so paint once
-    // explicitly, then restart at low alpha for a gentle finish.
-    var warmTicks = graphState.nodes.length > 400 ? 120 : 60;
-    for (var wi = 0; wi < warmTicks; wi++) graphState.simulation.tick();
-    tick();
-    graphState.simulation.alpha(0.12).restart();
+      // Warm-start: run the early high-energy ticks synchronously before first
+      // paint so the graph appears mostly settled instead of exploding into
+      // place. Manual tick() does not dispatch the tick event, so paint once
+      // explicitly, then restart at low alpha for a gentle finish.
+      var warmTicks = graphState.nodes.length > 400 ? 120 : 60;
+      for (var wi = 0; wi < warmTicks; wi++) graphState.simulation.tick();
+      tick();
+      graphState.simulation.alpha(0.12).restart();
+    }
+
+    function radialLayout() {
+      var n = graphState.nodes.length;
+      var radius = Math.max(60, Math.min(width, height) / 2 - 80);
+      graphState.nodes.forEach(function (d, i) {
+        var angle = (i / n) * 2 * Math.PI - Math.PI / 2;
+        d.x = width / 2 + radius * Math.cos(angle);
+        d.y = height / 2 + radius * Math.sin(angle);
+      });
+      // Without a simulation, link source/target stay as id strings —
+      // resolve them to node objects so tick() can read .x/.y.
+      var nodeById = {};
+      graphState.nodes.forEach(function (d) { nodeById[d.id] = d; });
+      graphState.links.forEach(function (l) {
+        if (typeof l.source === "string") l.source = nodeById[l.source];
+        if (typeof l.target === "string") l.target = nodeById[l.target];
+      });
+    }
 
     function tick() {
       linkSel
@@ -832,7 +871,12 @@
     $graphSearch.addEventListener("input", function () { graphState.query = $graphSearch.value.trim().toLowerCase(); applyGraphFilters(); });
     $graphReset.addEventListener("click", function () {
       svg.transition().duration(150).call(graphState.zoom.transform, d3.zoomIdentity);
-      graphState.simulation.alpha(0.6).restart();
+      if (graphState.simulation) {
+        graphState.simulation.alpha(0.6).restart();
+      } else {
+        radialLayout();
+        tick();
+      }
     });
 
     $graphStats.textContent = graphState.nodes.length + " nodes · " + graphState.links.length + " edges";

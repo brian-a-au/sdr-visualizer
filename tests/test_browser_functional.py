@@ -42,13 +42,23 @@ def test_hostile_snapshot_does_not_execute(browser_page, tmp_path):
     """XSS probes in snapshot text must render as text, never execute."""
     out = _render_to(tmp_path, "cja_snapshot_hostile.json")
     dialogs = []
-    browser_page.on("dialog", lambda d: (dialogs.append(d.message), d.dismiss()))
-    browser_page.goto(out.as_uri())
-    browser_page.wait_for_selector("#catalog-body tr", state="attached", timeout=10_000)
 
-    for flag in ["__xssEscape", "__xssFired", "__xssOwner", "__xssSeg", "__xssCrit"]:
-        assert browser_page.evaluate(f"window.{flag}") is None, f"{flag} executed"
-    assert dialogs == []
+    def _dialog_handler(d):
+        dialogs.append(d.message)
+        d.dismiss()
+
+    # browser_page is module-scoped — detach the listener so it can't leak
+    # into (and silently auto-dismiss dialogs for) later tests.
+    browser_page.on("dialog", _dialog_handler)
+    try:
+        browser_page.goto(out.as_uri())
+        browser_page.wait_for_selector("#catalog-body tr", state="attached", timeout=10_000)
+
+        for flag in ["__xssEscape", "__xssFired", "__xssOwner", "__xssSeg", "__xssCrit"]:
+            assert browser_page.evaluate(f"window.{flag}") is None, f"{flag} executed"
+        assert dialogs == []
+    finally:
+        browser_page.remove_listener("dialog", _dialog_handler)
     # The hostile strings render as visible text, not as elements.
     assert browser_page.evaluate("document.querySelectorAll('img[src=x]').length") == 0
     body_text = browser_page.evaluate("document.body.innerText")
@@ -107,3 +117,74 @@ def test_url_hash_ignores_bogus_params(browser_page, tmp_path):
     )
     # Unknown detail id — panel stays closed.
     assert browser_page.evaluate("document.querySelector('#detail-panel.is-open')") is None
+
+
+def _tiny_snapshot() -> dict:
+    """8 components with edges — under the 20-node radial threshold."""
+    return {
+        "metadata": {
+            "Data View ID": "dv_tiny",
+            "Data View Name": "Tiny",
+            "Generation Timestamp": "2026-06-01 00:00:00",
+            "Tool Version": "3.5.17",
+        },
+        "data_view": {"id": "dv_tiny"},
+        "metrics": [
+            {"id": f"metrics/m{i}", "name": f"Metric {i}", "description": "d", "type": "integer"}
+            for i in range(1, 4)
+        ],
+        "dimensions": [
+            {"id": f"variables/evar{i}", "name": f"Dim {i}", "description": "d", "type": "string"}
+            for i in range(1, 4)
+        ],
+        "segments": {
+            "segments": [
+                {
+                    "segment_id": "segments/s1",
+                    "segment_name": "Seg 1",
+                    "description": "d",
+                    "container_type": "event",
+                    "nesting_depth": 1,
+                    "definition_json": "{}",
+                    "dimension_references": ["variables/evar1"],
+                    "metric_references": ["metrics/m1"],
+                    "other_segment_references": [],
+                }
+            ]
+        },
+        "calculated_metrics": {
+            "metrics": [
+                {
+                    "metric_id": "calculatedMetrics/c1",
+                    "metric_name": "Calc 1",
+                    "description": "d",
+                    "formula_summary": "m1 / m2",
+                    "definition_json": "{}",
+                    "metric_references": ["metrics/m1", "metrics/m2"],
+                    "segment_references": [],
+                    "complexity_score": 1.0,
+                }
+            ]
+        },
+    }
+
+
+def test_small_graph_uses_radial_layout(browser_page, tmp_path):
+    out = tmp_path / "tiny.html"
+    out.write_text(render(cja_adapt(_tiny_snapshot())), encoding="utf-8")
+    browser_page.goto(out.as_uri())
+    browser_page.wait_for_selector("#catalog-body tr", state="attached", timeout=10_000)
+    browser_page.click('[data-view="graph"]')
+    browser_page.wait_for_selector(".graph-node", state="attached", timeout=10_000)
+    positions = browser_page.evaluate(
+        """Array.from(document.querySelectorAll('.graph-node')).map(g => {
+             const m = /translate\\(([-\\d.]+),([-\\d.]+)\\)/.exec(g.getAttribute('transform'));
+             return [parseFloat(m[1]), parseFloat(m[2])];
+           })"""
+    )
+    assert len(positions) == 8
+    cx = sum(p[0] for p in positions) / len(positions)
+    cy = sum(p[1] for p in positions) / len(positions)
+    radii = [((p[0] - cx) ** 2 + (p[1] - cy) ** 2) ** 0.5 for p in positions]
+    # Radial layout: every node equidistant from the centroid (loose tolerance).
+    assert max(radii) - min(radii) < 1.0, f"not a circle: {radii}"
