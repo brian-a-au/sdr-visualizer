@@ -74,11 +74,97 @@
   // blows the §6 filter budget past a few thousand rows. "Show all" opts out.
   var ROW_RENDER_CAP = 1000;
 
+  /* ----- Shareable URL state (#q=...&types=...) -----
+   * Catalog filters, sort, active view, and open detail entry live in
+   * location.hash so a filtered view can be shared as a link. Restored
+   * once at load; not a hashchange listener (back/forward not in scope).
+   */
+
+  var activeView = "catalog";
+  var openDetailId = null;
+
+  function updateHash() {
+    var params = new URLSearchParams();
+    var q = ($search.value || "").trim();
+    if (q) params.set("q", q);
+    var types = selectedTypes();
+    if (types.length !== $typeFilter.querySelectorAll("input").length) params.set("types", types.join(","));
+    if ($descriptionFilter.value !== "all") params.set("desc", $descriptionFilter.value);
+    if ($referencesFilter.value !== REFS_DEFAULT) params.set("refs", $referencesFilter.value);
+    if ($modifiedFilter.value !== "all") params.set("mod", $modifiedFilter.value);
+    if (sortKey !== "type" || sortDir !== "asc") {
+      params.set("sort", sortKey);
+      params.set("dir", sortDir);
+    }
+    if (activeView !== "catalog") params.set("view", activeView);
+    if (openDetailId) params.set("detail", openDetailId);
+    var encoded = params.toString();
+    try {
+      history.replaceState(null, "", encoded ? "#" + encoded : location.pathname + location.search);
+    } catch (e) {
+      /* file:// in some browsers disallows replaceState; sharing just won't work there.
+         Safari also rate-throttles replaceState, so the hash may lag during very rapid
+         typing and self-corrects on pause. */
+    }
+  }
+
+  function setSelectIfValid(select, value) {
+    if (!value) return;
+    for (var i = 0; i < select.options.length; i++) {
+      if (select.options[i].value === value) {
+        select.value = value;
+        return;
+      }
+    }
+  }
+
+  function restoreFromHash() {
+    if (!location.hash || location.hash.length < 2) return null;
+    var params = new URLSearchParams(location.hash.slice(1));
+    if (params.get("q")) $search.value = params.get("q");
+    var types = params.get("types");
+    if (types) {
+      var wanted = {};
+      var validCount = 0;
+      types.split(",").forEach(function (t) {
+        if (Object.prototype.hasOwnProperty.call(KNOWN_TYPES, t)) { wanted[t] = true; validCount++; }
+      });
+      if (validCount > 0) {
+        $typeFilter.querySelectorAll("input").forEach(function (input) {
+          input.checked = !!wanted[input.value];
+        });
+      }
+    }
+    setSelectIfValid($descriptionFilter, params.get("desc"));
+    setSelectIfValid($referencesFilter, params.get("refs"));
+    setSelectIfValid($modifiedFilter, params.get("mod"));
+    var VALID_SORT_KEYS = { name: true, type: true, in_degree: true, modified_at: true };
+    var sortParam = params.get("sort");
+    if (sortParam && Object.prototype.hasOwnProperty.call(VALID_SORT_KEYS, sortParam)) {
+      sortKey = sortParam;
+      sortDir = params.get("dir") === "desc" ? "desc" : "asc";
+    }
+    return params;
+  }
+
   // Honor --exclude-orphans by defaulting the references-filter dropdown.
   if (payload.meta && payload.meta.exclude_orphans_default) {
     var refSelect = document.getElementById("references-filter");
     if (refSelect) refSelect.value = "referenced";
   }
+
+  // The references dropdown's at-rest value depends on a build flag
+  // (--exclude-orphans). Only encode refs into the hash when the user
+  // diverges from THIS build's default, so shared URLs don't impose one
+  // build's default onto another's.
+  var REFS_DEFAULT = (payload.meta && payload.meta.exclude_orphans_default) ? "referenced" : "all";
+
+  // Allowed type tokens for URL restore, derived from the rendered
+  // checkboxes so the template stays the single source of truth.
+  var KNOWN_TYPES = {};
+  $typeFilter.querySelectorAll("input").forEach(function (input) {
+    KNOWN_TYPES[input.value] = true;
+  });
 
   /* ----- Helpers ----- */
 
@@ -162,6 +248,7 @@
     });
 
     lastFiltered = filtered;
+    updateHash();
     renderRows(filtered, false);
   }
 
@@ -274,6 +361,8 @@
   function openDetail(id) {
     var entry = byId[id];
     if (!entry) return;
+    openDetailId = id;
+    updateHash();
     $detailBody.innerHTML = detailHtml(entry);
     $detailPanel.classList.add("is-open");
     $detailPanel.setAttribute("aria-hidden", "false");
@@ -283,6 +372,8 @@
   }
 
   function closeDetail() {
+    openDetailId = null;
+    updateHash();
     $detailPanel.classList.remove("is-open");
     $detailPanel.setAttribute("aria-hidden", "true");
     $detailOverlay.classList.remove("is-open");
@@ -516,6 +607,7 @@
     if (btn) openDetail(btn.getAttribute("data-id"));
   });
 
+  var initialHashParams = restoreFromHash();
   resort();
   applyFilters();
 
@@ -570,6 +662,7 @@
   };
 
   function showView(name) {
+    activeView = name;
     $catalogView.hidden = name !== "catalog";
     $graphView.hidden = name !== "graph";
     $viewButtons.forEach(function (b) {
@@ -578,6 +671,7 @@
     if (name === "graph" && !graphState.initialized) {
       maybeInitGraph();
     }
+    updateHash();
   }
 
   $viewButtons.forEach(function (b) {
@@ -704,34 +798,73 @@
 
     nodeSel.call(d3.drag()
       .on("start", function (event, d) {
+        if (!graphState.simulation) return;
         if (!event.active) graphState.simulation.alphaTarget(0.3).restart();
         d.fx = d.x; d.fy = d.y;
       })
-      .on("drag", function (event, d) { d.fx = event.x; d.fy = event.y; })
+      .on("drag", function (event, d) {
+        if (graphState.simulation) {
+          d.fx = event.x; d.fy = event.y;
+        } else {
+          // Radial mode: no simulation — move the node and repaint.
+          d.x = event.x; d.y = event.y;
+          tick();
+        }
+      })
       .on("end", function (event, d) {
+        if (!graphState.simulation) return;
         if (!event.active) graphState.simulation.alphaTarget(0);
         d.fx = null; d.fy = null;
       }));
 
-    graphState.simulation = d3.forceSimulation(graphState.nodes)
-      .force("link", d3.forceLink(graphState.links).id(function (d) { return d.id; }).distance(60).strength(0.5))
-      .force("charge", d3.forceManyBody().strength(-90))
-      .force("center", d3.forceCenter(width / 2, height / 2))
-      .force("collide", d3.forceCollide().radius(function (d) {
-        return Math.max(6, 5 + Math.sqrt(d.in_degree)) + 2;
-      }))
-      .alphaDecay(0.05)
-      .on("tick", tick)
-      .stop();
+    // SPEC §14 Q2: force-directed looks weird with very few nodes — below 20,
+    // skip the simulation and place nodes evenly on a circle. d3.forceLink is
+    // still used (when simulating) to resolve edge endpoints; in radial mode
+    // we resolve them ourselves before painting.
+    var RADIAL_THRESHOLD = 20;
+    if (graphState.nodes.length > 0 && graphState.nodes.length < RADIAL_THRESHOLD) {
+      graphState.simulation = null;
+      radialLayout();
+      tick();
+    } else {
+      graphState.simulation = d3.forceSimulation(graphState.nodes)
+        .force("link", d3.forceLink(graphState.links).id(function (d) { return d.id; }).distance(60).strength(0.5))
+        .force("charge", d3.forceManyBody().strength(-90))
+        .force("center", d3.forceCenter(width / 2, height / 2))
+        .force("collide", d3.forceCollide().radius(function (d) {
+          return Math.max(6, 5 + Math.sqrt(d.in_degree)) + 2;
+        }))
+        .alphaDecay(0.05)
+        .on("tick", tick)
+        .stop();
 
-    // Warm-start: run the early high-energy ticks synchronously before first
-    // paint so the graph appears mostly settled instead of exploding into
-    // place. Manual tick() does not dispatch the tick event, so paint once
-    // explicitly, then restart at low alpha for a gentle finish.
-    var warmTicks = graphState.nodes.length > 400 ? 120 : 60;
-    for (var wi = 0; wi < warmTicks; wi++) graphState.simulation.tick();
-    tick();
-    graphState.simulation.alpha(0.12).restart();
+      // Warm-start: run the early high-energy ticks synchronously before first
+      // paint so the graph appears mostly settled instead of exploding into
+      // place. Manual tick() does not dispatch the tick event, so paint once
+      // explicitly, then restart at low alpha for a gentle finish.
+      var warmTicks = graphState.nodes.length > 400 ? 120 : 60;
+      for (var wi = 0; wi < warmTicks; wi++) graphState.simulation.tick();
+      tick();
+      graphState.simulation.alpha(0.12).restart();
+    }
+
+    function radialLayout() {
+      var n = graphState.nodes.length;
+      var radius = Math.max(60, Math.min(width, height) / 2 - 80);
+      graphState.nodes.forEach(function (d, i) {
+        var angle = (i / n) * 2 * Math.PI - Math.PI / 2;
+        d.x = width / 2 + radius * Math.cos(angle);
+        d.y = height / 2 + radius * Math.sin(angle);
+      });
+      // Without a simulation, link source/target stay as id strings —
+      // resolve them to node objects so tick() can read .x/.y.
+      var nodeById = {};
+      graphState.nodes.forEach(function (d) { nodeById[d.id] = d; });
+      graphState.links.forEach(function (l) {
+        if (typeof l.source === "string") l.source = nodeById[l.source];
+        if (typeof l.target === "string") l.target = nodeById[l.target];
+      });
+    }
 
     function tick() {
       linkSel
@@ -751,7 +884,12 @@
     $graphSearch.addEventListener("input", function () { graphState.query = $graphSearch.value.trim().toLowerCase(); applyGraphFilters(); });
     $graphReset.addEventListener("click", function () {
       svg.transition().duration(150).call(graphState.zoom.transform, d3.zoomIdentity);
-      graphState.simulation.alpha(0.6).restart();
+      if (graphState.simulation) {
+        graphState.simulation.alpha(0.6).restart();
+      } else {
+        radialLayout();
+        tick();
+      }
     });
 
     $graphStats.textContent = graphState.nodes.length + " nodes · " + graphState.links.length + " edges";
@@ -822,4 +960,16 @@
       return src === id || tgt === id;
     });
   }
+
+  // Deferred URL-state restore: showView/openDetail need the graph section's
+  // definitions, so view/detail restore runs after everything is wired. The
+  // params were captured at load, before the first updateHash() rewrote
+  // location.hash.
+  function restoreViewAndDetail(params) {
+    if (!params) return;
+    if (params.get("view") === "graph") showView("graph");
+    var detailId = params.get("detail");
+    if (detailId && byId[detailId]) openDetail(detailId);
+  }
+  restoreViewAndDetail(initialHashParams);
 })();

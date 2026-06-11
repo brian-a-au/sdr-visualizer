@@ -7,6 +7,7 @@ import re
 from pathlib import Path
 
 import pytest
+from conftest import extract_payload, extract_payload_text
 
 from sdr_visualizer.adapters.aa import adapt as aa_adapt
 from sdr_visualizer.adapters.cja import adapt as cja_adapt
@@ -48,13 +49,7 @@ def test_html_contains_catalog_view_section(messy_html):
 
 def test_html_contains_payload_script_with_json(messy_html):
     """Payload must be embedded as a JSON script the JS can read."""
-    match = re.search(
-        r'<script id="sdr-data" type="application/json">(?P<json>.*?)</script>',
-        messy_html,
-        re.DOTALL,
-    )
-    assert match
-    parsed = json.loads(match.group("json"))
+    parsed = extract_payload(messy_html)
     assert parsed["meta"]["platform"] == "cja"
     assert parsed["meta"]["component_count"] > 0
 
@@ -100,3 +95,53 @@ def test_render_deterministic_modulo_generated_at():
 def test_perf_hook_embedded_and_catalog_index_gone(messy_html):
     assert "__sdrPerf" in messy_html
     assert "catalog_index" not in messy_html
+
+
+# ---------------------------------------------------------------------------
+# Script-injection (XSS) regression tests
+# ---------------------------------------------------------------------------
+
+
+@pytest.fixture(scope="module")
+def hostile_html():
+    snap = json.loads((FIXTURES / "cja_snapshot_hostile.json").read_text(encoding="utf-8"))
+    return render(cja_adapt(snap))
+
+
+def test_payload_cannot_break_out_of_script_block(hostile_html, messy_html):
+    """A '</script>' inside snapshot text must not terminate the data block.
+
+    Detection is count-based: an injected '</script>' surviving into the
+    payload adds closing tags relative to a clean render. (Content checks on
+    the extracted block are vacuous on unfixed code — the extraction itself
+    truncates at the injected tag.)
+    """
+    assert hostile_html.count("</script>") == messy_html.count("</script>")
+    # Defense-in-depth: the (first-tag-delimited) data block holds no raw "<".
+    assert "<" not in extract_payload_text(hostile_html)
+
+
+def test_hostile_payload_round_trips(hostile_html):
+    """Escaping must not change what JSON.parse / json.loads recovers."""
+    payload = extract_payload(hostile_html)
+    by_id = {c["id"]: c for c in payload["components"]}
+    assert (
+        by_id["metrics/cm_evil_desc"]["description"]
+        == "</script><script>window.__xssEscape=true</script>"
+    )
+    assert by_id["metrics/cm_evil_name"]["name"] == '<img src=x onerror="window.__xssFired=true">'
+
+
+def test_template_autoescape_applies_to_j2_templates(hostile_html):
+    """select_autoescape(["html"]) alone does NOT cover .j2 files.
+
+    The final extension of "index.html.j2" is ".j2", not ".html", so
+    Jinja's select_autoescape would silently skip it unless "j2" is
+    explicitly listed. This test verifies the fix is in place: a hostile
+    snapshot name (which becomes {{ title }} / {{ meta.instance_name }})
+    must be HTML-escaped, not rendered raw.
+    """
+    # The hostile fixture has <script>alert('name')</script> in the Data View Name.
+    # After the fix it must appear as &lt;script&gt; in the title and h1.
+    assert "<script>alert" not in hostile_html
+    assert "&lt;script&gt;" in hostile_html

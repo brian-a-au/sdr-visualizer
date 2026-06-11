@@ -12,14 +12,17 @@ import json
 from importlib import resources
 from typing import Any
 
-from jinja2 import Environment, PackageLoader, select_autoescape
+from jinja2 import Environment, PackageLoader
 
 from sdr_visualizer.core.models import Implementation
 from sdr_visualizer.render.data_payload import build_payload
 
 _env = Environment(
     loader=PackageLoader("sdr_visualizer.render", "templates"),
-    autoescape=select_autoescape(["html"]),
+    # autoescape=True covers all templates unconditionally, eliminating the
+    # extension-matching gap that select_autoescape(["html"]) had with
+    # "index.html.j2" (final extension ".j2", not ".html").
+    autoescape=True,
 )
 
 
@@ -69,9 +72,15 @@ def _render_from_payload(payload: dict[str, Any], *, title: str | None) -> str:
         css=css,
         js=js,
         d3_js=d3_js,
-        # `tojson` would re-escape angle brackets etc.; we control the data
-        # so plain `dumps` keeps the payload compact and readable.
-        payload_json=json.dumps(payload, separators=(",", ":"), ensure_ascii=False),
+        # Snapshot text is untrusted: a description containing "</script>"
+        # would otherwise terminate the data block and become live markup
+        # (stored XSS). Escaping "<" as the JSON escape "\u003c" is invisible
+        # to JSON.parse. Applies to the whole blob (keys included — safe,
+        # all keys are fixed). Only "<" needs escaping: the block is
+        # type="application/json", which only "</script" can terminate.
+        payload_json=json.dumps(payload, separators=(",", ":"), ensure_ascii=False).replace(
+            "<", "\\u003c"
+        ),
         # Snapshot stats for the header strip.
         component_count=payload["meta"]["component_count"],
         metric_count=sum(1 for c in payload["components"] if c["type"] == "metric"),

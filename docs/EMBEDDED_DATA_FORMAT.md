@@ -174,3 +174,4 @@ Each calculated metric's parsed formula. Node `kind`s:
 - Adding new keys is non-breaking — consumers should ignore unknown keys.
 - The exact shape of `unknown` tree nodes is intentionally loose; consumers should use them defensively.
 - 0.2.0 removed `catalog_index`, `graph.nodes`, `graph.in_degree`, `graph.out_degree`, and `platform_specific`, and introduced sparse encoding — a breaking change per the policy above (leftmost non-zero version bumped).
+- The embedded `sdr-data` block escapes `<` as the JSON unicode escape `\u003c` (transparent to `JSON.parse`); the `--json PATH` output is plain unescaped JSON — byte-level comparisons between the two will differ.
