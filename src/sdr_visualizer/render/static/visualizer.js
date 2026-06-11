@@ -74,6 +74,79 @@
   // blows the §6 filter budget past a few thousand rows. "Show all" opts out.
   var ROW_RENDER_CAP = 1000;
 
+  /* ----- Shareable URL state (#q=...&types=...) -----
+   * Catalog filters, sort, active view, and open detail entry live in
+   * location.hash so a filtered view can be shared as a link. Restored
+   * once at load; not a hashchange listener (back/forward not in scope).
+   */
+
+  var DEFAULT_TYPES = ["metric", "dimension", "derived_field", "segment", "calculated_metric"];
+  var activeView = "catalog";
+  var openDetailId = null;
+  // Captured once at load before applyFilters() overwrites location.hash;
+  // used by the deferred restore block to open the right view/detail.
+  var _initialHashParams = null;
+
+  function updateHash() {
+    var params = new URLSearchParams();
+    var q = ($search.value || "").trim();
+    if (q) params.set("q", q);
+    var types = selectedTypes();
+    if (types.length !== $typeFilter.querySelectorAll("input").length) params.set("types", types.join(","));
+    if ($descriptionFilter.value !== "all") params.set("desc", $descriptionFilter.value);
+    if ($referencesFilter.value !== "all") params.set("refs", $referencesFilter.value);
+    if ($modifiedFilter.value !== "all") params.set("mod", $modifiedFilter.value);
+    if (sortKey !== "type" || sortDir !== "asc") {
+      params.set("sort", sortKey);
+      params.set("dir", sortDir);
+    }
+    if (activeView !== "catalog") params.set("view", activeView);
+    if (openDetailId) params.set("detail", openDetailId);
+    var encoded = params.toString();
+    try {
+      history.replaceState(null, "", encoded ? "#" + encoded : location.pathname + location.search);
+    } catch (e) {
+      /* file:// in some browsers disallows replaceState; sharing just won't work there.
+         Safari also rate-throttles replaceState, so the hash may lag during very rapid
+         typing and self-corrects on pause. */
+    }
+  }
+
+  function restoreFromHash() {
+    if (!location.hash || location.hash.length < 2) return;
+    var params;
+    try {
+      params = new URLSearchParams(location.hash.slice(1));
+    } catch (e) {
+      return;
+    }
+    // Capture before applyFilters() clears location.hash via replaceState.
+    _initialHashParams = params;
+    if (params.get("q")) $search.value = params.get("q");
+    var types = params.get("types");
+    if (types) {
+      var wanted = {};
+      var validCount = 0;
+      types.split(",").forEach(function (t) {
+        if (DEFAULT_TYPES.indexOf(t) !== -1) { wanted[t] = true; validCount++; }
+      });
+      if (validCount > 0) {
+        $typeFilter.querySelectorAll("input").forEach(function (input) {
+          input.checked = !!wanted[input.value];
+        });
+      }
+    }
+    if (params.get("desc")) $descriptionFilter.value = params.get("desc");
+    if (params.get("refs")) $referencesFilter.value = params.get("refs");
+    if (params.get("mod")) $modifiedFilter.value = params.get("mod");
+    var VALID_SORT_KEYS = { name: true, type: true, in_degree: true, modified_at: true };
+    var sortParam = params.get("sort");
+    if (sortParam && Object.prototype.hasOwnProperty.call(VALID_SORT_KEYS, sortParam)) {
+      sortKey = sortParam;
+      sortDir = params.get("dir") === "desc" ? "desc" : "asc";
+    }
+  }
+
   // Honor --exclude-orphans by defaulting the references-filter dropdown.
   if (payload.meta && payload.meta.exclude_orphans_default) {
     var refSelect = document.getElementById("references-filter");
@@ -162,6 +235,7 @@
     });
 
     lastFiltered = filtered;
+    updateHash();
     renderRows(filtered, false);
   }
 
@@ -274,6 +348,8 @@
   function openDetail(id) {
     var entry = byId[id];
     if (!entry) return;
+    openDetailId = id;
+    updateHash();
     $detailBody.innerHTML = detailHtml(entry);
     $detailPanel.classList.add("is-open");
     $detailPanel.setAttribute("aria-hidden", "false");
@@ -283,6 +359,8 @@
   }
 
   function closeDetail() {
+    openDetailId = null;
+    updateHash();
     $detailPanel.classList.remove("is-open");
     $detailPanel.setAttribute("aria-hidden", "true");
     $detailOverlay.classList.remove("is-open");
@@ -516,6 +594,7 @@
     if (btn) openDetail(btn.getAttribute("data-id"));
   });
 
+  restoreFromHash();
   resort();
   applyFilters();
 
@@ -570,6 +649,7 @@
   };
 
   function showView(name) {
+    activeView = name;
     $catalogView.hidden = name !== "catalog";
     $graphView.hidden = name !== "graph";
     $viewButtons.forEach(function (b) {
@@ -578,6 +658,7 @@
     if (name === "graph" && !graphState.initialized) {
       maybeInitGraph();
     }
+    updateHash();
   }
 
   $viewButtons.forEach(function (b) {
@@ -822,4 +903,15 @@
       return src === id || tgt === id;
     });
   }
+
+  // Deferred URL-state restore: showView/openDetail need the graph section's
+  // definitions, so view/detail restore runs after everything is wired.
+  // _initialHashParams was captured before applyFilters() cleared location.hash.
+  (function () {
+    var params = _initialHashParams;
+    if (!params) return;
+    if (params.get("view") === "graph") showView("graph");
+    var detailId = params.get("detail");
+    if (detailId && byId[detailId]) openDetail(detailId);
+  })();
 })();
