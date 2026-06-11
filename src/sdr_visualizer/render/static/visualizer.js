@@ -112,6 +112,16 @@
     }
   }
 
+  function setSelectIfValid(select, value) {
+    if (!value) return;
+    for (var i = 0; i < select.options.length; i++) {
+      if (select.options[i].value === value) {
+        select.value = value;
+        return;
+      }
+    }
+  }
+
   function restoreFromHash() {
     if (!location.hash || location.hash.length < 2) return;
     var params;
@@ -136,9 +146,9 @@
         });
       }
     }
-    if (params.get("desc")) $descriptionFilter.value = params.get("desc");
-    if (params.get("refs")) $referencesFilter.value = params.get("refs");
-    if (params.get("mod")) $modifiedFilter.value = params.get("mod");
+    setSelectIfValid($descriptionFilter, params.get("desc"));
+    setSelectIfValid($referencesFilter, params.get("refs"));
+    setSelectIfValid($modifiedFilter, params.get("mod"));
     var VALID_SORT_KEYS = { name: true, type: true, in_degree: true, modified_at: true };
     var sortParam = params.get("sort");
     if (sortParam && Object.prototype.hasOwnProperty.call(VALID_SORT_KEYS, sortParam)) {
@@ -957,5 +967,6 @@
     if (params.get("view") === "graph") showView("graph");
     var detailId = params.get("detail");
     if (detailId && byId[detailId]) openDetail(detailId);
+    _initialHashParams = null;
   })();
 })();

@@ -66,11 +66,11 @@ The output lands at `./visualize-{instance_id}-{timestamp}.html` by default. Ope
 Open the generated HTML and you'll see four views, accessible from the top-level navigation:
 
 1. **Catalog** — a searchable, filterable, sortable table of every component. Click a row to slide out a detail panel with description, properties, references, and anatomy.
-2. **Reference graph** — a force-directed view of every component and the edges between them. Hover dims unrelated nodes; click opens the same detail panel; drag pins; pan/zoom.
+2. **Reference graph** — a force-directed view of every component and the edges between them; small implementations (under 20 components) use a static radial layout instead. Hover dims unrelated nodes; click opens the same detail panel; drag pins; pan/zoom.
 3. **Segment anatomy** (contextual) — opens from a segment's detail panel. Renders the segment's definition tree as nested containers with subtle alpha-stacked shading per nesting level, color-coded AND/OR/NOT chips, and clickable inline references to other segments.
 4. **Calculated metric anatomy** (contextual) — opens from a calc metric's detail panel. Renders the formula as a tree of operations and operands; metric refs are clickable.
 
-- **Shareable links** — filters, sort, view, and the open detail panel live in the URL hash, so a filtered view can be sent as a link.
+- **Shareable links** — the catalog's filters, sort, view, and open detail panel are encoded in the URL hash; copy the address bar to share a filtered view.
 
 ## Performance budget
 

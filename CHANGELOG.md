@@ -6,7 +6,7 @@ All notable changes to `sdr-visualizer` will be documented here. The format foll
 
 ### Security
 
-- The embedded JSON payload now escapes `<` as `<`. Previously a snapshot
+- The embedded JSON payload now escapes `<` as the JSON unicode escape `\u003c` (transparent to `JSON.parse`). Previously a snapshot
   field containing `</script>` (e.g. a hostile component description) could
   terminate the data block and inject live markup into the generated HTML.
 

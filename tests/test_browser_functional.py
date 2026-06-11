@@ -103,7 +103,7 @@ def test_url_hash_restores_open_detail(browser_page, tmp_path):
 
 def test_url_hash_ignores_bogus_params(browser_page, tmp_path):
     out = _render_to(tmp_path, "cja_snapshot_messy.json", "bogus.html")
-    browser_page.goto(out.as_uri() + "#types=bogus&sort=__proto__&detail=nope")
+    browser_page.goto(out.as_uri() + "#types=bogus&sort=__proto__&detail=nope&mod=bogus&desc=nope")
     browser_page.wait_for_selector("#catalog-body tr", state="attached", timeout=10_000)
     # Unknown type tokens are ignored — all boxes stay checked, rows render.
     checked = browser_page.evaluate(
@@ -117,6 +117,9 @@ def test_url_hash_ignores_bogus_params(browser_page, tmp_path):
     )
     # Unknown detail id — panel stays closed.
     assert browser_page.evaluate("document.querySelector('#detail-panel.is-open')") is None
+    # Invalid select params ignored — catalog still renders rows.
+    assert browser_page.evaluate("window.__sdrPerf.rowCount()") > 0
+    assert browser_page.evaluate("document.getElementById('modified-filter').value") == "all"
 
 
 def _tiny_snapshot() -> dict:
