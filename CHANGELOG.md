@@ -2,6 +2,46 @@
 
 All notable changes to `sdr-visualizer` will be documented here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.0] - 2026-06-10
+
+Performance and scaling release. The embedded payload contract changed (see
+Removed) — per the stability policy this bumps the leftmost non-zero version.
+
+### Added
+
+- `modified_ts` (epoch ms) on every catalog entry — the client sorts and
+  date-windows without constructing `Date` objects in hot paths.
+- Browser-side performance gate (`scripts/perf_browser_check.py`, Playwright):
+  initial render + filter latency budgets now enforced in CI alongside the
+  existing build-time/size gate.
+- 2,000-component budget tier gated in CI via a generated XL fixture
+  (`scripts/generate_large_fixture.py --scale 1.67`).
+- Catalog row cap: above 1,000 matching rows the table truncates with a
+  "Showing 1,000 of N · Show all" escape hatch.
+- Graph label culling (graphs over 200 nodes label only the top-60 in-degree nodes by default; all labels
+  past 1.4× zoom or on hover) and warm-started force simulation (near-settled
+  first paint).
+
+### Changed
+
+- Client builds the search index and sort keys in one pass at load; row HTML
+  is cached per entry; the master list stays pre-sorted; search input is
+  debounced (120 ms). Net: filter latency stays flat into the thousands of
+  components.
+- Graph hover/filter passes use precomputed neighbor counts.
+
+### Removed (breaking, embedded payload + `--json` shape)
+
+- `catalog_index` — the client builds its own search blob at load.
+- `graph.nodes`, `graph.in_degree`, `graph.out_degree` — derivable from
+  catalog entries; only `graph.edges` ships.
+- `platform_specific` on component entries — never consumed by the client;
+  consult the original snapshot for platform extras.
+- Null/empty fields on entries (sparse encoding) — consumers must treat a
+  missing key as null/empty.
+
+Net payload reduction: ~40% at the 1,200-component tier.
+
 ## [0.1.0] - 2026-05-09
 
 First releasable cut. Feature-complete per [`SPEC-VISUALIZER.md`](SPEC-VISUALIZER.md) §10 phases 0–10. Surface (CLI flags, `--json` payload shape, exit codes, embedded payload schema) is documented but not yet hardened against real-world implementations — expect changes between 0.x releases as feedback comes in.
@@ -47,4 +87,5 @@ The following are explicitly internal and may change without notice:
 - Workspace project visualization (v0.4)
 - Schema map view (v0.5)
 
+[0.2.0]: https://github.com/brian-a-au/sdr-visualizer/releases/tag/v0.2.0
 [0.1.0]: https://github.com/brian-a-au/sdr-visualizer/releases/tag/v0.1.0

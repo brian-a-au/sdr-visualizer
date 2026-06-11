@@ -12,12 +12,13 @@ The payload is a stable contract: external tooling can rely on the keys document
   "components":        [ ... ],     // metrics + dimensions + derived fields
   "segments":          [ ... ],
   "calculated_metrics": [ ... ],
-  "graph":             { "nodes": [...], "edges": [...], "in_degree": {...}, "out_degree": {...} },
-  "catalog_index":     { "by_id": { "<id>": { search, type, tags } } },
+  "graph":             { "edges": [...] },
   "segment_trees":     { "<id>": SegmentTreeNode },
   "formula_trees":     { "<id>": FormulaTreeNode }
 }
 ```
+
+> **Sparse encoding (0.2.0+):** fields whose value is `null`, `""`, `[]`, or `{}` are omitted from entries. Consumers must treat a missing key as that empty value. Numeric zeros (`in_degree`, `complexity_score`) are always present.
 
 ## `meta`
 
@@ -29,7 +30,7 @@ The payload is a stable contract: external tooling can rely on the keys document
   "snapshot_taken_at":     "2026-04-25 09:14:00" | null,
   "snapshot_source":       "/path/to/snapshot.json" | "stdin" | "shell-out:cja_auto_sdr dv_x",
   "adapter_version":       "3.5.17",
-  "visualizer_version":    "0.1.0",
+  "visualizer_version":    "0.2.0",
   "generated_at":          "2026-04-25T09:14:00Z",
   "component_count":       487,
   "exclude_orphans_default": false,
@@ -44,18 +45,20 @@ The payload is a stable contract: external tooling can rely on the keys document
   "id":              "metrics/cm_metric_001",
   "type":            "metric" | "dimension" | "derived_field",
   "name":            "Sessions",
-  "description":     "Distinct sessions in the period." | null,
-  "data_type":       "integer" | "decimal" | "string" | null,
-  "polarity":        "positive" | "negative" | "neutral" | null,
+  "description":     "Distinct sessions in the period.",          // omitted when absent
+  "data_type":       "integer" | "decimal" | "string",           // omitted when absent
+  "polarity":        "positive" | "negative" | "neutral",        // omitted when absent
   "tags":            ["custom", "approved"],
-  "owner":           "a.user@example.com" | null,
-  "created_at":      "2025-09-01T00:00:00Z" | null,
-  "modified_at":     "2026-04-25T09:14:00Z" | null,
+  "owner":           "a.user@example.com",                       // omitted when absent
+  "created_at":      "2025-09-01T00:00:00Z",                    // omitted when absent
+  "modified_at":     "2026-04-25T09:14:00Z",                    // omitted when absent
+  "modified_ts":     1777108440000,                              // epoch ms; omitted when absent
   "in_degree":       8,                                          // how many things reference this
-  "out_degree":      0,
-  "platform_specific": { /* CJA: precision, AA: allocation/expiration, etc. */ }
+  "out_degree":      0
 }
 ```
+
+*`platform_specific` was removed in 0.2.0 — consult the original snapshot for platform extras.*
 
 ## `segments`
 
@@ -68,10 +71,10 @@ The payload is a stable contract: external tooling can rely on the keys document
   "nesting_depth":    8,
   "container_types":  ["event", "session", "person"],   // CJA; ["hits","visits","visitors"] for AA
   "references":       ["variables/evar1", "metrics/cm_metric_001"],
-  "tags":             [],
-  "owner":            "a.user@example.com" | null,
+  "owner":            "a.user@example.com",                      // omitted when absent
   "created_at":       "...",
   "modified_at":      "...",
+  "modified_ts":      1777108440000,                              // epoch ms; omitted when absent
   "in_degree":        2,
   "out_degree":       2
 }
@@ -86,14 +89,14 @@ The payload is a stable contract: external tooling can rely on the keys document
   "name":               "Revenue per Visit",
   "description":        "...",
   "formula_text":       "Revenue / Visits",
-  "attribution_model":  "last-touch" | null,
-  "allocation":         "linear" | null,
+  "attribution_model":  "last-touch",                            // omitted when absent
+  "allocation":         "linear",                                // omitted when absent
   "complexity_score":   42.0,
   "references":         ["metrics/revenue", "metrics/visits"],
-  "tags":               [],
   "owner":              "...",
   "created_at":         "...",
   "modified_at":        "...",
+  "modified_ts":        1777108440000,                            // epoch ms; omitted when absent
   "in_degree":          0,
   "out_degree":         2
 }
@@ -103,28 +106,17 @@ The payload is a stable contract: external tooling can rely on the keys document
 
 ```jsonc
 {
-  "nodes":  [ { "id": "...", "type": "metric", "label": "Sessions" }, ... ],
-  "edges":  [ { "source": "<id>", "target": "<id>", "kind": "references" }, ... ],
-  "in_degree":  { "<id>": <int>, ... },
-  "out_degree": { "<id>": <int>, ... }
+  "edges":  [ { "source": "<id>", "target": "<id>", "kind": "references" }, ... ]
 }
 ```
 
-Edges are directed (source → target) and only emitted when the target exists in the inventory. Dangling references (e.g. a calc metric referencing `metrics/revenue` when `metrics/revenue` isn't in the snapshot) are visible on the source entry's `references` array but not in `graph.edges`.
+> Edges are directed (source → target) and only emitted when the target exists in the inventory. Dangling references are visible on the source entry's `references` array but not in `graph.edges`. Graph *nodes* are derivable from the catalog entries (`id`, `type`, `name`, `in_degree`) — the client builds them in one pass at load; `in_degree`/`out_degree` live on each entry. The separate `nodes`/`in_degree`/`out_degree` sections were removed in 0.2.0.
 
-## `catalog_index.by_id`
+## Search index
 
-Per-component fast-search index. The `search` field is a lowercased blob containing `id + name + description + formula_text + tags` so the client can do plain `indexOf()` substring matching.
-
-```jsonc
-{
-  "<id>": {
-    "search":  "metrics/cm_metric_001 sessions distinct sessions in the period.",
-    "type":    "metric",
-    "tags":    ["custom"]
-  }
-}
-```
+Removed in 0.2.0. The client builds a lowercased per-entry search blob
+(`id + name + description + formula_text + tags`) in one pass at load —
+shipping it doubled the textual payload.
 
 ## `segment_trees`
 
@@ -178,6 +170,7 @@ Each calculated metric's parsed formula. Node `kind`s:
 
 ## Stability
 
-- The keys documented above are stable. Renaming or removing them is a breaking change that bumps the major version.
+- The keys documented above are stable. Renaming or removing them is a breaking change that bumps the leftmost non-zero version (the major version once 1.0+).
 - Adding new keys is non-breaking — consumers should ignore unknown keys.
-- The exact shape of `platform_specific` and `unknown` nodes is intentionally loose; consumers should use them defensively.
+- The exact shape of `unknown` tree nodes is intentionally loose; consumers should use them defensively.
+- 0.2.0 removed `catalog_index`, `graph.nodes`, `graph.in_degree`, `graph.out_degree`, and `platform_specific`, and introduced sparse encoding — a breaking change per the policy above (leftmost non-zero version bumped).

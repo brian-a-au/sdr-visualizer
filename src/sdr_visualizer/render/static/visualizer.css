@@ -715,8 +715,15 @@ h1 {
   opacity: 0;
   transition: opacity 0.1s;
 }
-.graph-node.is-highlighted text { opacity: 1; }
-.graph-node.is-hover text { opacity: 1; font-weight: 500; }
+/* Label culling: only the top-in-degree nodes are labeled at rest; zooming
+   past 1.4x (class graph-labels-all) reveals all labels. Hover / highlight
+   always reveals; faded nodes hide their labels. */
+.graph-node.is-labeled text { opacity: 1; }
+.graph-node:not(.is-labeled) text { display: none; }
+.graph-labels-all .graph-node:not(.is-faded) text { display: inline; opacity: 1; }
+.graph-node.is-faded text { opacity: 0; }
+.graph-node.is-hover text { display: inline; opacity: 1; font-weight: 500; }
+.graph-node.is-highlighted text { display: inline; opacity: 1; }
 
 /* ---------- Footer ---------- */
 .footer {
@@ -755,3 +762,13 @@ h1 {
 @media (prefers-reduced-motion: reduce) {
   .detail-overlay, .detail-panel, .catalog-table tbody tr, .view-button { transition: none; }
 }
+
+/* ----- Truncated-catalog indicator row ----- */
+.catalog-truncated td {
+  padding: 14px 16px;
+  text-align: center;
+  color: #6b6b66;
+  font-style: italic;
+}
+.catalog-truncated { cursor: default; }
+.catalog-table tbody tr.catalog-truncated:hover { background: transparent; }

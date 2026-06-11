@@ -26,11 +26,12 @@ def test_payload_has_top_level_keys(messy_payload):
         "segments",
         "calculated_metrics",
         "graph",
-        "catalog_index",
         "segment_trees",
         "formula_trees",
     }
     assert expected <= set(messy_payload.keys())
+    # Removed in 0.2.0 — the client builds its own search index at load.
+    assert "catalog_index" not in messy_payload
 
 
 def test_meta_includes_versions_and_counts(messy_payload):
@@ -48,13 +49,6 @@ def test_meta_includes_versions_and_counts(messy_payload):
 def test_components_include_all_three_types(messy_payload):
     types = {c["type"] for c in messy_payload["components"]}
     assert types == {"metric", "dimension", "derived_field"}
-
-
-def test_catalog_index_lowercased_search_blob(messy_payload):
-    sample_id = messy_payload["components"][0]["id"]
-    entry = messy_payload["catalog_index"]["by_id"][sample_id]
-    assert entry["search"] == entry["search"].lower()
-    assert sample_id.lower() in entry["search"]
 
 
 def test_segment_and_formula_trees_keyed_by_id(messy_payload):
@@ -82,3 +76,50 @@ def test_payload_round_trips_through_json(messy_payload):
     text = json.dumps(messy_payload, separators=(",", ":"))
     parsed = json.loads(text)
     assert parsed["meta"]["platform"] == "cja"
+
+
+def test_epoch_ms_parses_iso_and_spaced_timestamps():
+    from sdr_visualizer.render.data_payload import _epoch_ms
+
+    assert _epoch_ms("2026-04-25T09:14:00Z") == 1777108440000
+    assert _epoch_ms("2026-04-25 09:14:00") == 1777108440000  # cja_auto_sdr shape
+    assert _epoch_ms("not a date") is None
+    assert _epoch_ms(None) is None
+    assert _epoch_ms("") is None
+    assert _epoch_ms("2026-04-25T09:14:00+05:30") != _epoch_ms("2026-04-25T09:14:00Z")
+
+
+def test_modified_ts_mirrors_modified_at(messy_payload):
+    from sdr_visualizer.render.data_payload import _epoch_ms
+
+    entries = [
+        *messy_payload["components"],
+        *messy_payload["segments"],
+        *messy_payload["calculated_metrics"],
+    ]
+    assert any(e.get("modified_ts") is not None for e in entries)
+    for e in entries:
+        assert e.get("modified_ts") == _epoch_ms(e.get("modified_at"))
+
+
+def test_graph_embeds_edges_only(messy_payload):
+    """nodes / degree maps were redundant with the catalog entries (0.2.0)."""
+    assert set(messy_payload["graph"].keys()) == {"edges"}
+
+
+def test_components_exclude_platform_specific(messy_payload):
+    assert all("platform_specific" not in c for c in messy_payload["components"])
+
+
+def test_entries_omit_null_and_empty_fields(messy_payload):
+    entries = [
+        *messy_payload["components"],
+        *messy_payload["segments"],
+        *messy_payload["calculated_metrics"],
+    ]
+    for entry in entries:
+        for key, value in entry.items():
+            assert value is not None, f"{entry['id']}: null field {key!r} not stripped"
+            assert value != [], f"{entry['id']}: empty list {key!r} not stripped"
+            assert value != {}, f"{entry['id']}: empty dict {key!r} not stripped"
+            assert value != "", f"{entry['id']}: empty string {key!r} not stripped"

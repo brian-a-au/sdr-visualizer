@@ -39,7 +39,7 @@ def test_graph_nav_button_enabled(messy_html):
     )
 
 
-def test_graph_payload_has_nodes_and_edges(messy_html):
+def test_graph_payload_has_edges(messy_html):
     import re
 
     match = re.search(
@@ -48,5 +48,7 @@ def test_graph_payload_has_nodes_and_edges(messy_html):
         re.DOTALL,
     )
     payload = json.loads(match.group("json"))
-    assert payload["graph"]["nodes"]
+    # Graph nodes are derived client-side from the catalog (0.2.0); only
+    # edges ship in the graph section.
     assert payload["graph"]["edges"]
+    assert "nodes" not in payload["graph"]

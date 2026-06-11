@@ -13,25 +13,32 @@ Above 2,000 components the visualizer still produces valid output but uses simpl
 
 ## How the budgets are enforced
 
-`scripts/perf_check.py` runs the bundled large fixture (`tests/fixtures/cja_snapshot_large.json`, 1,200 components) through `render()` and asserts the build time + HTML size budgets at the 1,000-component class. CI calls it after `pytest`, so a regression that exceeds the budget fails the build.
+Two CI gates cover all four §6 columns:
 
-The budgets that depend on the consumer's browser (initial render time, filter/search latency) aren't gated by Python tests. If you change the catalog or graph render path, eyeball them in a browser using the rendered example and the embedded JSON payload size.
+- **`scripts/perf_check.py`** — build time + HTML size. Runs the bundled CJA (1,200 components) and AA (~900) fixtures against the 1,000-component budgets, plus a generated ~2,000-component XL fixture (`generate_large_fixture.py --scale 1.67`) against the 2,000-component budgets.
+- **`scripts/perf_browser_check.py`** — initial render time + filter/search latency, measured in headless Chromium via Playwright (`uv sync --group browser`, `uv run playwright install chromium`). Navigates the rendered file, waits for the first catalog row, then drives the embedded `window.__sdrPerf.timeFilter()` hook (which bypasses the input debounce so the budget measures actual work; median of 5 runs). Asserts the 2,000-component budgets (< 2 s render, < 300 ms filter) for both the 1,200 and ~2,000-component fixtures.
+
+CI runs both after `pytest`; a regression that exceeds any budget fails the build.
 
 ## What we measure
 
 ```bash
 $ uv run python scripts/perf_check.py
-components: 1200
-build time: 0.02s   (budget 6.0s)
-HTML size : 1.04MB  (budget 4.0MB)
+[CJA] build time: 0.01s   (budget 6.0s)
+[CJA] HTML size : 0.71MB  (budget 4.0MB)
+[AA] build time: 0.01s   (budget 6.0s)
+[AA] HTML size : 0.61MB  (budget 4.0MB)
+[CJA-XL] build time: 0.01s   (budget 12.0s)
+[CJA-XL] HTML size : 0.98MB  (budget 8.0MB)
 OK: all budgets met
 ```
 
 The bundled large fixture intentionally over-shoots the 1,000-component budget tier (it carries 1,200 components) so the gate tells you about regressions a few hundred components before the spec's hard limit.
 
-## How the speed comes from
+## Where the speed comes from
 
-- **Pre-computation in Python.** The reference graph (nodes/edges/in_degree/out_degree), segment trees, formula trees, and a lowercased per-component search blob all live in the embedded payload. The client never has to walk the raw definition JSON or recompute reference counts.
-- **Vanilla JS DOM, no framework.** No Virtual DOM diffing, no reconciliation cost. The catalog re-renders rows by rebuilding a single `innerHTML` string when filters change — faster than per-row diffing for the table sizes we hit.
-- **D3 only for the force simulation.** The rest of the JS is plain DOM, kept tight. D3 itself is ~280KB minified — vendored and inlined.
-- **Lazy graph init.** The D3 simulation only runs when the user switches to the graph view for the first time. The catalog view is interactive immediately.
+- **Pre-computation in Python.** Reference edges, per-entry in/out-degree counts, segment trees, formula trees, and `modified_ts` (epoch ms) live in the embedded payload. The client never walks raw definition JSON, recomputes reference counts, or parses dates in sort/filter paths.
+- **One-time client indexing, then cheap passes.** At load the client builds the lowercased search blob and sort keys in a single O(n) pass. Row HTML is cached per entry (it's a pure function of the entry). The master list is kept pre-sorted and only re-sorted when the sort key changes, so a keystroke costs one filtered pass over precomputed strings.
+- **Bounded DOM.** Search input is debounced (120 ms) and at most 1,000 rows render at once — beyond that a "Showing 1,000 of N · Show all" row appears, keeping innerHTML parse + layout flat regardless of catalog size.
+- **Slim payload.** Null/empty fields are omitted and nothing ships twice — no server-built search index, no duplicate graph node list or degree maps (~40% smaller than 0.1.0), so `JSON.parse` at load stays fast.
+- **Graph tuned for 1,000 nodes.** The force simulation is warm-started synchronously (60–120 ticks) so the first paint is near-settled; graphs over 200 nodes label only the top-60 in-degree nodes until you zoom past 1.4× (or hover); hover/filter passes use precomputed neighbor counts. D3 only for the simulation; init is lazy on first view switch.

@@ -1,6 +1,6 @@
 [project]
 name = "sdr-visualizer"
-version = "0.1.0"
+version = "0.2.0"
 description = "Static-output visual catalog generator for Adobe Customer Journey Analytics and Adobe Analytics implementations."
 readme = "README.md"
 license = { text = "MIT" }
@@ -23,6 +23,9 @@ Issues = "https://github.com/brian-a-au/sdr-visualizer/issues"
 dev = [
     "pytest>=8.0",
     "ruff>=0.4",
+]
+browser = [
+    "playwright>=1.43",
 ]
 
 [build-system]

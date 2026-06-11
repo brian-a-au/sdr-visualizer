@@ -79,4 +79,4 @@ def test_json_flag_writes_separate_file(tmp_path):
     assert json_out.exists()
     parsed = json.loads(json_out.read_text(encoding="utf-8"))
     assert parsed["meta"]["platform"] == "cja"
-    assert parsed["graph"]["nodes"]
+    assert parsed["graph"]["edges"]

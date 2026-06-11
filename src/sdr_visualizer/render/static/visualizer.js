@@ -28,10 +28,22 @@
   payload.calculated_metrics.forEach(function (c) { catalog.push(c); });
 
   // Map id -> entry for O(1) lookup (used by detail panel reference links).
+  // Precompute per-entry search/sort keys in the same pass: one O(n) walk at
+  // load is cheaper than shipping a server-built index (which duplicated
+  // name/description/formula text in the payload) and far cheaper than
+  // recomputing per keystroke.
   var byId = {};
-  catalog.forEach(function (entry) { byId[entry.id] = entry; });
-
-  var indexById = (payload.catalog_index && payload.catalog_index.by_id) || {};
+  catalog.forEach(function (entry) {
+    byId[entry.id] = entry;
+    entry._search = [
+      entry.id || "",
+      entry.name || "",
+      entry.description || "",
+      entry.formula_text || "",
+      (entry.tags || []).join(" "),
+    ].join(" ").toLowerCase();
+    entry._sortName = (entry.name || "").toLowerCase();
+  });
 
   /* ----- DOM refs ----- */
 
@@ -54,6 +66,13 @@
   var sortKey = "type";
   var sortDir = "asc";
   // Always sort by name as a secondary key for stable ordering.
+  // Master list kept in sorted order; re-sorted only when the sort key or
+  // direction changes. applyFilters() filters it without re-sorting.
+  var sortedCatalog = catalog.slice();
+  var lastFiltered = [];
+  // Cap rendered rows — innerHTML parse + layout cost grows linearly and
+  // blows the §6 filter budget past a few thousand rows. "Show all" opts out.
+  var ROW_RENDER_CAP = 1000;
 
   // Honor --exclude-orphans by defaulting the references-filter dropdown.
   if (payload.meta && payload.meta.exclude_orphans_default) {
@@ -95,14 +114,6 @@
     return y + "-" + m + "-" + d;
   }
 
-  function daysSince(value) {
-    if (!value) return Infinity;
-    var date = new Date(value);
-    if (isNaN(date.getTime())) return Infinity;
-    var diff = Date.now() - date.getTime();
-    return diff / 86400000;
-  }
-
   function tagsOf(entry) {
     return entry.tags || [];
   }
@@ -129,15 +140,12 @@
     var referencesMode = $referencesFilter.value;
     var modifiedMode = $modifiedFilter.value;
     var modifiedDays = modifiedMode === "all" ? Infinity : Number(modifiedMode);
+    var nowMs = Date.now();
 
-    var filtered = catalog.filter(function (entry) {
+    var filtered = sortedCatalog.filter(function (entry) {
       if (!typeSet[entry.type]) return false;
 
-      if (query) {
-        var idx = indexById[entry.id];
-        var hay = idx ? idx.search : ((entry.name || "") + " " + (entry.id || "")).toLowerCase();
-        if (hay.indexOf(query) === -1) return false;
-      }
+      if (query && entry._search.indexOf(query) === -1) return false;
 
       if (descriptionMode === "has" && !entry.description) return false;
       if (descriptionMode === "missing" && entry.description) return false;
@@ -146,14 +154,19 @@
       if (referencesMode === "orphaned" && (entry.in_degree || 0) > 0) return false;
 
       if (modifiedDays !== Infinity) {
-        if (daysSince(entry.modified_at) > modifiedDays) return false;
+        if (!entry.modified_ts) return false;
+        if ((nowMs - entry.modified_ts) / 86400000 > modifiedDays) return false;
       }
 
       return true;
     });
 
-    filtered.sort(compareEntries);
-    renderRows(filtered);
+    lastFiltered = filtered;
+    renderRows(filtered, false);
+  }
+
+  function resort() {
+    sortedCatalog.sort(compareEntries);
   }
 
   function compareEntries(a, b) {
@@ -172,12 +185,15 @@
       return av - bv;
     }
     if (key === "modified_at") {
-      var ad = av ? new Date(av).getTime() : 0;
-      var bd = bv ? new Date(bv).getTime() : 0;
-      return ad - bd;
+      return (a.modified_ts || 0) - (b.modified_ts || 0);
     }
-    av = (av || "").toString().toLowerCase();
-    bv = (bv || "").toString().toLowerCase();
+    if (key === "name") {
+      av = a._sortName;
+      bv = b._sortName;
+    } else {
+      av = (av || "").toString().toLowerCase();
+      bv = (bv || "").toString().toLowerCase();
+    }
     if (av < bv) return -1;
     if (av > bv) return 1;
     return 0;
@@ -185,8 +201,15 @@
 
   /* ----- Rendering ----- */
 
-  function renderRows(entries) {
-    var html = entries.map(rowHtml).join("");
+  function renderRows(entries, showAll) {
+    var truncated = !showAll && entries.length > ROW_RENDER_CAP;
+    var visible = truncated ? entries.slice(0, ROW_RENDER_CAP) : entries;
+    var html = visible.map(rowHtml).join("");
+    if (truncated) {
+      html += '<tr class="catalog-truncated"><td colspan="7">Showing ' +
+        ROW_RENDER_CAP + " of " + entries.length +
+        ' rows · <button type="button" id="show-all-rows" class="ghost-button ui">Show all</button></td></tr>';
+    }
     $body.innerHTML = html;
     $empty.hidden = entries.length > 0;
     $resultCount.textContent = entries.length === catalog.length
@@ -196,11 +219,19 @@
   }
 
   function rowHtml(entry) {
-    var tags = tagsOf(entry).slice(0, 4).map(function (t) {
+    // Row HTML is a pure function of the entry — build once, reuse on every
+    // subsequent filter/sort render.
+    if (entry._rowHtml === undefined) entry._rowHtml = buildRowHtml(entry);
+    return entry._rowHtml;
+  }
+
+  function buildRowHtml(entry) {
+    var allTags = tagsOf(entry);
+    var tags = allTags.slice(0, 4).map(function (t) {
       return '<span class="tag">' + escapeHtml(t) + "</span>";
     }).join("");
-    if (tagsOf(entry).length > 4) {
-      tags += '<span class="tag">+' + (tagsOf(entry).length - 4) + "</span>";
+    if (allTags.length > 4) {
+      tags += '<span class="tag">+' + (allTags.length - 4) + "</span>";
     }
     var desc = entry.description;
     var descHtml = desc
@@ -441,7 +472,11 @@
 
   /* ----- Wiring ----- */
 
-  $search.addEventListener("input", applyFilters);
+  var searchDebounceTimer = null;
+  $search.addEventListener("input", function () {
+    clearTimeout(searchDebounceTimer);
+    searchDebounceTimer = setTimeout(applyFilters, 120);
+  });
   $typeFilter.addEventListener("change", applyFilters);
   $descriptionFilter.addEventListener("change", applyFilters);
   $referencesFilter.addEventListener("change", applyFilters);
@@ -456,11 +491,16 @@
         sortKey = key;
         sortDir = key === "in_degree" || key === "modified_at" ? "desc" : "asc";
       }
+      resort();
       applyFilters();
     });
   });
 
   $body.addEventListener("click", function (event) {
+    if (event.target.closest("#show-all-rows")) {
+      renderRows(lastFiltered, true);
+      return;
+    }
     var row = event.target.closest("tr[data-id]");
     if (row) openDetail(row.getAttribute("data-id"));
   });
@@ -476,7 +516,23 @@
     if (btn) openDetail(btn.getAttribute("data-id"));
   });
 
+  resort();
   applyFilters();
+
+  // Perf instrumentation consumed by scripts/perf_browser_check.py.
+  // Not a public API. timeFilter bypasses the input debounce so the §6
+  // filter-latency budget measures the actual work.
+  window.__sdrPerf = {
+    timeFilter: function (query) {
+      clearTimeout(searchDebounceTimer);
+      $search.value = query;
+      var t0 = performance.now();
+      applyFilters();
+      return performance.now() - t0;
+    },
+    // Includes the truncation indicator row when the result set is capped.
+    rowCount: function () { return $body.children.length; },
+  };
 
   /* ===========================================================
    * Graph view (D3 force-directed)
@@ -529,7 +585,7 @@
   });
 
   function maybeInitGraph() {
-    var totalNodes = (payload.graph && payload.graph.nodes) ? payload.graph.nodes.length : 0;
+    var totalNodes = catalog.length;
     if (totalNodes > GRAPH_NODE_THRESHOLD) {
       $graphDegraded.hidden = false;
       $graphRenderAnyway.addEventListener("click", function () {
@@ -550,17 +606,15 @@
     }
     var d3 = window.d3;
 
-    // Node + link copies — D3 mutates them, so don't share with the catalog.
-    var srcNodes = (payload.graph && payload.graph.nodes) || [];
+    // Node copies derived from the catalog (id/type/name/in_degree all live
+    // there) — D3 mutates node objects, so don't share with the catalog.
     var srcEdges = (payload.graph && payload.graph.edges) || [];
-
-    var inDeg = (payload.graph && payload.graph.in_degree) || {};
-    graphState.nodes = srcNodes.map(function (n) {
+    graphState.nodes = catalog.map(function (n) {
       return {
         id: n.id,
         type: n.type,
-        label: n.label,
-        in_degree: inDeg[n.id] || 0,
+        label: n.name,
+        in_degree: n.in_degree || 0,
       };
     });
     graphState.links = srcEdges.map(function (e) { return { source: e.source, target: e.target }; });
@@ -570,6 +624,13 @@
     srcEdges.forEach(function (e) {
       (graphState.neighborMap[e.source] = graphState.neighborMap[e.source] || {})[e.target] = true;
       (graphState.neighborMap[e.target] = graphState.neighborMap[e.target] || {})[e.source] = true;
+    });
+
+    // One-time neighbor counts — applyGraphFilters runs per keystroke and
+    // must not allocate Object.keys() per node.
+    graphState.nodes.forEach(function (n) {
+      var m = graphState.neighborMap[n.id];
+      n._neighborCount = m ? Object.keys(m).length : 0;
     });
 
     // SVG setup
@@ -584,7 +645,10 @@
 
     graphState.zoom = d3.zoom()
       .scaleExtent([0.2, 6])
-      .on("zoom", function (event) { g.attr("transform", event.transform); });
+      .on("zoom", function (event) {
+        g.attr("transform", event.transform);
+        g.classed("graph-labels-all", event.transform.k >= 1.4);
+      });
     svg.call(graphState.zoom);
 
     var color = {
@@ -618,6 +682,22 @@
       .attr("dy", "0.32em")
       .text(function (d) { return d.label; });
 
+    // Label culling: painting a text element per node is the dominant frame
+    // cost at scale. Show labels for the highest-in-degree nodes by default;
+    // zooming past 1.4x reveals all (see the zoom handler); hover/highlight
+    // always reveals via CSS.
+    var LABEL_BUDGET = 60;
+    if (graphState.nodes.length > 200) {
+      var labeled = {};
+      graphState.nodes.slice()
+        .sort(function (a, b) { return b.in_degree - a.in_degree; })
+        .slice(0, LABEL_BUDGET)
+        .forEach(function (n) { labeled[n.id] = true; });
+      nodeSel.classed("is-labeled", function (d) { return !!labeled[d.id]; });
+    } else {
+      nodeSel.classed("is-labeled", true);
+    }
+
     nodeSel.on("mouseover", function (event, d) { highlightNeighbors(d.id); })
       .on("mouseout", function () { applyGraphFilters(); })
       .on("click", function (event, d) { openDetail(d.id); });
@@ -641,7 +721,17 @@
         return Math.max(6, 5 + Math.sqrt(d.in_degree)) + 2;
       }))
       .alphaDecay(0.05)
-      .on("tick", tick);
+      .on("tick", tick)
+      .stop();
+
+    // Warm-start: run the early high-energy ticks synchronously before first
+    // paint so the graph appears mostly settled instead of exploding into
+    // place. Manual tick() does not dispatch the tick event, so paint once
+    // explicitly, then restart at low alpha for a gentle finish.
+    var warmTicks = graphState.nodes.length > 400 ? 120 : 60;
+    for (var wi = 0; wi < warmTicks; wi++) graphState.simulation.tick();
+    tick();
+    graphState.simulation.alpha(0.12).restart();
 
     function tick() {
       linkSel
@@ -675,15 +765,16 @@
 
   function applyGraphFilters() {
     if (!graphState.nodeSel) return;
+    graphState.nodeSel.classed("is-hover", false);
 
     var visibleIds = {};
     graphState.nodes.forEach(function (n) {
       var typeOk = !!graphState.selectedTypes[n.type];
       var orphanOk = true;
       if (graphState.orphanMode === "connected") {
-        orphanOk = (graphState.neighborMap[n.id] && Object.keys(graphState.neighborMap[n.id]).length > 0);
+        orphanOk = n._neighborCount > 0;
       } else if (graphState.orphanMode === "orphans") {
-        orphanOk = !graphState.neighborMap[n.id];
+        orphanOk = n._neighborCount === 0;
       }
       var queryOk = true;
       if (graphState.query) {
