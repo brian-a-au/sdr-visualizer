@@ -71,7 +71,12 @@ def test_minimal_payload_segment_and_formula_trees_are_empty(minimal_payload):
 def test_minimal_graph_has_only_orphan_nodes(minimal_payload):
     """No segments / calc metrics means no edges."""
     assert minimal_payload["graph"]["edges"] == []
-    assert all(d == 0 for d in minimal_payload["graph"]["in_degree"].values())
+    entries = [
+        *minimal_payload["components"],
+        *minimal_payload["segments"],
+        *minimal_payload["calculated_metrics"],
+    ]
+    assert all(e.get("in_degree", 0) == 0 for e in entries)
 
 
 def test_minimal_normalizes_empty_and_dash_descriptions(minimal_impl):
