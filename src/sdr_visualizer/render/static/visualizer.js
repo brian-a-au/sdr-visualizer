@@ -28,10 +28,22 @@
   payload.calculated_metrics.forEach(function (c) { catalog.push(c); });
 
   // Map id -> entry for O(1) lookup (used by detail panel reference links).
+  // Precompute per-entry search/sort keys in the same pass: one O(n) walk at
+  // load is cheaper than shipping a server-built index (which duplicated
+  // name/description/formula text in the payload) and far cheaper than
+  // recomputing per keystroke.
   var byId = {};
-  catalog.forEach(function (entry) { byId[entry.id] = entry; });
-
-  var indexById = (payload.catalog_index && payload.catalog_index.by_id) || {};
+  catalog.forEach(function (entry) {
+    byId[entry.id] = entry;
+    entry._search = [
+      entry.id || "",
+      entry.name || "",
+      entry.description || "",
+      entry.formula_text || "",
+      (entry.tags || []).join(" "),
+    ].join(" ").toLowerCase();
+    entry._sortName = (entry.name || "").toLowerCase();
+  });
 
   /* ----- DOM refs ----- */
 
@@ -95,14 +107,6 @@
     return y + "-" + m + "-" + d;
   }
 
-  function daysSince(value) {
-    if (!value) return Infinity;
-    var date = new Date(value);
-    if (isNaN(date.getTime())) return Infinity;
-    var diff = Date.now() - date.getTime();
-    return diff / 86400000;
-  }
-
   function tagsOf(entry) {
     return entry.tags || [];
   }
@@ -129,15 +133,12 @@
     var referencesMode = $referencesFilter.value;
     var modifiedMode = $modifiedFilter.value;
     var modifiedDays = modifiedMode === "all" ? Infinity : Number(modifiedMode);
+    var nowMs = Date.now();
 
     var filtered = catalog.filter(function (entry) {
       if (!typeSet[entry.type]) return false;
 
-      if (query) {
-        var idx = indexById[entry.id];
-        var hay = idx ? idx.search : ((entry.name || "") + " " + (entry.id || "")).toLowerCase();
-        if (hay.indexOf(query) === -1) return false;
-      }
+      if (query && entry._search.indexOf(query) === -1) return false;
 
       if (descriptionMode === "has" && !entry.description) return false;
       if (descriptionMode === "missing" && entry.description) return false;
@@ -146,7 +147,8 @@
       if (referencesMode === "orphaned" && (entry.in_degree || 0) > 0) return false;
 
       if (modifiedDays !== Infinity) {
-        if (daysSince(entry.modified_at) > modifiedDays) return false;
+        if (!entry.modified_ts) return false;
+        if ((nowMs - entry.modified_ts) / 86400000 > modifiedDays) return false;
       }
 
       return true;
@@ -172,12 +174,15 @@
       return av - bv;
     }
     if (key === "modified_at") {
-      var ad = av ? new Date(av).getTime() : 0;
-      var bd = bv ? new Date(bv).getTime() : 0;
-      return ad - bd;
+      return (a.modified_ts || 0) - (b.modified_ts || 0);
     }
-    av = (av || "").toString().toLowerCase();
-    bv = (bv || "").toString().toLowerCase();
+    if (key === "name") {
+      av = a._sortName;
+      bv = b._sortName;
+    } else {
+      av = (av || "").toString().toLowerCase();
+      bv = (bv || "").toString().toLowerCase();
+    }
     if (av < bv) return -1;
     if (av > bv) return 1;
     return 0;
@@ -529,7 +534,7 @@
   });
 
   function maybeInitGraph() {
-    var totalNodes = (payload.graph && payload.graph.nodes) ? payload.graph.nodes.length : 0;
+    var totalNodes = catalog.length;
     if (totalNodes > GRAPH_NODE_THRESHOLD) {
       $graphDegraded.hidden = false;
       $graphRenderAnyway.addEventListener("click", function () {
@@ -550,17 +555,15 @@
     }
     var d3 = window.d3;
 
-    // Node + link copies — D3 mutates them, so don't share with the catalog.
-    var srcNodes = (payload.graph && payload.graph.nodes) || [];
+    // Node copies derived from the catalog (id/type/name/in_degree all live
+    // there) — D3 mutates node objects, so don't share with the catalog.
     var srcEdges = (payload.graph && payload.graph.edges) || [];
-
-    var inDeg = (payload.graph && payload.graph.in_degree) || {};
-    graphState.nodes = srcNodes.map(function (n) {
+    graphState.nodes = catalog.map(function (n) {
       return {
         id: n.id,
         type: n.type,
-        label: n.label,
-        in_degree: inDeg[n.id] || 0,
+        label: n.name,
+        in_degree: n.in_degree || 0,
       };
     });
     graphState.links = srcEdges.map(function (e) { return { source: e.source, target: e.target }; });
