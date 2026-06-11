@@ -19,7 +19,11 @@ from sdr_visualizer.render.data_payload import build_payload
 
 _env = Environment(
     loader=PackageLoader("sdr_visualizer.render", "templates"),
-    autoescape=select_autoescape(["html"]),
+    # "j2" must be listed explicitly: select_autoescape matches on the final
+    # extension only, so "index.html.j2" does NOT match ["html"]. Without
+    # listing "j2", {{ title }} / {{ meta.instance_name }} etc. render raw,
+    # allowing XSS via hostile snapshot metadata.
+    autoescape=select_autoescape(["html", "j2"]),
 )
 
 
@@ -69,9 +73,12 @@ def _render_from_payload(payload: dict[str, Any], *, title: str | None) -> str:
         css=css,
         js=js,
         d3_js=d3_js,
-        # `tojson` would re-escape angle brackets etc.; we control the data
-        # so plain `dumps` keeps the payload compact and readable.
-        payload_json=json.dumps(payload, separators=(",", ":"), ensure_ascii=False),
+        # Snapshot text is untrusted: a description containing "</script>"
+        # would otherwise terminate the data block and become live markup
+        # (stored XSS). Escaping "<" as < is invisible to JSON.parse.
+        payload_json=json.dumps(payload, separators=(",", ":"), ensure_ascii=False).replace(
+            "<", "\\u003c"
+        ),
         # Snapshot stats for the header strip.
         component_count=payload["meta"]["component_count"],
         metric_count=sum(1 for c in payload["components"] if c["type"] == "metric"),

@@ -100,3 +100,64 @@ def test_render_deterministic_modulo_generated_at():
 def test_perf_hook_embedded_and_catalog_index_gone(messy_html):
     assert "__sdrPerf" in messy_html
     assert "catalog_index" not in messy_html
+
+
+# ---------------------------------------------------------------------------
+# Script-injection (XSS) regression tests
+# ---------------------------------------------------------------------------
+
+
+@pytest.fixture(scope="module")
+def hostile_html():
+    snap = json.loads((FIXTURES / "cja_snapshot_hostile.json").read_text(encoding="utf-8"))
+    return render(cja_adapt(snap))
+
+
+def test_payload_cannot_break_out_of_script_block(hostile_html):
+    """A '</script>' inside snapshot text must not terminate the data block.
+
+    json.dumps does not escape angle brackets by default; without explicit
+    escaping a hostile description becomes live markup — stored XSS in a
+    file users share with each other.
+    """
+    # Exactly three closing script tags exist in the document: the sdr-data
+    # JSON block, the inlined D3 bundle, and the inlined visualizer JS.  An
+    # injected '</script>' surviving into the payload would add a fourth.
+    assert hostile_html.count("</script>") == 3
+    # The data block itself must contain no raw angle brackets at all.
+    start = hostile_html.index('<script id="sdr-data" type="application/json">')
+    start = hostile_html.index(">", start) + 1
+    end = hostile_html.index("</script>", start)
+    block = hostile_html[start:end]
+    assert "<" not in block
+
+
+def test_hostile_payload_round_trips(hostile_html):
+    """Escaping must not change what JSON.parse / json.loads recovers."""
+    match = re.search(
+        r'<script id="sdr-data" type="application/json">(?P<json>.*?)</script>',
+        hostile_html,
+        re.DOTALL,
+    )
+    payload = json.loads(match.group("json"))
+    by_id = {c["id"]: c for c in payload["components"]}
+    assert (
+        by_id["metrics/cm_evil_desc"]["description"]
+        == "</script><script>window.__xssEscape=true</script>"
+    )
+    assert by_id["metrics/cm_evil_name"]["name"] == '<img src=x onerror="window.__xssFired=true">'
+
+
+def test_template_autoescape_applies_to_j2_templates(hostile_html):
+    """select_autoescape(["html"]) alone does NOT cover .j2 files.
+
+    The final extension of "index.html.j2" is ".j2", not ".html", so
+    Jinja's select_autoescape would silently skip it unless "j2" is
+    explicitly listed. This test verifies the fix is in place: a hostile
+    snapshot name (which becomes {{ title }} / {{ meta.instance_name }})
+    must be HTML-escaped, not rendered raw.
+    """
+    # The hostile fixture has <script>alert('name')</script> in the Data View Name.
+    # After the fix it must appear as &lt;script&gt; in the title and h1.
+    assert "<script>alert" not in hostile_html
+    assert "&lt;script&gt;" in hostile_html
