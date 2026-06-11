@@ -84,4 +84,4 @@ def test_minimal_normalizes_empty_and_dash_descriptions(minimal_impl):
     metrics_missing = [m for m in minimal_impl.metrics if m.description is None]
     dims_missing = [d for d in minimal_impl.dimensions if d.description is None]
     assert len(metrics_missing) == 1  # the '-' description
-    assert len(dims_missing) == 1     # the '' description
+    assert len(dims_missing) == 1  # the '' description

@@ -68,7 +68,7 @@ def _measure(
 def main() -> int:
     for fixture, generator in [
         (CJA_LARGE, "scripts/generate_large_fixture.py"),
-        (AA_LARGE,  "scripts/generate_aa_large_fixture.py"),
+        (AA_LARGE, "scripts/generate_aa_large_fixture.py"),
     ]:
         if not fixture.exists():
             print(
