@@ -519,6 +519,21 @@
   resort();
   applyFilters();
 
+  // Perf instrumentation consumed by scripts/perf_browser_check.py.
+  // Not a public API. timeFilter bypasses the input debounce so the §6
+  // filter-latency budget measures the actual work.
+  window.__sdrPerf = {
+    timeFilter: function (query) {
+      clearTimeout(searchDebounceTimer);
+      $search.value = query;
+      var t0 = performance.now();
+      applyFilters();
+      return performance.now() - t0;
+    },
+    // Includes the truncation indicator row when the result set is capped.
+    rowCount: function () { return $body.children.length; },
+  };
+
   /* ===========================================================
    * Graph view (D3 force-directed)
    * =========================================================== */

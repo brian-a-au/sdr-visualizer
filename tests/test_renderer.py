@@ -95,3 +95,8 @@ def test_render_deterministic_modulo_generated_at():
     b = render(impl)
     timestamp_re = re.compile(r'"generated_at":"[^"]+"')
     assert timestamp_re.sub('"generated_at":"X"', a) == timestamp_re.sub('"generated_at":"X"', b)
+
+
+def test_perf_hook_embedded_and_catalog_index_gone(messy_html):
+    assert "__sdrPerf" in messy_html
+    assert "catalog_index" not in messy_html
