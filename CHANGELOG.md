@@ -18,7 +18,7 @@ Removed) — per the stability policy this bumps the leftmost non-zero version.
   (`scripts/generate_large_fixture.py --scale 1.67`).
 - Catalog row cap: above 1,000 matching rows the table truncates with a
   "Showing 1,000 of N · Show all" escape hatch.
-- Graph label culling (top-60 in-degree nodes labeled by default; all labels
+- Graph label culling (graphs over 200 nodes label only the top-60 in-degree nodes by default; all labels
   past 1.4× zoom or on hover) and warm-started force simulation (near-settled
   first paint).
 

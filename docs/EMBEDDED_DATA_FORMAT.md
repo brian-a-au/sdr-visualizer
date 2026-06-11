@@ -170,7 +170,7 @@ Each calculated metric's parsed formula. Node `kind`s:
 
 ## Stability
 
-- The keys documented above are stable. Renaming or removing them is a breaking change that bumps the major version.
+- The keys documented above are stable. Renaming or removing them is a breaking change that bumps the leftmost non-zero version (the major version once 1.0+).
 - Adding new keys is non-breaking — consumers should ignore unknown keys.
 - The exact shape of `unknown` tree nodes is intentionally loose; consumers should use them defensively.
 - 0.2.0 removed `catalog_index`, `graph.nodes`, `graph.in_degree`, `graph.out_degree`, and `platform_specific`, and introduced sparse encoding — a breaking change per the policy above (leftmost non-zero version bumped).

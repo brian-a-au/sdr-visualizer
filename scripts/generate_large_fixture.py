@@ -160,7 +160,7 @@ def main() -> None:
         type=float,
         default=1.0,
         help="Multiply the base component counts (1.0 = 1,200 components; "
-        "1.67 = roughly the SPEC 6 2,000-component tier). "
+        "1.67 = roughly the SPEC §6 2,000-component tier). "
         "Cross-references use hardcoded moduli, so scales above 1.0 leave the "
         "highest-index components unreferenced (orphans).",
     )
