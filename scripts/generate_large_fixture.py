@@ -1,4 +1,4 @@
-"""Synthesize a 1,200-component CJA fixture for performance testing.
+"""Synthesize a large CJA fixture for performance testing (1,200 components at --scale 1.0).
 
 Mirrors the cja_auto_sdr output shape so the existing CJA adapter accepts
 it without modification. Distribution roughly:
@@ -16,6 +16,7 @@ Run via:
 
 from __future__ import annotations
 
+import argparse
 import json
 from pathlib import Path
 
@@ -151,6 +152,27 @@ def _calc_metric(idx: int) -> dict:
 
 
 def main() -> None:
+    parser = argparse.ArgumentParser(
+        description="Synthesize a large CJA fixture for performance testing."
+    )
+    parser.add_argument(
+        "--scale",
+        type=float,
+        default=1.0,
+        help="Multiply the base component counts (1.0 = 1,200 components; "
+        "1.67 = roughly the SPEC 6 2,000-component tier). "
+        "Cross-references use hardcoded moduli, so scales above 1.0 leave the "
+        "highest-index components unreferenced (orphans).",
+    )
+    parser.add_argument("--output", type=Path, default=TARGET, help="Fixture path to write.")
+    args = parser.parse_args()
+
+    n_metrics = round(300 * args.scale)
+    n_dimensions = round(500 * args.scale)
+    n_derived = round(300 * args.scale)
+    n_segments = round(60 * args.scale)
+    n_calc = round(40 * args.scale)
+
     snapshot = {
         "metadata": {
             "Data View ID": "dv_large_synthetic",
@@ -159,21 +181,15 @@ def main() -> None:
             "Tool Version": "3.5.17",
         },
         "data_view": {"id": "dv_large_synthetic"},
-        "metrics": [_metric(i) for i in range(1, 301)],
-        "dimensions": [_dimension(i) for i in range(1, 501)],
-        "derived_fields": {"fields": [_derived_field(i) for i in range(1, 301)]},
-        "segments": {"segments": [_segment(i) for i in range(1, 61)]},
-        "calculated_metrics": {"metrics": [_calc_metric(i) for i in range(1, 41)]},
+        "metrics": [_metric(i) for i in range(1, n_metrics + 1)],
+        "dimensions": [_dimension(i) for i in range(1, n_dimensions + 1)],
+        "derived_fields": {"fields": [_derived_field(i) for i in range(1, n_derived + 1)]},
+        "segments": {"segments": [_segment(i) for i in range(1, n_segments + 1)]},
+        "calculated_metrics": {"metrics": [_calc_metric(i) for i in range(1, n_calc + 1)]},
     }
-    TARGET.write_text(json.dumps(snapshot), encoding="utf-8")
-    total = (
-        len(snapshot["metrics"])
-        + len(snapshot["dimensions"])
-        + len(snapshot["derived_fields"]["fields"])
-        + len(snapshot["segments"]["segments"])
-        + len(snapshot["calculated_metrics"]["metrics"])
-    )
-    print(f"wrote {TARGET} ({total} components)")
+    args.output.write_text(json.dumps(snapshot), encoding="utf-8")
+    total = n_metrics + n_dimensions + n_derived + n_segments + n_calc
+    print(f"wrote {args.output} ({total} components)")
 
 
 if __name__ == "__main__":

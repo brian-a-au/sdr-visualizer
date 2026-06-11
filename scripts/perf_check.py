@@ -1,15 +1,20 @@
 """Performance gate (SPEC-VISUALIZER §6).
 
-Renders the bundled large fixture and asserts:
-  - build time < 6s    (1000-component budget)
-  - HTML size  < 4MB
+Renders the bundled large fixtures and asserts the build-time + HTML-size
+budgets. CI runs this after pytest (see .github/workflows/test.yml).
+
+  - CJA / AA large (~1,200 / ~900 components): 1,000-component budgets
+    (build < 6s, size < 4MB)
+  - CJA XL (~2,000 components, generated on demand via
+    `generate_large_fixture.py --scale 1.67 --output tests/fixtures/cja_snapshot_xl.json`):
+    2,000-component budgets (build < 12s, size < 8MB). Skipped when absent.
+
+Browser-side budgets (initial render, filter latency) are gated separately
+by scripts/perf_browser_check.py.
 
 Run via:
 
     uv run python scripts/perf_check.py
-
-Exits non-zero if any budget is missed. The CI test workflow doesn't yet
-call this — gate it from the workflow once you're ready to enforce.
 """
 
 from __future__ import annotations
@@ -30,8 +35,18 @@ AA_LARGE = REPO / "tests" / "fixtures" / "aa_snapshot_large.json"
 BUILD_BUDGET_S = 6.0
 SIZE_BUDGET_MB = 4.0
 
+CJA_XL = REPO / "tests" / "fixtures" / "cja_snapshot_xl.json"
+XL_BUILD_BUDGET_S = 12.0
+XL_SIZE_BUDGET_MB = 8.0
 
-def _measure(label: str, snap: dict, adapt) -> tuple[bool, str]:
+
+def _measure(
+    label: str,
+    snap: dict,
+    adapt,
+    build_budget_s: float = BUILD_BUDGET_S,
+    size_budget_mb: float = SIZE_BUDGET_MB,
+) -> tuple[list[str], str]:
     start = time.perf_counter()
     impl = adapt(snap)
     html = render(impl)
@@ -39,14 +54,14 @@ def _measure(label: str, snap: dict, adapt) -> tuple[bool, str]:
     size_mb = len(html.encode("utf-8")) / (1024 * 1024)
 
     msgs = [
-        f"[{label}] build time: {elapsed:.2f}s   (budget {BUILD_BUDGET_S}s)",
-        f"[{label}] HTML size : {size_mb:.2f}MB  (budget {SIZE_BUDGET_MB}MB)",
+        f"[{label}] build time: {elapsed:.2f}s   (budget {build_budget_s}s)",
+        f"[{label}] HTML size : {size_mb:.2f}MB  (budget {size_budget_mb}MB)",
     ]
     failures = []
-    if elapsed > BUILD_BUDGET_S:
-        failures.append(f"[{label}] build time {elapsed:.2f}s > {BUILD_BUDGET_S}s budget")
-    if size_mb > SIZE_BUDGET_MB:
-        failures.append(f"[{label}] HTML size {size_mb:.2f}MB > {SIZE_BUDGET_MB}MB budget")
+    if elapsed > build_budget_s:
+        failures.append(f"[{label}] build time {elapsed:.2f}s > {build_budget_s}s budget")
+    if size_mb > size_budget_mb:
+        failures.append(f"[{label}] HTML size {size_mb:.2f}MB > {size_budget_mb}MB budget")
     return failures, "\n".join(msgs)
 
 
@@ -71,7 +86,17 @@ def main() -> int:
     aa_failures, aa_report = _measure("AA", aa_snap, aa_adapt)
     print(aa_report)
 
-    failed = [*cja_failures, *aa_failures]
+    xl_failures: list[str] = []
+    if CJA_XL.exists():
+        xl_snap = json.loads(CJA_XL.read_text(encoding="utf-8"))
+        xl_failures, xl_report = _measure(
+            "CJA-XL", xl_snap, cja_adapt, XL_BUILD_BUDGET_S, XL_SIZE_BUDGET_MB
+        )
+        print(xl_report)
+    else:
+        print("note: cja_snapshot_xl.json not generated; skipping 2,000-component gate")
+
+    failed = [*cja_failures, *aa_failures, *xl_failures]
     if failed:
         for msg in failed:
             print(f"FAIL: {msg}", file=sys.stderr)
