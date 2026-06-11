@@ -755,3 +755,13 @@ h1 {
 @media (prefers-reduced-motion: reduce) {
   .detail-overlay, .detail-panel, .catalog-table tbody tr, .view-button { transition: none; }
 }
+
+/* ----- Truncated-catalog indicator row ----- */
+.catalog-truncated td {
+  padding: 14px 16px;
+  text-align: center;
+  color: #6b6b66;
+  font-style: italic;
+}
+.catalog-truncated { cursor: default; }
+.catalog-table tbody tr.catalog-truncated:hover { background: transparent; }

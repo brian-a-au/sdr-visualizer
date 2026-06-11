@@ -66,6 +66,13 @@
   var sortKey = "type";
   var sortDir = "asc";
   // Always sort by name as a secondary key for stable ordering.
+  // Master list kept in sorted order; re-sorted only when the sort key or
+  // direction changes. applyFilters() filters it without re-sorting.
+  var sortedCatalog = catalog.slice();
+  var lastFiltered = [];
+  // Cap rendered rows — innerHTML parse + layout cost grows linearly and
+  // blows the §6 filter budget past a few thousand rows. "Show all" opts out.
+  var ROW_RENDER_CAP = 1000;
 
   // Honor --exclude-orphans by defaulting the references-filter dropdown.
   if (payload.meta && payload.meta.exclude_orphans_default) {
@@ -135,7 +142,7 @@
     var modifiedDays = modifiedMode === "all" ? Infinity : Number(modifiedMode);
     var nowMs = Date.now();
 
-    var filtered = catalog.filter(function (entry) {
+    var filtered = sortedCatalog.filter(function (entry) {
       if (!typeSet[entry.type]) return false;
 
       if (query && entry._search.indexOf(query) === -1) return false;
@@ -154,8 +161,12 @@
       return true;
     });
 
-    filtered.sort(compareEntries);
-    renderRows(filtered);
+    lastFiltered = filtered;
+    renderRows(filtered, false);
+  }
+
+  function resort() {
+    sortedCatalog.sort(compareEntries);
   }
 
   function compareEntries(a, b) {
@@ -190,8 +201,15 @@
 
   /* ----- Rendering ----- */
 
-  function renderRows(entries) {
-    var html = entries.map(rowHtml).join("");
+  function renderRows(entries, showAll) {
+    var truncated = !showAll && entries.length > ROW_RENDER_CAP;
+    var visible = truncated ? entries.slice(0, ROW_RENDER_CAP) : entries;
+    var html = visible.map(rowHtml).join("");
+    if (truncated) {
+      html += '<tr class="catalog-truncated"><td colspan="7">Showing ' +
+        ROW_RENDER_CAP + " of " + entries.length +
+        ' rows · <button type="button" id="show-all-rows" class="ghost-button ui">Show all</button></td></tr>';
+    }
     $body.innerHTML = html;
     $empty.hidden = entries.length > 0;
     $resultCount.textContent = entries.length === catalog.length
@@ -201,11 +219,19 @@
   }
 
   function rowHtml(entry) {
-    var tags = tagsOf(entry).slice(0, 4).map(function (t) {
+    // Row HTML is a pure function of the entry — build once, reuse on every
+    // subsequent filter/sort render.
+    if (entry._rowHtml === undefined) entry._rowHtml = buildRowHtml(entry);
+    return entry._rowHtml;
+  }
+
+  function buildRowHtml(entry) {
+    var allTags = tagsOf(entry);
+    var tags = allTags.slice(0, 4).map(function (t) {
       return '<span class="tag">' + escapeHtml(t) + "</span>";
     }).join("");
-    if (tagsOf(entry).length > 4) {
-      tags += '<span class="tag">+' + (tagsOf(entry).length - 4) + "</span>";
+    if (allTags.length > 4) {
+      tags += '<span class="tag">+' + (allTags.length - 4) + "</span>";
     }
     var desc = entry.description;
     var descHtml = desc
@@ -446,7 +472,11 @@
 
   /* ----- Wiring ----- */
 
-  $search.addEventListener("input", applyFilters);
+  var searchDebounceTimer = null;
+  $search.addEventListener("input", function () {
+    clearTimeout(searchDebounceTimer);
+    searchDebounceTimer = setTimeout(applyFilters, 120);
+  });
   $typeFilter.addEventListener("change", applyFilters);
   $descriptionFilter.addEventListener("change", applyFilters);
   $referencesFilter.addEventListener("change", applyFilters);
@@ -461,11 +491,16 @@
         sortKey = key;
         sortDir = key === "in_degree" || key === "modified_at" ? "desc" : "asc";
       }
+      resort();
       applyFilters();
     });
   });
 
   $body.addEventListener("click", function (event) {
+    if (event.target.closest("#show-all-rows")) {
+      renderRows(lastFiltered, true);
+      return;
+    }
     var row = event.target.closest("tr[data-id]");
     if (row) openDetail(row.getAttribute("data-id"));
   });
@@ -481,6 +516,7 @@
     if (btn) openDetail(btn.getAttribute("data-id"));
   });
 
+  resort();
   applyFilters();
 
   /* ===========================================================
