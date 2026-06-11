@@ -611,6 +611,13 @@
       (graphState.neighborMap[e.target] = graphState.neighborMap[e.target] || {})[e.source] = true;
     });
 
+    // One-time neighbor counts — applyGraphFilters runs per keystroke and
+    // must not allocate Object.keys() per node.
+    graphState.nodes.forEach(function (n) {
+      var m = graphState.neighborMap[n.id];
+      n._neighborCount = m ? Object.keys(m).length : 0;
+    });
+
     // SVG setup
     var svg = d3.select($graphCanvas);
     var rect = $graphCanvas.getBoundingClientRect();
@@ -623,7 +630,10 @@
 
     graphState.zoom = d3.zoom()
       .scaleExtent([0.2, 6])
-      .on("zoom", function (event) { g.attr("transform", event.transform); });
+      .on("zoom", function (event) {
+        g.attr("transform", event.transform);
+        g.classed("graph-labels-all", event.transform.k >= 1.4);
+      });
     svg.call(graphState.zoom);
 
     var color = {
@@ -657,6 +667,22 @@
       .attr("dy", "0.32em")
       .text(function (d) { return d.label; });
 
+    // Label culling: painting a text element per node is the dominant frame
+    // cost at scale. Show labels for the highest-in-degree nodes by default;
+    // zooming past 1.4x reveals all (see the zoom handler); hover/highlight
+    // always reveals via CSS.
+    var LABEL_BUDGET = 60;
+    if (graphState.nodes.length > 200) {
+      var labeled = {};
+      graphState.nodes.slice()
+        .sort(function (a, b) { return b.in_degree - a.in_degree; })
+        .slice(0, LABEL_BUDGET)
+        .forEach(function (n) { labeled[n.id] = true; });
+      nodeSel.classed("is-labeled", function (d) { return !!labeled[d.id]; });
+    } else {
+      nodeSel.classed("is-labeled", true);
+    }
+
     nodeSel.on("mouseover", function (event, d) { highlightNeighbors(d.id); })
       .on("mouseout", function () { applyGraphFilters(); })
       .on("click", function (event, d) { openDetail(d.id); });
@@ -680,7 +706,17 @@
         return Math.max(6, 5 + Math.sqrt(d.in_degree)) + 2;
       }))
       .alphaDecay(0.05)
-      .on("tick", tick);
+      .on("tick", tick)
+      .stop();
+
+    // Warm-start: run the early high-energy ticks synchronously before first
+    // paint so the graph appears mostly settled instead of exploding into
+    // place. Manual tick() does not dispatch the tick event, so paint once
+    // explicitly, then restart at low alpha for a gentle finish.
+    var warmTicks = graphState.nodes.length > 400 ? 120 : 60;
+    for (var wi = 0; wi < warmTicks; wi++) graphState.simulation.tick();
+    tick();
+    graphState.simulation.alpha(0.12).restart();
 
     function tick() {
       linkSel
@@ -714,15 +750,16 @@
 
   function applyGraphFilters() {
     if (!graphState.nodeSel) return;
+    graphState.nodeSel.classed("is-hover", false);
 
     var visibleIds = {};
     graphState.nodes.forEach(function (n) {
       var typeOk = !!graphState.selectedTypes[n.type];
       var orphanOk = true;
       if (graphState.orphanMode === "connected") {
-        orphanOk = (graphState.neighborMap[n.id] && Object.keys(graphState.neighborMap[n.id]).length > 0);
+        orphanOk = n._neighborCount > 0;
       } else if (graphState.orphanMode === "orphans") {
-        orphanOk = !graphState.neighborMap[n.id];
+        orphanOk = n._neighborCount === 0;
       }
       var queryOk = true;
       if (graphState.query) {
