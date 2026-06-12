@@ -4,6 +4,30 @@ All notable changes to `sdr-visualizer` will be documented here. The format foll
 
 ## [Unreleased]
 
+### Changed
+
+- **Graph view init no longer freezes on huge graphs.** The synchronous
+  warm-up that pre-settles the force simulation is now time-boxed at 150 ms
+  (it ran a fixed 120 ticks before — ~0.8 s blocked at 2,000 nodes, ~2.2 s at
+  5,000). Large graphs finish settling asynchronously, one tick per frame.
+  Above 1,000 nodes the simulation also uses a coarser Barnes-Hut theta and
+  faster alpha decay (~30% cheaper ticks; that zone is opt-in via "Render
+  anyway" and allowed to degrade per SPEC §6).
+- **Graph hover/filter repaints coalesced to one pass per frame.** Filter
+  state is recomputed only when a filter input changes; hover and filter
+  paints apply all node/link classes in a single pass per selection (link
+  endpoint ids precomputed) and are batched through `requestAnimationFrame`.
+  Sweeping the pointer across a 5,000-node graph previously cost up to
+  ~3.6 ms per mouseover/mouseout event in full selection walks. The graph
+  search box is now debounced (120 ms), matching the catalog search.
+
+### Added
+
+- CI browser gate now also asserts entering the graph view blocks the main
+  thread < 700 ms (`scripts/perf_browser_check.py`), timing the worst-case
+  "Render anyway" path on both large fixtures; plus browser-level functional
+  tests for hover neighbor-highlighting and graph search fade/highlight.
+
 ### Security
 
 - The embedded JSON payload now escapes `<` as the JSON unicode escape `\u003c` (transparent to `JSON.parse`). Previously a snapshot

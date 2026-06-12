@@ -659,6 +659,8 @@
     selectedTypes: {},
     orphanMode: "connected",
     query: "",
+    visibleIds: {},
+    hoverId: null,
   };
 
   function showView(name) {
@@ -720,7 +722,7 @@
       (graphState.neighborMap[e.target] = graphState.neighborMap[e.target] || {})[e.source] = true;
     });
 
-    // One-time neighbor counts — applyGraphFilters runs per keystroke and
+    // One-time neighbor counts — recomputeGraphFilter runs per filter change and
     // must not allocate Object.keys() per node.
     graphState.nodes.forEach(function (n) {
       var m = graphState.neighborMap[n.id];
@@ -792,8 +794,8 @@
       nodeSel.classed("is-labeled", true);
     }
 
-    nodeSel.on("mouseover", function (event, d) { highlightNeighbors(d.id); })
-      .on("mouseout", function () { applyGraphFilters(); })
+    nodeSel.on("mouseover", function (event, d) { graphState.hoverId = d.id; scheduleGraphPaint(); })
+      .on("mouseout", function () { graphState.hoverId = null; scheduleGraphPaint(); })
       .on("click", function (event, d) { openDetail(d.id); });
 
     nodeSel.call(d3.drag()
@@ -827,25 +829,40 @@
       radialLayout();
       tick();
     } else {
+      // Past the §6 interactive threshold (1,000 nodes) the graph is opt-in
+      // ("Render anyway") and allowed to degrade: a coarser Barnes-Hut theta
+      // and faster alpha decay trade a little layout quality for ~30% cheaper
+      // ticks and earlier settling.
+      var isLargeGraph = graphState.nodes.length > 1000;
       graphState.simulation = d3.forceSimulation(graphState.nodes)
         .force("link", d3.forceLink(graphState.links).id(function (d) { return d.id; }).distance(60).strength(0.5))
-        .force("charge", d3.forceManyBody().strength(-90))
+        .force("charge", d3.forceManyBody().strength(-90).theta(isLargeGraph ? 1.2 : 0.9))
         .force("center", d3.forceCenter(width / 2, height / 2))
         .force("collide", d3.forceCollide().radius(function (d) {
           return Math.max(6, 5 + Math.sqrt(d.in_degree)) + 2;
         }))
-        .alphaDecay(0.05)
+        .alphaDecay(isLargeGraph ? 0.08 : 0.05)
         .on("tick", tick)
         .stop();
 
       // Warm-start: run the early high-energy ticks synchronously before first
       // paint so the graph appears mostly settled instead of exploding into
-      // place. Manual tick() does not dispatch the tick event, so paint once
-      // explicitly, then restart at low alpha for a gentle finish.
+      // place — but time-boxed. A fixed tick count froze the view switch for
+      // seconds at 5k nodes (~18ms/tick); small graphs finish all their warm
+      // ticks within the budget, large ones hand the remainder to the async
+      // simulation (one tick per frame, page stays interactive). Manual tick()
+      // does not dispatch the tick event, so paint once explicitly, then
+      // restart wherever the warm-up got to (floored at low alpha for the
+      // gentle finish fully-warmed graphs get).
       var warmTicks = graphState.nodes.length > 400 ? 120 : 60;
-      for (var wi = 0; wi < warmTicks; wi++) graphState.simulation.tick();
+      var WARM_BUDGET_MS = 150;
+      var warmStart = performance.now();
+      for (var wi = 0; wi < warmTicks; wi++) {
+        graphState.simulation.tick();
+        if (performance.now() - warmStart > WARM_BUDGET_MS) break;
+      }
       tick();
-      graphState.simulation.alpha(0.12).restart();
+      graphState.simulation.alpha(Math.max(0.12, graphState.simulation.alpha())).restart();
     }
 
     function radialLayout() {
@@ -875,13 +892,31 @@
       nodeSel.attr("transform", function (d) { return "translate(" + d.x + "," + d.y + ")"; });
     }
 
-    // Wire filter UI.
+    // Link endpoints are node objects by now (resolved by forceLink in the
+    // simulation branch, by radialLayout otherwise). Cache the ids once —
+    // paintGraph runs per hover/filter event and shouldn't re-derive them.
+    graphState.links.forEach(function (l) {
+      l._sid = typeof l.source === "object" ? l.source.id : l.source;
+      l._tid = typeof l.target === "object" ? l.target.id : l.target;
+    });
+
+    // Wire filter UI. Search debounced like the catalog's — each keystroke
+    // otherwise costs a full recompute + paint pass over every node and edge.
     selectedTypesFromUI();
     graphState.orphanMode = $graphOrphanFilter.value;
-    applyGraphFilters();
-    $graphTypeFilter.addEventListener("change", function () { selectedTypesFromUI(); applyGraphFilters(); });
-    $graphOrphanFilter.addEventListener("change", function () { graphState.orphanMode = $graphOrphanFilter.value; applyGraphFilters(); });
-    $graphSearch.addEventListener("input", function () { graphState.query = $graphSearch.value.trim().toLowerCase(); applyGraphFilters(); });
+    recomputeGraphFilter();
+    paintGraph();
+    $graphTypeFilter.addEventListener("change", function () { selectedTypesFromUI(); recomputeGraphFilter(); scheduleGraphPaint(); });
+    $graphOrphanFilter.addEventListener("change", function () { graphState.orphanMode = $graphOrphanFilter.value; recomputeGraphFilter(); scheduleGraphPaint(); });
+    var graphSearchTimer = null;
+    $graphSearch.addEventListener("input", function () {
+      clearTimeout(graphSearchTimer);
+      graphSearchTimer = setTimeout(function () {
+        graphState.query = $graphSearch.value.trim().toLowerCase();
+        recomputeGraphFilter();
+        scheduleGraphPaint();
+      }, 120);
+    });
     $graphReset.addEventListener("click", function () {
       svg.transition().duration(150).call(graphState.zoom.transform, d3.zoomIdentity);
       if (graphState.simulation) {
@@ -901,10 +936,11 @@
     for (var i = 0; i < checked.length; i++) graphState.selectedTypes[checked[i].value] = true;
   }
 
-  function applyGraphFilters() {
-    if (!graphState.nodeSel) return;
-    graphState.nodeSel.classed("is-hover", false);
-
+  // Filter state (per-node _visible/_matched + the visible-id map) is
+  // recomputed only when a filter input changes; painting reads it. Hover
+  // previously re-derived this on every mouseout — at thousands of nodes
+  // that made each hover event a full state pass plus 4–6 selection walks.
+  function recomputeGraphFilter() {
     var visibleIds = {};
     graphState.nodes.forEach(function (n) {
       var typeOk = !!graphState.selectedTypes[n.type];
@@ -924,40 +960,61 @@
       n._visible = visible;
       if (visible) visibleIds[n.id] = true;
     });
+    graphState.visibleIds = visibleIds;
+  }
 
-    graphState.nodeSel.classed("is-faded", function (d) {
-      if (!d._visible) return true;
-      if (graphState.query) return !d._matched;
-      return false;
+  // Single pass over nodes and one over links, setting every class at once
+  // (the old code walked each selection once per class). Hover state, when
+  // present, wins over filter fading — same visual contract as before.
+  function paintGraph() {
+    if (!graphState.nodeSel) return;
+    var hoverId = graphState.hoverId;
+    var neighbors = hoverId ? (graphState.neighborMap[hoverId] || {}) : null;
+    var query = graphState.query;
+    var visibleIds = graphState.visibleIds;
+
+    graphState.nodeSel.each(function (d) {
+      var hover = false;
+      var faded;
+      var highlighted = false;
+      if (hoverId) {
+        hover = d.id === hoverId;
+        faded = !hover && !neighbors[d.id];
+      } else {
+        faded = !d._visible || !!(query && !d._matched);
+        highlighted = !!(query && d._matched && d._visible);
+      }
+      var cl = this.classList;
+      cl.toggle("is-hover", hover);
+      cl.toggle("is-faded", faded);
+      cl.toggle("is-highlighted", highlighted);
     });
-    graphState.nodeSel.classed("is-highlighted", function (d) {
-      return graphState.query && d._matched && d._visible;
-    });
-    graphState.linkSel.classed("is-faded", function (d) {
-      var src = typeof d.source === "object" ? d.source.id : d.source;
-      var tgt = typeof d.target === "object" ? d.target.id : d.target;
-      return !visibleIds[src] || !visibleIds[tgt];
+
+    graphState.linkSel.each(function (d) {
+      var faded;
+      var highlighted = false;
+      if (hoverId) {
+        highlighted = d._sid === hoverId || d._tid === hoverId;
+        faded = !highlighted;
+      } else {
+        faded = !visibleIds[d._sid] || !visibleIds[d._tid];
+      }
+      var cl = this.classList;
+      cl.toggle("is-faded", faded);
+      cl.toggle("is-highlighted", highlighted);
     });
   }
 
-  function highlightNeighbors(id) {
-    if (!graphState.nodeSel) return;
-    var neighbors = graphState.neighborMap[id] || {};
-    graphState.nodeSel.classed("is-hover", function (d) { return d.id === id; });
-    graphState.nodeSel.classed("is-faded", function (d) {
-      if (d.id === id) return false;
-      if (neighbors[d.id]) return false;
-      return true;
-    });
-    graphState.linkSel.classed("is-faded", function (d) {
-      var src = typeof d.source === "object" ? d.source.id : d.source;
-      var tgt = typeof d.target === "object" ? d.target.id : d.target;
-      return src !== id && tgt !== id;
-    });
-    graphState.linkSel.classed("is-highlighted", function (d) {
-      var src = typeof d.source === "object" ? d.source.id : d.source;
-      var tgt = typeof d.target === "object" ? d.target.id : d.target;
-      return src === id || tgt === id;
+  // Coalesce paints to one per frame. Sweeping the pointer across a dense
+  // graph fires many mouseover/mouseout pairs per frame; painting each one
+  // synchronously janked at ~3.6ms/event on 5k nodes.
+  var graphPaintQueued = false;
+  function scheduleGraphPaint() {
+    if (graphPaintQueued) return;
+    graphPaintQueued = true;
+    requestAnimationFrame(function () {
+      graphPaintQueued = false;
+      paintGraph();
     });
   }
 

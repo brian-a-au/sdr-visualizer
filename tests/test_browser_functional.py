@@ -182,6 +182,80 @@ def _tiny_snapshot() -> dict:
     }
 
 
+def _open_tiny_graph(browser_page, tmp_path, name: str):
+    out = tmp_path / name
+    out.write_text(render(cja_adapt(_tiny_snapshot())), encoding="utf-8")
+    browser_page.goto(out.as_uri())
+    browser_page.wait_for_selector("#catalog-body tr", state="attached", timeout=10_000)
+    browser_page.click('[data-view="graph"]')
+    browser_page.wait_for_selector(".graph-node", state="attached", timeout=10_000)
+
+
+def test_graph_hover_highlights_neighbors(browser_page, tmp_path):
+    """Hovering a node fades non-neighbors; mouseout restores the filter state.
+
+    Paint is coalesced to animation frames, so assertions wait for the class
+    to appear rather than checking synchronously after the event.
+    """
+    _open_tiny_graph(browser_page, tmp_path, "hover.html")
+    # Metric 1 is referenced by both Seg 1 and Calc 1 — its only neighbors.
+    browser_page.evaluate(
+        """() => {
+          for (const n of document.querySelectorAll('#graph-canvas g.graph-node')) {
+            if (n.textContent === 'Metric 1') {
+              n.dispatchEvent(new MouseEvent('mouseover', {bubbles: true}));
+              return;
+            }
+          }
+        }"""
+    )
+    browser_page.wait_for_selector(".graph-node.is-hover", state="attached", timeout=2_000)
+    unfaded = browser_page.evaluate(
+        """Array.from(document.querySelectorAll('#graph-canvas g.graph-node'))
+             .filter(n => !n.classList.contains('is-faded'))
+             .map(n => n.textContent).sort()"""
+    )
+    assert unfaded == ["Calc 1", "Metric 1", "Seg 1"]
+    # Hovered node's edges highlight; unrelated edges fade.
+    assert (
+        browser_page.evaluate(
+            "document.querySelectorAll('#graph-canvas line.is-highlighted').length"
+        )
+        == 2
+    )
+    browser_page.evaluate(
+        """document.querySelector('.graph-node.is-hover')
+             .dispatchEvent(new MouseEvent('mouseout', {bubbles: true}))"""
+    )
+    browser_page.wait_for_selector(".graph-node.is-hover", state="detached", timeout=2_000)
+    # Back to the default filter view: connected-only fades the 3 orphans.
+    faded = browser_page.evaluate(
+        """Array.from(document.querySelectorAll('#graph-canvas g.graph-node'))
+             .filter(n => n.classList.contains('is-faded'))
+             .map(n => n.textContent).sort()"""
+    )
+    assert faded == ["Dim 2", "Dim 3", "Metric 3"]
+
+
+def test_graph_search_highlights_matches(browser_page, tmp_path):
+    """The graph search (debounced) highlights matches and fades the rest."""
+    _open_tiny_graph(browser_page, tmp_path, "graphsearch.html")
+    browser_page.fill("#graph-search", "metric 1")
+    browser_page.wait_for_selector(".graph-node.is-highlighted", state="attached", timeout=2_000)
+    highlighted = browser_page.evaluate(
+        """Array.from(document.querySelectorAll('#graph-canvas g.graph-node.is-highlighted'))
+             .map(n => n.textContent)"""
+    )
+    assert highlighted == ["Metric 1"]
+    # Non-matching connected nodes fade alongside the orphans.
+    assert (
+        browser_page.evaluate(
+            """document.querySelectorAll('#graph-canvas g.graph-node.is-faded').length"""
+        )
+        == 7
+    )
+
+
 def test_small_graph_uses_radial_layout(browser_page, tmp_path):
     out = tmp_path / "tiny.html"
     out.write_text(render(cja_adapt(_tiny_snapshot())), encoding="utf-8")

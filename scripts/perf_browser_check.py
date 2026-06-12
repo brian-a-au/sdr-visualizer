@@ -1,10 +1,11 @@
 """Browser-side performance gate (SPEC-VISUALIZER §6).
 
-Measures the budgets Python can't: initial render time and filter/search
-latency, in real Chromium via Playwright. Asserts the §6 2,000-component
-row (render < 2s, filter < 300ms) for every available large fixture —
-conservative against CI noise while still catching order-of-magnitude
-regressions.
+Measures the budgets Python can't: initial render time, filter/search
+latency, and the main-thread block when entering the graph view, in real
+Chromium via Playwright. Asserts the §6 2,000-component row (render < 2s,
+filter < 300ms) plus the graph-init block budget for every available large
+fixture — conservative against CI noise while still catching
+order-of-magnitude regressions.
 
 Setup + run:
 
@@ -33,6 +34,12 @@ FIXTURES = [
 
 RENDER_BUDGET_MS = 2000.0
 FILTER_BUDGET_MS = 300.0
+# Main-thread block when entering the graph view (DOM build + time-boxed
+# warm-up, which self-limits at ~150ms). Both large fixtures exceed the
+# 1,000-node threshold, so this times the opt-in "Render anyway" path —
+# the worst case. Generous against CI noise; the failure mode it guards
+# (unbounded synchronous warm-up) measured 800ms+ at 2k nodes locally.
+GRAPH_INIT_BUDGET_MS = 700.0
 # Matches the synthetic fixtures' "Dimension 00xx" names (~99 rows) via the lowercased search blob.
 FILTER_QUERY = "dimension 00"
 FILTER_RUNS = 5
@@ -53,16 +60,39 @@ def _check(page, html_path: Path, label: str) -> list[str]:
     ]
     filter_ms = statistics.median(samples)
 
+    graph_init_ms = page.evaluate(
+        """() => {
+          const t0 = performance.now();
+          document.querySelector('.view-button[data-view="graph"]').click();
+          const degraded = document.getElementById('graph-degraded');
+          if (degraded && !degraded.hidden) {
+            document.getElementById('graph-render-anyway').click();
+          }
+          return performance.now() - t0;
+        }"""
+    )
+    nodes_drawn = page.evaluate("document.querySelectorAll('#graph-canvas g.graph-node').length")
+    if nodes_drawn == 0:
+        return [f"[{label}] graph view drew 0 nodes - graph init failed"]
+
     print(f"[{label}] initial render: {render_ms:.0f}ms  (budget {RENDER_BUDGET_MS:.0f}ms)")
     print(
         f"[{label}] filter latency: {filter_ms:.1f}ms "
         f"(budget {FILTER_BUDGET_MS:.0f}ms, median of {FILTER_RUNS})"
+    )
+    print(
+        f"[{label}] graph init block: {graph_init_ms:.0f}ms "
+        f"(budget {GRAPH_INIT_BUDGET_MS:.0f}ms, {nodes_drawn} nodes)"
     )
     failures = []
     if render_ms > RENDER_BUDGET_MS:
         failures.append(f"[{label}] initial render {render_ms:.0f}ms > {RENDER_BUDGET_MS:.0f}ms")
     if filter_ms > FILTER_BUDGET_MS:
         failures.append(f"[{label}] filter latency {filter_ms:.1f}ms > {FILTER_BUDGET_MS:.0f}ms")
+    if graph_init_ms > GRAPH_INIT_BUDGET_MS:
+        failures.append(
+            f"[{label}] graph init block {graph_init_ms:.0f}ms > {GRAPH_INIT_BUDGET_MS:.0f}ms"
+        )
     return failures
 
 
