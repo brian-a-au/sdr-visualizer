@@ -563,10 +563,14 @@
 
   /* ----- Wiring ----- */
 
+  // Shared by the catalog and graph search boxes — the two are documented
+  // as matching, so the value lives in one place.
+  var SEARCH_DEBOUNCE_MS = 120;
+
   var searchDebounceTimer = null;
   $search.addEventListener("input", function () {
     clearTimeout(searchDebounceTimer);
-    searchDebounceTimer = setTimeout(applyFilters, 120);
+    searchDebounceTimer = setTimeout(applyFilters, SEARCH_DEBOUNCE_MS);
   });
   $typeFilter.addEventListener("change", applyFilters);
   $descriptionFilter.addEventListener("change", applyFilters);
@@ -834,13 +838,15 @@
       radialLayout();
       tick();
     } else {
-      // Past the opt-in threshold (GRAPH_NODE_THRESHOLD — §6 default 1,000,
-      // configurable via --max-graph-nodes) the graph is behind "Render
-      // anyway" and allowed to degrade: a coarser Barnes-Hut theta and faster
-      // alpha decay trade a little layout quality for ~30% cheaper ticks and
-      // earlier settling. Keyed to the same threshold as the opt-in gate so
-      // the two zones can't diverge under a custom --max-graph-nodes.
-      var isLargeGraph = graphState.nodes.length > GRAPH_NODE_THRESHOLD;
+      // Degraded physics — a coarser Barnes-Hut theta and faster alpha decay
+      // trade a little layout quality for ~30% cheaper ticks and earlier
+      // settling — applies on either axis: above the opt-in gate
+      // (GRAPH_NODE_THRESHOLD, --max-graph-nodes — the user was warned), or
+      // above the 1,000-node line where tick cost was measured to hurt
+      // (§6's interactive ceiling). Raising --max-graph-nodes to skip the
+      // "Render anyway" click must not silently buy full-precision physics
+      // at 5k nodes.
+      var isLargeGraph = graphState.nodes.length > Math.min(GRAPH_NODE_THRESHOLD, 1000);
       graphState.simulation = d3.forceSimulation(graphState.nodes)
         .force("link", d3.forceLink(graphState.links).id(function (d) { return d.id; }).distance(60).strength(0.5))
         .force("charge", d3.forceManyBody().strength(-90).theta(isLargeGraph ? 1.2 : 0.9))
@@ -850,23 +856,35 @@
         }))
         .alphaDecay(isLargeGraph ? 0.08 : 0.05)
         .on("tick", tick)
+        .on("end", function () {
+          // Async settling can move a hovered node out from under a
+          // stationary pointer with no mouseout. When the simulation ends,
+          // drop a hover the browser no longer reports as hovered.
+          if (graphState.hoverId !== null && !$graphCanvas.querySelector("g.graph-node:hover")) {
+            graphState.hoverId = null;
+            scheduleGraphPaint();
+          }
+        })
         .stop();
 
-      // Warm-start: run the early high-energy ticks synchronously before first
-      // paint so the graph appears mostly settled instead of exploding into
-      // place — but time-boxed. A fixed tick count froze the view switch for
-      // seconds at 5k nodes (~18ms/tick); small graphs finish all their warm
-      // ticks within the budget, large ones hand the remainder to the async
-      // simulation (one tick per frame, page stays interactive). Manual tick()
-      // does not dispatch the tick event, so paint once explicitly, then
-      // restart wherever the warm-up got to (floored at low alpha for the
-      // gentle finish fully-warmed graphs get).
-      var warmTicks = graphState.nodes.length > 400 ? 120 : 60;
+      // Warm-start: run the early high-energy ticks synchronously before
+      // first paint so the graph appears mostly settled instead of exploding
+      // into place — until near-settled (alpha threshold, immune to decay
+      // retunes) or the time budget elapses, whichever comes first. A fixed
+      // tick count froze the view switch for seconds at 5k nodes (~18ms/
+      // tick); graphs that can't settle in budget hand the remainder to the
+      // async simulation (one tick per frame, page stays interactive).
+      // Manual tick() does not dispatch the tick event, so paint once
+      // explicitly, then restart wherever the warm-up got to (floored at low
+      // alpha for the gentle finish fully-warmed graphs get).
       var WARM_BUDGET_MS = 150;
+      var SETTLE_ALPHA = 0.02;
       var warmStart = performance.now();
-      for (var wi = 0; wi < warmTicks; wi++) {
+      while (
+        graphState.simulation.alpha() > SETTLE_ALPHA &&
+        performance.now() - warmStart < WARM_BUDGET_MS
+      ) {
         graphState.simulation.tick();
-        if (performance.now() - warmStart > WARM_BUDGET_MS) break;
       }
       tick();
       graphState.simulation.alpha(Math.max(0.12, graphState.simulation.alpha())).restart();
@@ -904,7 +922,13 @@
     // Any filter change cancels an active hover (matching pre-rewrite
     // behavior): paintGraph gives hover precedence, so a stale hoverId would
     // otherwise keep the new filter state invisible until the next mouseout.
+    // The repaint lands on the next animation frame (scheduleGraphPaint).
+    var graphSearchTimer = null;
     function onGraphFilterChange() {
+      // A pending search timer is either superseded by this change (the
+      // recompute reads the query live) or would later fire as a no-op that
+      // wrongly cancels a hover — kill it.
+      clearTimeout(graphSearchTimer);
       graphState.hoverId = null;
       recomputeGraphFilter();
       scheduleGraphPaint();
@@ -915,10 +939,13 @@
     paintGraph();
     $graphTypeFilter.addEventListener("change", function () { selectedTypesFromUI(); onGraphFilterChange(); });
     $graphOrphanFilter.addEventListener("change", function () { graphState.orphanMode = $graphOrphanFilter.value; onGraphFilterChange(); });
-    var graphSearchTimer = null;
     $graphSearch.addEventListener("input", function () {
       clearTimeout(graphSearchTimer);
-      graphSearchTimer = setTimeout(onGraphFilterChange, 120);
+      graphSearchTimer = setTimeout(function () {
+        // No-op edits (select-all + retype the same text) must not cancel a
+        // hover the user started after typing.
+        if ($graphSearch.value.trim().toLowerCase() !== graphState.query) onGraphFilterChange();
+      }, SEARCH_DEBOUNCE_MS);
     });
     $graphReset.addEventListener("click", function () {
       svg.transition().duration(150).call(graphState.zoom.transform, d3.zoomIdentity);

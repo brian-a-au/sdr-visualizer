@@ -67,8 +67,11 @@ def _check(page, html_path: Path, label: str) -> list[str]:
         """() => {
           const t0 = performance.now();
           document.querySelector('.view-button[data-view="graph"]').click();
+          // No null guard: the template always emits #graph-degraded, and a
+          // missing element should throw here (the real cause) rather than
+          // surface as a misleading wrong-path failure.
           const degraded = document.getElementById('graph-degraded');
-          const optIn = !!degraded && !degraded.hidden;
+          const optIn = !degraded.hidden;
           if (optIn) document.getElementById('graph-render-anyway').click();
           // Force style/layout of the freshly inserted SVG subtree — without
           // this the measurement stops at script time and misses the deferred

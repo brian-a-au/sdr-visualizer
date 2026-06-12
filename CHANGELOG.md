@@ -6,14 +6,15 @@ All notable changes to `sdr-visualizer` will be documented here. The format foll
 
 ### Changed
 
-- **Graph view init no longer freezes on huge graphs.** The synchronous
-  warm-up that pre-settles the force simulation is now time-boxed at 150 ms
-  (it ran a fixed 60–120 ticks before — ~0.8 s blocked at 2,000 nodes,
-  ~2.2 s at 5,000). Large graphs finish settling asynchronously, one tick
-  per frame. Above the graph-node threshold (default 1,000,
-  `--max-graph-nodes`) the simulation also uses a coarser Barnes-Hut theta
-  and faster alpha decay (~30% cheaper ticks; that zone is opt-in via
-  "Render anyway" and allowed to degrade per SPEC §6).
+- **Graph view warm-up no longer freezes on huge graphs.** The synchronous
+  warm-up that pre-settles the force simulation now runs until near-settled
+  or a 150 ms budget elapses, whichever comes first (it ran a fixed 60–120
+  ticks before — ~0.8 s blocked at 2,000 nodes, ~2.2 s at 5,000). Graphs
+  that can't settle in budget finish asynchronously, one tick per frame.
+  The simulation also uses a coarser Barnes-Hut theta and faster alpha
+  decay (~30% cheaper ticks) above 1,000 nodes — §6's interactive ceiling —
+  or above a lower `--max-graph-nodes` opt-in threshold, whichever is
+  smaller.
 - **Graph hover/filter repaints coalesced to one pass per frame.** Filter
   state is recomputed only when a filter input changes; hover and filter
   paints apply all node/link classes in a single pass per selection and are
@@ -22,9 +23,10 @@ All notable changes to `sdr-visualizer` will be documented here. The format foll
   event in full selection walks. The graph search box is now debounced
   (120 ms), matching the catalog search. The hover/filter contract is now
   explicit: hover fading wins while active, search-match highlights persist
-  through hover, and any filter or search change cancels an active hover
-  and paints immediately. (Also fixes a pre-existing bug where a hovered
-  node's edge highlights could linger after mouseout.)
+  through hover (now honored visually too — the fade previously dimmed the
+  highlight ring), and any filter or search change cancels an active hover
+  and repaints on the next frame. (Also fixes a pre-existing bug where a
+  hovered node's edge highlights could linger after mouseout.)
 
 ### Added
 

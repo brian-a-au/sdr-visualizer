@@ -194,18 +194,28 @@ def _open_tiny_graph(browser_page, tmp_path, name: str):
 def _hover_node(browser_page, label: str):
     """Dispatch mouseover on the graph node with the given label and wait
     for the (rAF-coalesced) hover paint to land."""
-    browser_page.evaluate(
+    found = browser_page.evaluate(
         """(label) => {
           for (const n of document.querySelectorAll('#graph-canvas g.graph-node')) {
             if (n.textContent === label) {
               n.dispatchEvent(new MouseEvent('mouseover', {bubbles: true}));
-              return;
+              return true;
             }
           }
+          return false;
         }""",
         label,
     )
+    assert found, f"no graph node labeled {label!r} to hover"
     browser_page.wait_for_selector(".graph-node.is-hover", state="attached", timeout=2_000)
+
+
+def _node_labels(browser_page, css_class: str) -> list[str]:
+    """Sorted labels of the graph nodes carrying the given class."""
+    return browser_page.evaluate(
+        f"""Array.from(document.querySelectorAll('#graph-canvas g.graph-node.{css_class}'))
+             .map(n => n.textContent).sort()"""
+    )
 
 
 def test_graph_hover_highlights_neighbors(browser_page, tmp_path):
@@ -236,12 +246,7 @@ def test_graph_hover_highlights_neighbors(browser_page, tmp_path):
     )
     browser_page.wait_for_selector(".graph-node.is-hover", state="detached", timeout=2_000)
     # Back to the default filter view: connected-only fades the 3 orphans.
-    faded = browser_page.evaluate(
-        """Array.from(document.querySelectorAll('#graph-canvas g.graph-node'))
-             .filter(n => n.classList.contains('is-faded'))
-             .map(n => n.textContent).sort()"""
-    )
-    assert faded == ["Dim 2", "Dim 3", "Metric 3"]
+    assert _node_labels(browser_page, "is-faded") == ["Dim 2", "Dim 3", "Metric 3"]
 
 
 def test_graph_search_highlights_matches(browser_page, tmp_path):
@@ -249,11 +254,7 @@ def test_graph_search_highlights_matches(browser_page, tmp_path):
     _open_tiny_graph(browser_page, tmp_path, "graphsearch.html")
     browser_page.fill("#graph-search", "metric 1")
     browser_page.wait_for_selector(".graph-node.is-highlighted", state="attached", timeout=2_000)
-    highlighted = browser_page.evaluate(
-        """Array.from(document.querySelectorAll('#graph-canvas g.graph-node.is-highlighted'))
-             .map(n => n.textContent)"""
-    )
-    assert highlighted == ["Metric 1"]
+    assert _node_labels(browser_page, "is-highlighted") == ["Metric 1"]
     # Non-matching connected nodes fade alongside the orphans.
     assert (
         browser_page.evaluate(
@@ -264,8 +265,8 @@ def test_graph_search_highlights_matches(browser_page, tmp_path):
 
 
 def test_graph_filter_change_cancels_hover(browser_page, tmp_path):
-    """A filter/search change cancels an active hover and paints immediately;
-    search-match highlights then persist through subsequent hovers."""
+    """A filter/search change cancels an active hover and repaints on the
+    next frame; search-match highlights then persist through later hovers."""
     _open_tiny_graph(browser_page, tmp_path, "hovercancel.html")
     _hover_node(browser_page, "Metric 1")
     # The debounced search lands while the hover is active — it must win:
@@ -273,17 +274,11 @@ def test_graph_filter_change_cancels_hover(browser_page, tmp_path):
     browser_page.fill("#graph-search", "dim")
     browser_page.wait_for_selector(".graph-node.is-highlighted", state="attached", timeout=2_000)
     assert browser_page.evaluate("document.querySelector('.graph-node.is-hover')") is None
-    highlighted = browser_page.evaluate(
-        """Array.from(document.querySelectorAll('#graph-canvas g.graph-node.is-highlighted'))
-             .map(n => n.textContent)"""
-    )
-    assert highlighted == ["Dim 1"]  # Dim 2/3 match but are orphans (connected-only default)
+    # Dim 2/3 match but are orphans (connected-only default).
+    assert _node_labels(browser_page, "is-highlighted") == ["Dim 1"]
     # Hovering another node keeps the search-match highlight visible.
     _hover_node(browser_page, "Seg 1")
-    assert browser_page.evaluate(
-        """Array.from(document.querySelectorAll('#graph-canvas g.graph-node.is-highlighted'))
-             .map(n => n.textContent)"""
-    ) == ["Dim 1"]
+    assert _node_labels(browser_page, "is-highlighted") == ["Dim 1"]
 
 
 def test_small_graph_uses_radial_layout(browser_page, tmp_path):

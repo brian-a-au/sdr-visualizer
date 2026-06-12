@@ -706,6 +706,10 @@ h1 {
 }
 .graph-node.is-faded circle { opacity: 0.2; }
 .graph-node.is-highlighted circle { stroke: #1a1a1a; stroke-width: 2px; }
+/* Search-match highlights persist through hover fading: the two classes
+   co-occur only in paintGraph's hover branch, and without this the fade's
+   opacity would swallow the highlight ring. */
+.graph-node.is-faded.is-highlighted circle { opacity: 1; }
 
 .graph-node text {
   font-family: "Söhne", "Inter", system-ui, sans-serif;
