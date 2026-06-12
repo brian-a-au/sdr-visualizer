@@ -4,6 +4,40 @@ All notable changes to `sdr-visualizer` will be documented here. The format foll
 
 ## [Unreleased]
 
+### Changed
+
+- **Graph view warm-up no longer freezes on huge graphs.** The synchronous
+  warm-up that pre-settles the force simulation now runs until near-settled
+  or a 150 ms budget elapses, whichever comes first (it ran a fixed 60–120
+  ticks before — ~0.8 s blocked at 2,000 nodes, ~2.2 s at 5,000). Graphs
+  that can't settle in budget finish asynchronously, one tick per frame.
+  The simulation also uses a coarser Barnes-Hut theta and faster alpha
+  decay (~30% cheaper ticks) above 1,000 nodes — §6's interactive ceiling —
+  or above a lower `--max-graph-nodes` opt-in threshold, whichever is
+  smaller.
+- **Graph hover/filter repaints coalesced to one pass per frame.** Filter
+  state is recomputed only when a filter input changes; hover and filter
+  paints apply all node/link classes in a single pass per selection and are
+  batched through `requestAnimationFrame`. Sweeping the pointer across a
+  5,000-node graph previously cost up to ~3.6 ms per mouseover/mouseout
+  event in full selection walks. The graph search box is now debounced
+  (120 ms), matching the catalog search. The hover/filter contract is now
+  explicit: hover fading wins while active, search-match highlights persist
+  through hover (now honored visually too — the fade previously dimmed the
+  highlight ring), and any filter or search change cancels an active hover
+  and repaints on the next frame. (Also fixes a pre-existing bug where a
+  hovered node's edge highlights could linger after mouseout.)
+
+### Added
+
+- CI browser gate now also asserts entering the graph view blocks the main
+  thread < 700 ms (`scripts/perf_browser_check.py`) — script time plus a
+  forced style/layout flush of the inserted SVG — timing the worst-case
+  "Render anyway" path on both large fixtures (and failing if that path
+  stops being exercised); plus browser-level functional tests for hover
+  neighbor-highlighting, graph search fade/highlight, and filter-cancels-
+  hover behavior.
+
 ### Security
 
 - The embedded JSON payload now escapes `<` as the JSON unicode escape `\u003c` (transparent to `JSON.parse`). Previously a snapshot
