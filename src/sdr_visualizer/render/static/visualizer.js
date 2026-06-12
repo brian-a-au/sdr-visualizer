@@ -659,7 +659,6 @@
     selectedTypes: {},
     orphanMode: "connected",
     query: "",
-    visibleIds: {},
     hoverId: null,
   };
 
@@ -711,15 +710,21 @@
         type: n.type,
         label: n.name,
         in_degree: n.in_degree || 0,
+        // Lowercased once for the graph search — recomputeGraphFilter must
+        // not allocate per-node strings on every pass (same pattern as the
+        // catalog's entry._search blob).
+        _lc: ((n.name || "") + " " + n.id).toLowerCase(),
       };
     });
     graphState.links = srcEdges.map(function (e) { return { source: e.source, target: e.target }; });
 
-    // Adjacency for hover-highlight.
-    graphState.neighborMap = {};
+    // Adjacency for hover-highlight. Null-prototype objects: ids come from
+    // untrusted snapshots, and a component id like "constructor" would
+    // otherwise hit inherited Object.prototype members in truthiness checks.
+    graphState.neighborMap = Object.create(null);
     srcEdges.forEach(function (e) {
-      (graphState.neighborMap[e.source] = graphState.neighborMap[e.source] || {})[e.target] = true;
-      (graphState.neighborMap[e.target] = graphState.neighborMap[e.target] || {})[e.source] = true;
+      (graphState.neighborMap[e.source] = graphState.neighborMap[e.source] || Object.create(null))[e.target] = true;
+      (graphState.neighborMap[e.target] = graphState.neighborMap[e.target] || Object.create(null))[e.source] = true;
     });
 
     // One-time neighbor counts — recomputeGraphFilter runs per filter change and
@@ -784,7 +789,7 @@
     // always reveals via CSS.
     var LABEL_BUDGET = 60;
     if (graphState.nodes.length > 200) {
-      var labeled = {};
+      var labeled = Object.create(null);
       graphState.nodes.slice()
         .sort(function (a, b) { return b.in_degree - a.in_degree; })
         .slice(0, LABEL_BUDGET)
@@ -829,11 +834,13 @@
       radialLayout();
       tick();
     } else {
-      // Past the §6 interactive threshold (1,000 nodes) the graph is opt-in
-      // ("Render anyway") and allowed to degrade: a coarser Barnes-Hut theta
-      // and faster alpha decay trade a little layout quality for ~30% cheaper
-      // ticks and earlier settling.
-      var isLargeGraph = graphState.nodes.length > 1000;
+      // Past the opt-in threshold (GRAPH_NODE_THRESHOLD — §6 default 1,000,
+      // configurable via --max-graph-nodes) the graph is behind "Render
+      // anyway" and allowed to degrade: a coarser Barnes-Hut theta and faster
+      // alpha decay trade a little layout quality for ~30% cheaper ticks and
+      // earlier settling. Keyed to the same threshold as the opt-in gate so
+      // the two zones can't diverge under a custom --max-graph-nodes.
+      var isLargeGraph = graphState.nodes.length > GRAPH_NODE_THRESHOLD;
       graphState.simulation = d3.forceSimulation(graphState.nodes)
         .force("link", d3.forceLink(graphState.links).id(function (d) { return d.id; }).distance(60).strength(0.5))
         .force("charge", d3.forceManyBody().strength(-90).theta(isLargeGraph ? 1.2 : 0.9))
@@ -875,7 +882,7 @@
       });
       // Without a simulation, link source/target stay as id strings —
       // resolve them to node objects so tick() can read .x/.y.
-      var nodeById = {};
+      var nodeById = Object.create(null);
       graphState.nodes.forEach(function (d) { nodeById[d.id] = d; });
       graphState.links.forEach(function (l) {
         if (typeof l.source === "string") l.source = nodeById[l.source];
@@ -892,30 +899,26 @@
       nodeSel.attr("transform", function (d) { return "translate(" + d.x + "," + d.y + ")"; });
     }
 
-    // Link endpoints are node objects by now (resolved by forceLink in the
-    // simulation branch, by radialLayout otherwise). Cache the ids once —
-    // paintGraph runs per hover/filter event and shouldn't re-derive them.
-    graphState.links.forEach(function (l) {
-      l._sid = typeof l.source === "object" ? l.source.id : l.source;
-      l._tid = typeof l.target === "object" ? l.target.id : l.target;
-    });
-
     // Wire filter UI. Search debounced like the catalog's — each keystroke
     // otherwise costs a full recompute + paint pass over every node and edge.
+    // Any filter change cancels an active hover (matching pre-rewrite
+    // behavior): paintGraph gives hover precedence, so a stale hoverId would
+    // otherwise keep the new filter state invisible until the next mouseout.
+    function onGraphFilterChange() {
+      graphState.hoverId = null;
+      recomputeGraphFilter();
+      scheduleGraphPaint();
+    }
     selectedTypesFromUI();
     graphState.orphanMode = $graphOrphanFilter.value;
     recomputeGraphFilter();
     paintGraph();
-    $graphTypeFilter.addEventListener("change", function () { selectedTypesFromUI(); recomputeGraphFilter(); scheduleGraphPaint(); });
-    $graphOrphanFilter.addEventListener("change", function () { graphState.orphanMode = $graphOrphanFilter.value; recomputeGraphFilter(); scheduleGraphPaint(); });
+    $graphTypeFilter.addEventListener("change", function () { selectedTypesFromUI(); onGraphFilterChange(); });
+    $graphOrphanFilter.addEventListener("change", function () { graphState.orphanMode = $graphOrphanFilter.value; onGraphFilterChange(); });
     var graphSearchTimer = null;
     $graphSearch.addEventListener("input", function () {
       clearTimeout(graphSearchTimer);
-      graphSearchTimer = setTimeout(function () {
-        graphState.query = $graphSearch.value.trim().toLowerCase();
-        recomputeGraphFilter();
-        scheduleGraphPaint();
-      }, 120);
+      graphSearchTimer = setTimeout(onGraphFilterChange, 120);
     });
     $graphReset.addEventListener("click", function () {
       svg.transition().duration(150).call(graphState.zoom.transform, d3.zoomIdentity);
@@ -936,12 +939,15 @@
     for (var i = 0; i < checked.length; i++) graphState.selectedTypes[checked[i].value] = true;
   }
 
-  // Filter state (per-node _visible/_matched + the visible-id map) is
-  // recomputed only when a filter input changes; painting reads it. Hover
-  // previously re-derived this on every mouseout — at thousands of nodes
-  // that made each hover event a full state pass plus 4–6 selection walks.
+  // Filter state (per-node _visible/_matched) is recomputed only when a
+  // filter input changes; painting reads it. Hover previously re-derived
+  // this on every mouseout — at thousands of nodes that made each hover
+  // event a full state pass plus 4–6 selection walks. The query is read
+  // live from the input (not from a debounce-committed copy) so no
+  // recompute caller can ever see a stale query.
   function recomputeGraphFilter() {
-    var visibleIds = {};
+    graphState.query = $graphSearch.value.trim().toLowerCase();
+    var query = graphState.query;
     graphState.nodes.forEach(function (n) {
       var typeOk = !!graphState.selectedTypes[n.type];
       var orphanOk = true;
@@ -950,39 +956,34 @@
       } else if (graphState.orphanMode === "orphans") {
         orphanOk = n._neighborCount === 0;
       }
-      var queryOk = true;
-      if (graphState.query) {
-        queryOk = (n.label || "").toLowerCase().indexOf(graphState.query) !== -1
-          || (n.id || "").toLowerCase().indexOf(graphState.query) !== -1;
-      }
-      var visible = typeOk && orphanOk;
-      n._matched = queryOk;
-      n._visible = visible;
-      if (visible) visibleIds[n.id] = true;
+      n._matched = !query || n._lc.indexOf(query) !== -1;
+      n._visible = typeOk && orphanOk;
     });
-    graphState.visibleIds = visibleIds;
   }
 
   // Single pass over nodes and one over links, setting every class at once
-  // (the old code walked each selection once per class). Hover state, when
-  // present, wins over filter fading — same visual contract as before.
+  // (the old code walked each selection once per class). Contract: hover
+  // fading wins over filter fading while active; search-match highlights
+  // persist through hover; filter changes cancel hover (see the filter
+  // wiring in initGraph). Link endpoints are node objects (resolved by
+  // forceLink in the simulation branch, by radialLayout otherwise), so
+  // visibility and identity read straight off the nodes — no parallel id
+  // maps to keep in sync.
   function paintGraph() {
     if (!graphState.nodeSel) return;
     var hoverId = graphState.hoverId;
-    var neighbors = hoverId ? (graphState.neighborMap[hoverId] || {}) : null;
+    var neighbors = hoverId ? (graphState.neighborMap[hoverId] || Object.create(null)) : null;
     var query = graphState.query;
-    var visibleIds = graphState.visibleIds;
 
     graphState.nodeSel.each(function (d) {
       var hover = false;
       var faded;
-      var highlighted = false;
+      var highlighted = !!(query && d._matched && d._visible);
       if (hoverId) {
         hover = d.id === hoverId;
         faded = !hover && !neighbors[d.id];
       } else {
         faded = !d._visible || !!(query && !d._matched);
-        highlighted = !!(query && d._matched && d._visible);
       }
       var cl = this.classList;
       cl.toggle("is-hover", hover);
@@ -994,10 +995,10 @@
       var faded;
       var highlighted = false;
       if (hoverId) {
-        highlighted = d._sid === hoverId || d._tid === hoverId;
+        highlighted = d.source.id === hoverId || d.target.id === hoverId;
         faded = !highlighted;
       } else {
-        faded = !visibleIds[d._sid] || !visibleIds[d._tid];
+        faded = !(d.source._visible && d.target._visible);
       }
       var cl = this.classList;
       cl.toggle("is-faded", faded);

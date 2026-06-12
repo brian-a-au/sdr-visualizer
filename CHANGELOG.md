@@ -8,25 +8,33 @@ All notable changes to `sdr-visualizer` will be documented here. The format foll
 
 - **Graph view init no longer freezes on huge graphs.** The synchronous
   warm-up that pre-settles the force simulation is now time-boxed at 150 ms
-  (it ran a fixed 120 ticks before — ~0.8 s blocked at 2,000 nodes, ~2.2 s at
-  5,000). Large graphs finish settling asynchronously, one tick per frame.
-  Above 1,000 nodes the simulation also uses a coarser Barnes-Hut theta and
-  faster alpha decay (~30% cheaper ticks; that zone is opt-in via "Render
-  anyway" and allowed to degrade per SPEC §6).
+  (it ran a fixed 60–120 ticks before — ~0.8 s blocked at 2,000 nodes,
+  ~2.2 s at 5,000). Large graphs finish settling asynchronously, one tick
+  per frame. Above the graph-node threshold (default 1,000,
+  `--max-graph-nodes`) the simulation also uses a coarser Barnes-Hut theta
+  and faster alpha decay (~30% cheaper ticks; that zone is opt-in via
+  "Render anyway" and allowed to degrade per SPEC §6).
 - **Graph hover/filter repaints coalesced to one pass per frame.** Filter
   state is recomputed only when a filter input changes; hover and filter
-  paints apply all node/link classes in a single pass per selection (link
-  endpoint ids precomputed) and are batched through `requestAnimationFrame`.
-  Sweeping the pointer across a 5,000-node graph previously cost up to
-  ~3.6 ms per mouseover/mouseout event in full selection walks. The graph
-  search box is now debounced (120 ms), matching the catalog search.
+  paints apply all node/link classes in a single pass per selection and are
+  batched through `requestAnimationFrame`. Sweeping the pointer across a
+  5,000-node graph previously cost up to ~3.6 ms per mouseover/mouseout
+  event in full selection walks. The graph search box is now debounced
+  (120 ms), matching the catalog search. The hover/filter contract is now
+  explicit: hover fading wins while active, search-match highlights persist
+  through hover, and any filter or search change cancels an active hover
+  and paints immediately. (Also fixes a pre-existing bug where a hovered
+  node's edge highlights could linger after mouseout.)
 
 ### Added
 
 - CI browser gate now also asserts entering the graph view blocks the main
-  thread < 700 ms (`scripts/perf_browser_check.py`), timing the worst-case
-  "Render anyway" path on both large fixtures; plus browser-level functional
-  tests for hover neighbor-highlighting and graph search fade/highlight.
+  thread < 700 ms (`scripts/perf_browser_check.py`) — script time plus a
+  forced style/layout flush of the inserted SVG — timing the worst-case
+  "Render anyway" path on both large fixtures (and failing if that path
+  stops being exercised); plus browser-level functional tests for hover
+  neighbor-highlighting, graph search fade/highlight, and filter-cancels-
+  hover behavior.
 
 ### Security
 

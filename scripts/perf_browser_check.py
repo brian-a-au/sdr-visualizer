@@ -34,11 +34,14 @@ FIXTURES = [
 
 RENDER_BUDGET_MS = 2000.0
 FILTER_BUDGET_MS = 300.0
-# Main-thread block when entering the graph view (DOM build + time-boxed
-# warm-up, which self-limits at ~150ms). Both large fixtures exceed the
-# 1,000-node threshold, so this times the opt-in "Render anyway" path —
-# the worst case. Generous against CI noise; the failure mode it guards
-# (unbounded synchronous warm-up) measured 800ms+ at 2k nodes locally.
+# Main-thread block when entering the graph view: DOM build + time-boxed
+# warm-up (self-limits at ~150ms) + a forced style/layout flush of the
+# inserted SVG subtree, so the budget covers the full freeze a user feels,
+# not just script time. Both large fixtures exceed the 1,000-node threshold,
+# so this times the opt-in "Render anyway" path — the worst case (the gate
+# fails if that assumption ever stops holding). Generous against CI noise;
+# the failure mode it guards (unbounded synchronous warm-up) measured
+# 800ms+ at 2k nodes locally.
 GRAPH_INIT_BUDGET_MS = 700.0
 # Matches the synthetic fixtures' "Dimension 00xx" names (~99 rows) via the lowercased search blob.
 FILTER_QUERY = "dimension 00"
@@ -60,20 +63,22 @@ def _check(page, html_path: Path, label: str) -> list[str]:
     ]
     filter_ms = statistics.median(samples)
 
-    graph_init_ms = page.evaluate(
+    graph = page.evaluate(
         """() => {
           const t0 = performance.now();
           document.querySelector('.view-button[data-view="graph"]').click();
           const degraded = document.getElementById('graph-degraded');
-          if (degraded && !degraded.hidden) {
-            document.getElementById('graph-render-anyway').click();
-          }
-          return performance.now() - t0;
+          const optIn = !!degraded && !degraded.hidden;
+          if (optIn) document.getElementById('graph-render-anyway').click();
+          // Force style/layout of the freshly inserted SVG subtree — without
+          // this the measurement stops at script time and misses the deferred
+          // layout block (still excludes paint/raster).
+          document.getElementById('graph-canvas').getBoundingClientRect();
+          return {ms: performance.now() - t0, optIn};
         }"""
     )
+    graph_init_ms = graph["ms"]
     nodes_drawn = page.evaluate("document.querySelectorAll('#graph-canvas g.graph-node').length")
-    if nodes_drawn == 0:
-        return [f"[{label}] graph view drew 0 nodes - graph init failed"]
 
     print(f"[{label}] initial render: {render_ms:.0f}ms  (budget {RENDER_BUDGET_MS:.0f}ms)")
     print(
@@ -93,6 +98,13 @@ def _check(page, html_path: Path, label: str) -> list[str]:
         failures.append(
             f"[{label}] graph init block {graph_init_ms:.0f}ms > {GRAPH_INIT_BUDGET_MS:.0f}ms"
         )
+    if not graph["optIn"]:
+        failures.append(
+            f"[{label}] graph rendered without the Render-anyway gate - the fixture no longer "
+            f"exceeds the node threshold, so the budget measured the wrong (cheap) path"
+        )
+    if nodes_drawn == 0:
+        failures.append(f"[{label}] graph view drew 0 nodes - graph init failed")
     return failures
 
 

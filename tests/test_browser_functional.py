@@ -191,6 +191,23 @@ def _open_tiny_graph(browser_page, tmp_path, name: str):
     browser_page.wait_for_selector(".graph-node", state="attached", timeout=10_000)
 
 
+def _hover_node(browser_page, label: str):
+    """Dispatch mouseover on the graph node with the given label and wait
+    for the (rAF-coalesced) hover paint to land."""
+    browser_page.evaluate(
+        """(label) => {
+          for (const n of document.querySelectorAll('#graph-canvas g.graph-node')) {
+            if (n.textContent === label) {
+              n.dispatchEvent(new MouseEvent('mouseover', {bubbles: true}));
+              return;
+            }
+          }
+        }""",
+        label,
+    )
+    browser_page.wait_for_selector(".graph-node.is-hover", state="attached", timeout=2_000)
+
+
 def test_graph_hover_highlights_neighbors(browser_page, tmp_path):
     """Hovering a node fades non-neighbors; mouseout restores the filter state.
 
@@ -199,17 +216,7 @@ def test_graph_hover_highlights_neighbors(browser_page, tmp_path):
     """
     _open_tiny_graph(browser_page, tmp_path, "hover.html")
     # Metric 1 is referenced by both Seg 1 and Calc 1 — its only neighbors.
-    browser_page.evaluate(
-        """() => {
-          for (const n of document.querySelectorAll('#graph-canvas g.graph-node')) {
-            if (n.textContent === 'Metric 1') {
-              n.dispatchEvent(new MouseEvent('mouseover', {bubbles: true}));
-              return;
-            }
-          }
-        }"""
-    )
-    browser_page.wait_for_selector(".graph-node.is-hover", state="attached", timeout=2_000)
+    _hover_node(browser_page, "Metric 1")
     unfaded = browser_page.evaluate(
         """Array.from(document.querySelectorAll('#graph-canvas g.graph-node'))
              .filter(n => !n.classList.contains('is-faded'))
@@ -256,13 +263,31 @@ def test_graph_search_highlights_matches(browser_page, tmp_path):
     )
 
 
+def test_graph_filter_change_cancels_hover(browser_page, tmp_path):
+    """A filter/search change cancels an active hover and paints immediately;
+    search-match highlights then persist through subsequent hovers."""
+    _open_tiny_graph(browser_page, tmp_path, "hovercancel.html")
+    _hover_node(browser_page, "Metric 1")
+    # The debounced search lands while the hover is active — it must win:
+    # hover cleared, matches highlighted, without waiting for a mouseout.
+    browser_page.fill("#graph-search", "dim")
+    browser_page.wait_for_selector(".graph-node.is-highlighted", state="attached", timeout=2_000)
+    assert browser_page.evaluate("document.querySelector('.graph-node.is-hover')") is None
+    highlighted = browser_page.evaluate(
+        """Array.from(document.querySelectorAll('#graph-canvas g.graph-node.is-highlighted'))
+             .map(n => n.textContent)"""
+    )
+    assert highlighted == ["Dim 1"]  # Dim 2/3 match but are orphans (connected-only default)
+    # Hovering another node keeps the search-match highlight visible.
+    _hover_node(browser_page, "Seg 1")
+    assert browser_page.evaluate(
+        """Array.from(document.querySelectorAll('#graph-canvas g.graph-node.is-highlighted'))
+             .map(n => n.textContent)"""
+    ) == ["Dim 1"]
+
+
 def test_small_graph_uses_radial_layout(browser_page, tmp_path):
-    out = tmp_path / "tiny.html"
-    out.write_text(render(cja_adapt(_tiny_snapshot())), encoding="utf-8")
-    browser_page.goto(out.as_uri())
-    browser_page.wait_for_selector("#catalog-body tr", state="attached", timeout=10_000)
-    browser_page.click('[data-view="graph"]')
-    browser_page.wait_for_selector(".graph-node", state="attached", timeout=10_000)
+    _open_tiny_graph(browser_page, tmp_path, "tiny.html")
     positions = browser_page.evaluate(
         """Array.from(document.querySelectorAll('.graph-node')).map(g => {
              const m = /translate\\(([-\\d.]+),([-\\d.]+)\\)/.exec(g.getAttribute('transform'));
