@@ -13,9 +13,7 @@ Static-output visual catalog generator for Adobe Customer Journey Analytics (CJA
 - Per-segment anatomy diagrams that make deeply-nested segments legible
 - Per-calculated-metric formula trees with click-through to referenced metrics
 
-It is the visual companion to [`sdr-grader`](https://github.com/brian-a-au/sdr-grader). Where the grader answers *"is this implementation good?"*, the visualizer answers *"what does this implementation look like?"*.
-
-The output is one HTML file: no server, no build step on the consumer side, no CDN dependencies. Drop it on a wiki, email it to a stakeholder, screenshot it into a deck.
+The output is one HTML file: no server, no build step on the consumer side, no CDN dependencies. Everything is built into that one file. The component data is stored as JSON, the styling as CSS, and the interactive code as JavaScript, all inside it. You open it by double-clicking it in any modern web browser, and it works without an internet connection. There are no network requests, so no data is sent anywhere, and you can open it safely inside a locked-down corporate environment. You can move it, rename it, or copy it anywhere, and it still opens the same way. Drop it on a wiki, email it to a stakeholder, screenshot it into a deck.
 
 ## Install
 
@@ -82,6 +80,8 @@ The output is CI-gated against the budgets in [`docs/PERFORMANCE.md`](docs/PERFO
 - Filter/search latency: < 150ms
 
 ## Develop
+
+Requires Python 3.11+ and [uv](https://github.com/astral-sh/uv).
 
 ```bash
 uv sync                # Set up environment
