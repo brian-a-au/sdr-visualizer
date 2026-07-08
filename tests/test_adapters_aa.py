@@ -139,3 +139,40 @@ def test_nesting_depth_counts_container_nesting_only():
     impl = adapt(snapshot)
     depths = {s.id: s.nesting_depth for s in impl.segments}
     assert depths == {"s_one": 1, "s_zero": 0, "s_two": 2}
+
+
+def test_formula_text_renders_nested_formulas_readably():
+    snapshot = {
+        "report_suite": {"rsid": "test"},
+        "calculated_metrics": [
+            {
+                "id": "cm_nested",
+                "name": "Nested",
+                "definition": {
+                    "formula": {
+                        "func": "divide",
+                        "args": [
+                            {"func": "add", "args": ["metrics/orders", "metrics/units"]},
+                            "metrics/visits",
+                        ],
+                    }
+                },
+            }
+        ],
+    }
+    impl = adapt(snapshot)
+    cm = impl.calculated_metrics[0]
+    assert cm.formula_text == "divide(add(metrics/orders, metrics/units), metrics/visits)"
+    assert "{" not in cm.formula_text  # no Python repr leaking to users
+
+
+def test_classification_without_name_or_id_is_skipped():
+    from sdr_visualizer.adapters.aa import _index_classifications
+
+    idx = _index_classifications(
+        [
+            {"parent": "variables/evar1"},
+            {"parent": "variables/evar1", "name": "Campaign"},
+        ]
+    )
+    assert idx == {"variables/evar1": ["Campaign"]}
