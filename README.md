@@ -17,14 +17,19 @@ The output is one HTML file: no server, no build step on the consumer side, no C
 
 ## Install
 
+Not yet published to PyPI. Install straight from the repo:
+
 ```bash
-uv tool install sdr-visualizer
+uv tool install git+https://github.com/brian-a-au/sdr-visualizer
 ```
 
-Or with pip:
+Or run from a clone:
 
 ```bash
-pip install sdr-visualizer
+git clone https://github.com/brian-a-au/sdr-visualizer
+cd sdr-visualizer
+uv sync
+uv run sdr-visualizer --help
 ```
 
 ## Quickstart
