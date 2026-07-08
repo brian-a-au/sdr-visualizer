@@ -105,10 +105,13 @@ def _exactly_one_input_source(args: argparse.Namespace) -> bool:
 
 
 def _load(args: argparse.Namespace) -> tuple[dict, str]:
-    if args.dataview:
-        return shell_cja(args.dataview)
-    if args.rsid:
-        return shell_aa(args.rsid)
+    if args.dataview or args.rsid:
+        if args.at:
+            print(
+                "sdr-visualizer: --at applies only to snapshot directories; ignoring",
+                file=sys.stderr,
+            )
+        return shell_cja(args.dataview) if args.dataview else shell_aa(args.rsid)
     return load_snapshot(args.path, at=args.at)
 
 
