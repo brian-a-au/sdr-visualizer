@@ -10,7 +10,39 @@ permissions:
   id-token: write   # required for PyPI trusted publishing
 
 jobs:
+  browser-perf:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v3
+        with:
+          enable-cache: true
+
+      - name: Set up Python
+        run: uv python install 3.12
+
+      - name: Sync dependencies
+        run: uv sync --dev --group browser
+
+      - name: Install Chromium
+        run: uv run playwright install --with-deps chromium
+
+      - name: Generate fixtures
+        run: |
+          uv run python scripts/generate_large_fixture.py
+          uv run python scripts/generate_aa_large_fixture.py
+          uv run python scripts/generate_large_fixture.py --scale 1.67 --output tests/fixtures/cja_snapshot_xl.json
+
+      - name: Browser functional tests
+        run: uv run pytest tests/test_browser_functional.py -v
+
+      - name: Browser performance gate
+        run: uv run python scripts/perf_browser_check.py
+
   build:
+    needs: browser-perf
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -29,6 +61,32 @@ jobs:
 
       - name: Test
         run: uv run pytest
+
+      - name: Verify tag matches package version
+        run: |
+          TAG_VERSION="${GITHUB_REF_NAME#v}"
+          PKG_VERSION="$(uv run python -c 'from sdr_visualizer import __version__; print(__version__)')"
+          if [ "$TAG_VERSION" != "$PKG_VERSION" ]; then
+            echo "tag v$TAG_VERSION does not match package version $PKG_VERSION" >&2
+            exit 1
+          fi
+
+      - name: Performance gate
+        run: |
+          uv run python scripts/generate_large_fixture.py --scale 0.083 --output tests/fixtures/cja_snapshot_small.json
+          uv run python scripts/generate_large_fixture.py --scale 0.417 --output tests/fixtures/cja_snapshot_medium.json
+          uv run python scripts/generate_large_fixture.py --scale 1.67 --output tests/fixtures/cja_snapshot_xl.json
+          uv run python scripts/perf_check.py
+
+      - name: Remove generated fixtures before packaging
+        # pytest/conftest and the gate above materialize multi-MB fixtures
+        # under tests/fixtures/; make sure none of them leak into the sdist.
+        run: |
+          rm -f tests/fixtures/cja_snapshot_small.json \
+                tests/fixtures/cja_snapshot_medium.json \
+                tests/fixtures/cja_snapshot_xl.json \
+                tests/fixtures/cja_snapshot_large.json \
+                tests/fixtures/aa_snapshot_large.json
 
       - name: Build distributions
         run: uv build
