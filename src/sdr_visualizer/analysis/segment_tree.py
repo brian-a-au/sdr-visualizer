@@ -65,7 +65,9 @@ def _walk(node: Any) -> dict[str, Any]:
         return _container(node)
     if func in LOGICAL_OPS:
         return _logical(node, func)
-    if func == "segment":
+    if func == "segment" and not any(
+        isinstance(node.get(k), dict) for k in ("container", "pred", "definition")
+    ):
         return {
             "kind": "segment_ref",
             "segment_id": node.get("name") or node.get("id") or "",
