@@ -334,6 +334,8 @@ def test_url_hash_zero_types_round_trips(browser_page, tmp_path):
     # the restore side must honor it instead of showing everything.
     browser_page.goto(out.as_uri() + "#types=")
     browser_page.wait_for_selector("#search-input", state="attached", timeout=10_000)
-    checked = browser_page.evaluate("document.querySelectorAll('#type-filter input:checked').length")
+    checked = browser_page.evaluate(
+        "document.querySelectorAll('#type-filter input:checked').length"
+    )
     assert checked == 0
     assert browser_page.evaluate("window.__sdrPerf.rowCount()") == 0
