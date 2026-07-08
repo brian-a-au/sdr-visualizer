@@ -12,6 +12,8 @@ it.
 
 from __future__ import annotations
 
+import sys
+from collections import Counter
 from datetime import UTC, datetime
 from typing import Any
 
@@ -46,6 +48,17 @@ def build_payload(impl: Implementation) -> dict[str, Any]:
 
     segment_trees = {s.id: parse_segment_tree(s) for s in impl.segments}
     formula_trees = {c.id: parse_formula_tree(c) for c in impl.calculated_metrics}
+
+    id_counts = Counter(e["id"] for e in (*components, *segments, *calc_metrics))
+    duplicates = sorted(i for i, n in id_counts.items() if n > 1)
+    if duplicates:
+        shown = ", ".join(duplicates[:5])
+        more = f" (+{len(duplicates) - 5} more)" if len(duplicates) > 5 else ""
+        print(
+            f"sdr-visualizer: warning: duplicate component ids in snapshot: {shown}{more}; "
+            "anatomy trees for duplicated ids are last-writer-wins",
+            file=sys.stderr,
+        )
 
     return {
         "meta": {
