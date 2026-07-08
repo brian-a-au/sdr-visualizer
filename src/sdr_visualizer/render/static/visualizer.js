@@ -191,13 +191,20 @@
 
   function formatDate(value) {
     if (!value) return "—";
-    // Tolerate both ISO 8601 and the cja_auto_sdr "YYYY-MM-DD HH:MM:SS" shape.
+    // The display is date-only and server timestamps lead with the date
+    // ("YYYY-MM-DD..." — ISO or the cja_auto_sdr space shape), so take the
+    // prefix directly. Date-parsing naive strings is engine-dependent:
+    // Safari rejects the space shape outright, and Chrome reads it as LOCAL
+    // time while the server-computed modified_ts assumed UTC — the shown
+    // date could disagree with the modified filter by a day.
+    var m = /^(\d{4}-\d{2}-\d{2})/.exec(String(value));
+    if (m) return m[1];
     var date = new Date(value);
     if (isNaN(date.getTime())) return value;
     var y = date.getUTCFullYear();
-    var m = String(date.getUTCMonth() + 1).padStart(2, "0");
+    var mo = String(date.getUTCMonth() + 1).padStart(2, "0");
     var d = String(date.getUTCDate()).padStart(2, "0");
-    return y + "-" + m + "-" + d;
+    return y + "-" + mo + "-" + d;
   }
 
   function tagsOf(entry) {
