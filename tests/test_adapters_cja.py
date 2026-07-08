@@ -273,3 +273,15 @@ def test_adapt_rejects_non_list_metrics() -> None:
                 "dimensions": [],
             }
         )
+
+
+def test_null_reference_keys_parse_as_empty():
+    snap = json.loads((FIXTURES / "cja_snapshot_clean.json").read_text(encoding="utf-8"))
+    snap["calculated_metrics"]["metrics"][0]["metric_references"] = None
+    snap["calculated_metrics"]["metrics"][0]["segment_references"] = None
+    snap["segments"]["segments"][0]["dimension_references"] = None
+    snap["segments"]["segments"][0]["metric_references"] = None
+    snap["segments"]["segments"][0]["other_segment_references"] = None
+    impl = adapt(snap)  # must not raise TypeError
+    assert impl.calculated_metrics[0].references == []
+    assert impl.segments[0].references == []
