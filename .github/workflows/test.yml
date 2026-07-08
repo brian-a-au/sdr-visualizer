@@ -60,6 +60,7 @@ jobs:
       - name: Generate fixtures
         run: |
           uv run python scripts/generate_large_fixture.py
+          uv run python scripts/generate_aa_large_fixture.py
           uv run python scripts/generate_large_fixture.py --scale 1.67 --output tests/fixtures/cja_snapshot_xl.json
 
       - name: Browser functional tests
