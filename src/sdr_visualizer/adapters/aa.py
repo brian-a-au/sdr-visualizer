@@ -229,24 +229,32 @@ def _segment_from_record(record: Any) -> Segment:
 
 
 def _walk_segment_definition(definition: Any) -> tuple[int, list[str]]:
-    """Compute nesting depth and distinct container contexts from an AA segment def."""
+    """Compute container nesting depth and distinct container contexts.
+
+    Depth counts only `func == "container"` nodes along the deepest
+    container chain — not raw JSON nesting. A definition with no
+    containers has depth 0.
+    """
     contexts: list[str] = []
     seen: set[str] = set()
 
     def visit(node: Any, depth: int) -> int:
         max_depth = depth
         if isinstance(node, dict):
-            if node.get("func") == "container" and node.get("context"):
-                ctx = str(node["context"])
-                if ctx not in seen:
-                    seen.add(ctx)
-                    contexts.append(ctx)
-                max_depth = max(max_depth, depth + 1)
+            child_depth = depth
+            if node.get("func") == "container":
+                child_depth = depth + 1
+                max_depth = child_depth
+                if node.get("context"):
+                    ctx = str(node["context"])
+                    if ctx not in seen:
+                        seen.add(ctx)
+                        contexts.append(ctx)
             for value in node.values():
-                max_depth = max(max_depth, visit(value, depth + 1))
+                max_depth = max(max_depth, visit(value, child_depth))
         elif isinstance(node, list):
             for item in node:
-                max_depth = max(max_depth, visit(item, depth + 1))
+                max_depth = max(max_depth, visit(item, depth))
         return max_depth
 
     return visit(definition, 0), contexts

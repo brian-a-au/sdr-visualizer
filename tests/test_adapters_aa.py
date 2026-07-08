@@ -69,9 +69,10 @@ def test_aa_adapter_calc_metric_references(messy_aa):
 def test_aa_adapter_segment_nesting_depth_and_contexts(messy_aa):
     impl = adapt(messy_aa)
     nested = next(s for s in impl.segments if s.id == "s_returning")
-    # Definition has visitors > visits + hits — 3 distinct contexts at nesting depth >= 4.
+    # Definition nests visitors > visits with a sibling hits container —
+    # 3 distinct contexts, deepest container chain = 2.
     assert set(nested.container_types) == {"visitors", "visits", "hits"}
-    assert nested.nesting_depth >= 4
+    assert nested.nesting_depth == 2
 
 
 def test_aa_adapter_dash_descriptions_normalize_to_none():
@@ -98,3 +99,43 @@ def test_aa_clean_has_no_missing_descriptions(clean_aa):
     impl = adapt(clean_aa)
     components = [*impl.metrics, *impl.dimensions]
     assert all(c.description is not None for c in components)
+
+
+def test_nesting_depth_counts_container_nesting_only():
+    snapshot = {
+        "report_suite": {"rsid": "test"},
+        "segments": [
+            {
+                "id": "s_one",
+                "name": "One container",
+                "definition": {
+                    "container": {
+                        "func": "container",
+                        "context": "hits",
+                        "pred": {"func": "streq", "str": "x"},
+                    }
+                },
+            },
+            {
+                "id": "s_zero",
+                "name": "No containers",
+                "definition": {"func": "streq", "str": "x"},
+            },
+            {
+                "id": "s_two",
+                "name": "Nested containers",
+                "definition": {
+                    "func": "container",
+                    "context": "visits",
+                    "pred": {
+                        "func": "container",
+                        "context": "hits",
+                        "pred": {"func": "streq", "str": "x"},
+                    },
+                },
+            },
+        ],
+    }
+    impl = adapt(snapshot)
+    depths = {s.id: s.nesting_depth for s in impl.segments}
+    assert depths == {"s_one": 1, "s_zero": 0, "s_two": 2}
