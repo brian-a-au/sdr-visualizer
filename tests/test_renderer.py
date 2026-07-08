@@ -11,6 +11,7 @@ from conftest import extract_payload, extract_payload_text
 
 from sdr_visualizer.adapters.aa import adapt as aa_adapt
 from sdr_visualizer.adapters.cja import adapt as cja_adapt
+from sdr_visualizer.core.exceptions import InvalidSnapshotError
 from sdr_visualizer.render.renderer import render
 
 FIXTURES = Path(__file__).parent / "fixtures"
@@ -145,3 +146,11 @@ def test_template_autoescape_applies_to_j2_templates(hostile_html):
     # After the fix it must appear as &lt;script&gt; in the title and h1.
     assert "<script>alert" not in hostile_html
     assert "&lt;script&gt;" in hostile_html
+
+
+def test_nan_in_snapshot_raises_invalid_snapshot_error():
+    snap = json.loads((FIXTURES / "cja_snapshot_clean.json").read_text(encoding="utf-8"))
+    snap["calculated_metrics"]["metrics"][0]["complexity_score"] = float("nan")
+    impl = cja_adapt(snap)
+    with pytest.raises(InvalidSnapshotError, match="NaN or Infinity"):
+        render(impl)

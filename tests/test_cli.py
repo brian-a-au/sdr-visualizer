@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
 import pytest
@@ -60,3 +61,13 @@ def test_renders_all_fixtures(tmp_path, fixture_name):
     assert rc == 0
     text = output.read_text(encoding="utf-8")
     assert "<!doctype html>" in text
+
+
+def test_nan_snapshot_exits_3(tmp_path, capsys):
+    snap = json.loads((FIXTURES / "cja_snapshot_clean.json").read_text(encoding="utf-8"))
+    snap["calculated_metrics"]["metrics"][0]["complexity_score"] = float("nan")
+    bad = tmp_path / "nan_snapshot.json"
+    bad.write_text(json.dumps(snap), encoding="utf-8")
+    rc = main([str(bad), "--output", str(tmp_path / "out.html"), "--quiet"])
+    assert rc == 3
+    assert "NaN or Infinity" in capsys.readouterr().err
