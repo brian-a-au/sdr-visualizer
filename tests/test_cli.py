@@ -71,3 +71,36 @@ def test_nan_snapshot_exits_3(tmp_path, capsys):
     rc = main([str(bad), "--output", str(tmp_path / "out.html"), "--quiet"])
     assert rc == 3
     assert "NaN or Infinity" in capsys.readouterr().err
+
+
+def test_no_input_source_exits_3():
+    with pytest.raises(SystemExit) as exc_info:
+        main([])
+    assert exc_info.value.code == 3
+
+
+def test_conflicting_input_sources_exit_3():
+    with pytest.raises(SystemExit) as exc_info:
+        main([str(FIXTURES / "cja_snapshot_clean.json"), "--dataview", "dv_1"])
+    assert exc_info.value.code == 3
+
+
+def test_unknown_flag_exits_3():
+    with pytest.raises(SystemExit) as exc_info:
+        main(["--no-such-flag"])
+    assert exc_info.value.code == 3
+
+
+def test_unwritable_output_exits_1_with_clean_message(tmp_path, capsys):
+    rc = main(
+        [
+            str(FIXTURES / "cja_snapshot_clean.json"),
+            "--output",
+            str(tmp_path / "missing-dir" / "out.html"),
+            "--quiet",
+        ]
+    )
+    assert rc == 1
+    err = capsys.readouterr().err
+    assert "sdr-visualizer: could not write" in err
+    assert "Traceback" not in err
