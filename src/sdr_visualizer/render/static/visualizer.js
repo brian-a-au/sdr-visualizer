@@ -122,14 +122,17 @@
     if (!location.hash || location.hash.length < 2) return null;
     var params = new URLSearchParams(location.hash.slice(1));
     if (params.get("q")) $search.value = params.get("q");
-    var types = params.get("types");
-    if (types) {
+    var typesParam = params.get("types");
+    if (typesParam !== null) {
       var wanted = {};
       var validCount = 0;
-      types.split(",").forEach(function (t) {
+      typesParam.split(",").forEach(function (t) {
         if (Object.prototype.hasOwnProperty.call(KNOWN_TYPES, t)) { wanted[t] = true; validCount++; }
       });
-      if (validCount > 0) {
+      // Apply when at least one token is valid, or when the param is the
+      // explicit empty state ("types=", every type unchecked). All-garbage
+      // tokens still fall back to the default all-checked state.
+      if (validCount > 0 || typesParam === "") {
         $typeFilter.querySelectorAll("input").forEach(function (input) {
           input.checked = !!wanted[input.value];
         });
@@ -209,10 +212,6 @@
 
   function tagsOf(entry) {
     return entry.tags || [];
-  }
-
-  function descriptionOf(entry) {
-    return entry.description || (entry.formula_text ? entry.formula_text : "");
   }
 
   /* ----- Filtering ----- */
@@ -694,14 +693,17 @@
     var totalNodes = catalog.length;
     if (totalNodes > GRAPH_NODE_THRESHOLD) {
       $graphDegraded.hidden = false;
-      $graphRenderAnyway.addEventListener("click", function () {
-        $graphDegraded.hidden = true;
-        initGraph();
-      }, { once: true });
       return;
     }
     initGraph();
   }
+
+  // Wired once — re-entering the graph view before opting in must not
+  // stack duplicate listeners. initGraph() self-guards on re-entry.
+  $graphRenderAnyway.addEventListener("click", function () {
+    $graphDegraded.hidden = true;
+    initGraph();
+  });
 
   function initGraph() {
     if (graphState.initialized) return;

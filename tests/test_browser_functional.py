@@ -326,3 +326,14 @@ def test_naive_space_timestamp_renders_date_prefix(browser_page, tmp_path):
     finally:
         context.close()
     assert cell.strip() == "2026-01-15"
+
+
+def test_url_hash_zero_types_round_trips(browser_page, tmp_path):
+    out = _render_to(tmp_path, "cja_snapshot_messy.json", "zerotypes.html")
+    # Writing side already emits "#...types=" when nothing is checked;
+    # the restore side must honor it instead of showing everything.
+    browser_page.goto(out.as_uri() + "#types=")
+    browser_page.wait_for_selector("#search-input", state="attached", timeout=10_000)
+    checked = browser_page.evaluate("document.querySelectorAll('#type-filter input:checked').length")
+    assert checked == 0
+    assert browser_page.evaluate("window.__sdrPerf.rowCount()") == 0
