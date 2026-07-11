@@ -15,7 +15,7 @@ from __future__ import annotations
 import json
 import re
 import sys
-from datetime import datetime
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -36,11 +36,21 @@ def load_snapshot(path_or_token: str, *, at: str | None = None) -> tuple[dict[st
     Returns (parsed_snapshot, source_label).
     """
     if path_or_token == STDIN_TOKEN:
+        if at is not None:
+            print(
+                "sdr-visualizer: --at applies only to snapshot directories; ignoring",
+                file=sys.stderr,
+            )
         return _load_stdin()
     p = Path(path_or_token)
     if p.is_dir():
         return _load_from_directory(p, at=at)
     if p.is_file():
+        if at is not None:
+            print(
+                "sdr-visualizer: --at applies only to snapshot directories; ignoring",
+                file=sys.stderr,
+            )
         return _load_from_file(p)
     raise InvalidSnapshotError(f"snapshot path not found: {path_or_token}")
 
@@ -79,8 +89,8 @@ def _load_from_directory(directory: Path, *, at: str | None) -> tuple[dict[str, 
 def _pick_snapshot(candidates: list[Path], *, at: str | None) -> Path:
     """Pick a single snapshot file from a directory.
 
-    Without `at`: use the most recent by extracted timestamp, falling back
-    to mtime when filenames don't carry one.
+    Without `at`: use the most recent by extracted filename timestamp; mtime
+    is used only when NO file in the directory carries a filename timestamp.
     With `at`: use the snapshot closest to (and not after) the target.
     """
     annotated: list[tuple[Path, datetime | None]] = [(p, _extract_timestamp(p)) for p in candidates]
@@ -124,16 +134,14 @@ def _extract_timestamp(path: Path) -> datetime | None:
 
 
 def _parse_iso_timestamp(value: str) -> datetime | None:
-    candidate = value.strip().rstrip("Z").replace("/", "-")
-    formats = [
-        "%Y-%m-%d %H:%M:%S",
-        "%Y-%m-%dT%H:%M:%S",
-        "%Y-%m-%dT%H:%M",
-        "%Y-%m-%d",
-    ]
-    for fmt in formats:
-        try:
-            return datetime.strptime(candidate, fmt)
-        except ValueError:
-            continue
-    return None
+    candidate = value.strip().replace("/", "-")
+    if candidate.endswith("Z"):
+        candidate = candidate[:-1] + "+00:00"
+    try:
+        parsed = datetime.fromisoformat(candidate)
+    except ValueError:
+        return None
+    if parsed.tzinfo is not None:
+        # Filename timestamps are naive; compare on the UTC clock.
+        parsed = parsed.astimezone(UTC).replace(tzinfo=None)
+    return parsed

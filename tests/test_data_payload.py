@@ -123,3 +123,24 @@ def test_entries_omit_null_and_empty_fields(messy_payload):
             assert value != [], f"{entry['id']}: empty list {key!r} not stripped"
             assert value != {}, f"{entry['id']}: empty dict {key!r} not stripped"
             assert value != "", f"{entry['id']}: empty string {key!r} not stripped"
+
+
+def test_duplicate_component_ids_warn_on_stderr(capsys):
+    snapshot = {
+        "metadata": {"Data View ID": "dv_dup", "Data View Name": "Dup"},
+        "data_view": {"id": "dv_dup"},
+        "metrics": [],
+        "dimensions": [],
+        "segments": {
+            "segments": [
+                {"segment_id": "segments/s1", "segment_name": "A", "definition_json": "{}"},
+                {"segment_id": "segments/s1", "segment_name": "B", "definition_json": "{}"},
+            ]
+        },
+        "calculated_metrics": {"metrics": []},
+    }
+    impl = cja_adapt(snapshot)
+    build_payload(impl)
+    err = capsys.readouterr().err
+    assert "duplicate component ids" in err
+    assert "segments/s1" in err

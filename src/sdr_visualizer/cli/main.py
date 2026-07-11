@@ -10,6 +10,7 @@ Wires all four input modes:
 from __future__ import annotations
 
 import argparse
+import json
 import sys
 from datetime import UTC, datetime
 from pathlib import Path
@@ -28,6 +29,16 @@ from sdr_visualizer.core.visualizer import build_implementation
 from sdr_visualizer.input.loader import STDIN_TOKEN, load_snapshot
 from sdr_visualizer.input.shell_out import shell_aa, shell_cja
 from sdr_visualizer.render.renderer import build_payload_with_options, render_payload
+
+
+class _ArgumentParser(argparse.ArgumentParser):
+    """argparse exits 2 on usage errors; SPEC §7 reserves the 0/1/3 contract
+    and explicitly forbids 2, so remap usage problems to input-validation."""
+
+    def error(self, message: str) -> None:  # type: ignore[override]
+        self.print_usage(sys.stderr)
+        print(f"{self.prog}: error: {message}", file=sys.stderr)
+        raise SystemExit(INPUT_VALIDATION_ERROR)
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -60,15 +71,28 @@ def main(argv: list[str] | None = None) -> int:
         return RUNTIME_ERROR
 
     output_path = _resolve_output_path(args.output, impl.instance_id)
-    output_path.write_text(html, encoding="utf-8")
+    try:
+        output_path.write_text(html, encoding="utf-8")
+    except OSError as exc:
+        print(f"sdr-visualizer: could not write {output_path}: {exc}", file=sys.stderr)
+        return RUNTIME_ERROR
     if not args.quiet:
         print(f"sdr-visualizer: wrote {output_path}", file=sys.stderr)
 
     if args.json:
-        Path(args.json).write_text(
-            __import__("json").dumps(payload, indent=2),
-            encoding="utf-8",
-        )
+        try:
+            json_text = json.dumps(payload, indent=2, allow_nan=False)
+        except ValueError:
+            print(
+                "sdr-visualizer: payload contains NaN or Infinity; cannot write --json",
+                file=sys.stderr,
+            )
+            return INPUT_VALIDATION_ERROR
+        try:
+            Path(args.json).write_text(json_text, encoding="utf-8")
+        except OSError as exc:
+            print(f"sdr-visualizer: could not write {args.json}: {exc}", file=sys.stderr)
+            return RUNTIME_ERROR
         if not args.quiet:
             print(f"sdr-visualizer: wrote {args.json}", file=sys.stderr)
 
@@ -81,15 +105,18 @@ def _exactly_one_input_source(args: argparse.Namespace) -> bool:
 
 
 def _load(args: argparse.Namespace) -> tuple[dict, str]:
-    if args.dataview:
-        return shell_cja(args.dataview)
-    if args.rsid:
-        return shell_aa(args.rsid)
+    if args.dataview or args.rsid:
+        if args.at:
+            print(
+                "sdr-visualizer: --at applies only to snapshot directories; ignoring",
+                file=sys.stderr,
+            )
+        return shell_cja(args.dataview) if args.dataview else shell_aa(args.rsid)
     return load_snapshot(args.path, at=args.at)
 
 
 def _build_parser() -> argparse.ArgumentParser:
-    p = argparse.ArgumentParser(
+    p = _ArgumentParser(
         prog="sdr-visualizer",
         description="Generate a visual catalog of an Adobe CJA / AA implementation.",
     )

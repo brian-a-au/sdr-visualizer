@@ -208,7 +208,12 @@ def _calc_metric_from_record(record: dict[str, Any]) -> CalculatedMetric:
     formula = _parse_definition_json(record.get("definition_json"))
     formula_text = record.get("formula_summary") or record.get("definition_summary") or ""
     references = list(
-        dict.fromkeys([*record.get("metric_references", []), *record.get("segment_references", [])])
+        dict.fromkeys(
+            [
+                *(record.get("metric_references") or []),
+                *(record.get("segment_references") or []),
+            ]
+        )
     )
     complexity = float(record.get("complexity_score") or 0.0)
 
@@ -283,9 +288,9 @@ def _segment_from_record(record: dict[str, Any]) -> Segment:
     references = list(
         dict.fromkeys(
             [
-                *record.get("dimension_references", []),
-                *record.get("metric_references", []),
-                *record.get("other_segment_references", []),
+                *(record.get("dimension_references") or []),
+                *(record.get("metric_references") or []),
+                *(record.get("other_segment_references") or []),
             ]
         )
     )

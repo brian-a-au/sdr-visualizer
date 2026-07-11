@@ -131,3 +131,34 @@ def test_every_real_segment_parses_without_error(cja_messy, aa_messy):
     for seg in [*cja_messy.segments, *aa_messy.segments]:
         tree = parse_segment_tree(seg)
         assert tree.get("kind") in {"container", "logical", "criterion", "segment_ref", "unknown"}
+
+
+def test_canonical_segment_root_unwraps_to_container():
+    # The Adobe Analytics 2.0 / CJA segments API returns this exact root
+    # shape; it must unwrap to the container, not collapse to an empty ref.
+    seg = _make_segment(
+        {
+            "func": "segment",
+            "version": [1, 0, 0],
+            "container": {
+                "func": "container",
+                "context": "visits",
+                "pred": {
+                    "func": "streq",
+                    "val": {"func": "attr", "name": "variables/evar1"},
+                    "str": "match",
+                },
+            },
+        }
+    )
+    tree = parse_segment_tree(seg)
+    assert tree["kind"] == "container"
+    assert tree["context"] == "visits"
+    assert tree["child"]["kind"] == "criterion"
+
+
+def test_plain_segment_ref_still_parses():
+    seg = _make_segment({"func": "segment", "name": "segments/other"})
+    tree = parse_segment_tree(seg)
+    assert tree["kind"] == "segment_ref"
+    assert tree["segment_id"] == "segments/other"

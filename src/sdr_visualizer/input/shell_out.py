@@ -50,6 +50,7 @@ def _shell_out(tool: str, argv: list[str], *, flag: str) -> tuple[dict[str, Any]
             check=True,
             capture_output=True,
             text=True,
+            encoding="utf-8",
         )
     except subprocess.CalledProcessError as exc:
         stderr = exc.stderr or ""

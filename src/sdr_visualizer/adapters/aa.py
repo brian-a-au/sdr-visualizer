@@ -124,13 +124,35 @@ def _index_classifications(classifications: Any) -> dict[str, list[str]]:
         parent = entry.get("parent")
         if not parent:
             continue
-        out.setdefault(str(parent), []).append(str(entry.get("name") or entry.get("id") or ""))
+        label = entry.get("name") or entry.get("id")
+        if not label:
+            continue
+        out.setdefault(str(parent), []).append(str(label))
     return out
 
 
 # ---------------------------------------------------------------------------
 # Calculated metrics
 # ---------------------------------------------------------------------------
+
+
+def _stringify_formula(formula: dict[str, Any]) -> str:
+    func = formula.get("func")
+    if not func:
+        return ""
+    args = formula.get("args") or []
+    if not isinstance(args, list):
+        args = [args]
+    return f"{func}({', '.join(_stringify_formula_arg(a) for a in args)})"
+
+
+def _stringify_formula_arg(arg: Any) -> str:
+    if isinstance(arg, dict):
+        # Nested formula: render it the same way instead of leaking a
+        # Python dict repr into user-facing formula summaries.
+        rendered = _stringify_formula(arg)
+        return rendered or str(arg.get("func") or "?")
+    return str(arg)
 
 
 def _calc_from_record(record: Any) -> CalculatedMetric:
@@ -145,12 +167,7 @@ def _calc_from_record(record: Any) -> CalculatedMetric:
     description = _normalize_description(record.get("description"))
     definition = record.get("definition") or {}
     formula = definition.get("formula") if isinstance(definition, dict) else {}
-    formula_text = ""
-    if isinstance(formula, dict):
-        func = formula.get("func")
-        args = formula.get("args") or []
-        if isinstance(args, list):
-            formula_text = f"{func}({', '.join(str(a) for a in args)})" if func else ""
+    formula_text = _stringify_formula(formula) if isinstance(formula, dict) else ""
     references = _extract_aa_calc_refs(formula)
 
     return CalculatedMetric(
@@ -229,24 +246,32 @@ def _segment_from_record(record: Any) -> Segment:
 
 
 def _walk_segment_definition(definition: Any) -> tuple[int, list[str]]:
-    """Compute nesting depth and distinct container contexts from an AA segment def."""
+    """Compute container nesting depth and distinct container contexts.
+
+    Depth counts only `func == "container"` nodes along the deepest
+    container chain — not raw JSON nesting. A definition with no
+    containers has depth 0.
+    """
     contexts: list[str] = []
     seen: set[str] = set()
 
     def visit(node: Any, depth: int) -> int:
         max_depth = depth
         if isinstance(node, dict):
-            if node.get("func") == "container" and node.get("context"):
-                ctx = str(node["context"])
-                if ctx not in seen:
-                    seen.add(ctx)
-                    contexts.append(ctx)
-                max_depth = max(max_depth, depth + 1)
+            child_depth = depth
+            if node.get("func") == "container":
+                child_depth = depth + 1
+                max_depth = child_depth
+                if node.get("context"):
+                    ctx = str(node["context"])
+                    if ctx not in seen:
+                        seen.add(ctx)
+                        contexts.append(ctx)
             for value in node.values():
-                max_depth = max(max_depth, visit(value, depth + 1))
+                max_depth = max(max_depth, visit(value, child_depth))
         elif isinstance(node, list):
             for item in node:
-                max_depth = max(max_depth, visit(item, depth + 1))
+                max_depth = max(max_depth, visit(item, depth))
         return max_depth
 
     return visit(definition, 0), contexts

@@ -61,6 +61,8 @@ coverage.xml
 /tests/fixtures/cja_snapshot_large.json
 /tests/fixtures/aa_snapshot_large.json
 /tests/fixtures/cja_snapshot_xl.json
+/tests/fixtures/cja_snapshot_small.json
+/tests/fixtures/cja_snapshot_medium.json
 
 # Environment
 .env

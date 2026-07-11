@@ -17,14 +17,19 @@ The output is one HTML file: no server, no build step on the consumer side, no C
 
 ## Install
 
+Not yet published to PyPI. Install straight from the repo:
+
 ```bash
-uv tool install sdr-visualizer
+uv tool install git+https://github.com/brian-a-au/sdr-visualizer
 ```
 
-Or with pip:
+Or run from a clone:
 
 ```bash
-pip install sdr-visualizer
+git clone https://github.com/brian-a-au/sdr-visualizer
+cd sdr-visualizer
+uv sync
+uv run sdr-visualizer --help
 ```
 
 ## Quickstart
@@ -72,12 +77,11 @@ Open the generated HTML and you'll see four views, accessible from the top-level
 
 ## Performance budget
 
-The output is CI-gated against the budgets in [`docs/PERFORMANCE.md`](docs/PERFORMANCE.md). At 1,000 components:
-
-- Build time: < 6s
-- HTML size:  < 4MB
-- Initial render: < 1s
-- Filter/search latency: < 150ms
+The output is CI-gated against the budgets in [`docs/PERFORMANCE.md`](docs/PERFORMANCE.md).
+Build time and HTML size are enforced at every §6 tier (100 / 500 / 1,000 / 2,000
+components). Browser-measured budgets are enforced at the 1,000-component tier
+(initial render < 1s, filter/search < 150ms) and the 2,000-component tier
+(< 2s, < 300ms), plus a 700ms cap on the graph view's main-thread block.
 
 ## Develop
 

@@ -166,3 +166,20 @@ def test_cli_rejects_no_input(capsys):
         main(["--quiet"])
     err = capsys.readouterr().err
     assert "exactly one" in err
+
+
+def test_at_accepts_iso_offset_and_fractional_seconds(tmp_path):
+    (tmp_path / "snapshot_2026-01-01T00-00-00.json").write_text('{"a": 1}', encoding="utf-8")
+    (tmp_path / "snapshot_2026-03-01T00-00-00.json").write_text('{"b": 2}', encoding="utf-8")
+    snap, _ = load_snapshot(str(tmp_path), at="2026-02-01T09:14:00+00:00")
+    assert snap == {"a": 1}
+    snap, _ = load_snapshot(str(tmp_path), at="2026-03-01T00:00:00.500")
+    assert snap == {"b": 2}
+
+
+def test_at_on_file_input_warns_and_ignores(tmp_path, capsys):
+    f = tmp_path / "snap.json"
+    f.write_text('{"a": 1}', encoding="utf-8")
+    snap, _ = load_snapshot(str(f), at="2026-01-01")
+    assert snap == {"a": 1}
+    assert "--at applies only to snapshot directories" in capsys.readouterr().err

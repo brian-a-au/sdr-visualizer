@@ -14,6 +14,7 @@ from typing import Any
 
 from jinja2 import Environment, PackageLoader
 
+from sdr_visualizer.core.exceptions import InvalidSnapshotError
 from sdr_visualizer.core.models import Implementation
 from sdr_visualizer.render.data_payload import build_payload
 
@@ -66,21 +67,31 @@ def _render_from_payload(payload: dict[str, Any], *, title: str | None) -> str:
     js = _read_static("visualizer.js")
     d3_js = _read_static("d3.min.js")
     document_title = title or f"{payload['meta']['instance_name']} — Implementation Visualizer"
+    # Snapshot text is untrusted: a description containing "</script>" would
+    # otherwise terminate the data block and become live markup (stored XSS).
+    # Escaping "<" as the JSON escape "\u003c" is invisible to JSON.parse.
+    # Applies to the whole blob (keys included — safe, all keys are fixed).
+    # Only "<" needs escaping: the block is type="application/json", which
+    # only "</script" can terminate.
+    # allow_nan=False: Python's json module would happily emit bare NaN /
+    # Infinity, which browser JSON.parse rejects — the report would render
+    # dead while the build exits 0.
+    try:
+        payload_json = json.dumps(
+            payload, separators=(",", ":"), ensure_ascii=False, allow_nan=False
+        )
+    except ValueError as exc:
+        raise InvalidSnapshotError(
+            "snapshot contains NaN or Infinity, which cannot be represented "
+            "in the embedded JSON payload"
+        ) from exc
     return template.render(
         title=document_title,
         meta=payload["meta"],
         css=css,
         js=js,
         d3_js=d3_js,
-        # Snapshot text is untrusted: a description containing "</script>"
-        # would otherwise terminate the data block and become live markup
-        # (stored XSS). Escaping "<" as the JSON escape "\u003c" is invisible
-        # to JSON.parse. Applies to the whole blob (keys included — safe,
-        # all keys are fixed). Only "<" needs escaping: the block is
-        # type="application/json", which only "</script" can terminate.
-        payload_json=json.dumps(payload, separators=(",", ":"), ensure_ascii=False).replace(
-            "<", "\\u003c"
-        ),
+        payload_json=payload_json.replace("<", "\\u003c"),
         # Snapshot stats for the header strip.
         component_count=payload["meta"]["component_count"],
         metric_count=sum(1 for c in payload["components"] if c["type"] == "metric"),

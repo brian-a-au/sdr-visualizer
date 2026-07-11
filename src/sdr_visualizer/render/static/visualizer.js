@@ -122,14 +122,17 @@
     if (!location.hash || location.hash.length < 2) return null;
     var params = new URLSearchParams(location.hash.slice(1));
     if (params.get("q")) $search.value = params.get("q");
-    var types = params.get("types");
-    if (types) {
+    var typesParam = params.get("types");
+    if (typesParam !== null) {
       var wanted = {};
       var validCount = 0;
-      types.split(",").forEach(function (t) {
+      typesParam.split(",").forEach(function (t) {
         if (Object.prototype.hasOwnProperty.call(KNOWN_TYPES, t)) { wanted[t] = true; validCount++; }
       });
-      if (validCount > 0) {
+      // Apply when at least one token is valid, or when the param is the
+      // explicit empty state ("types=", every type unchecked). All-garbage
+      // tokens still fall back to the default all-checked state.
+      if (validCount > 0 || typesParam === "") {
         $typeFilter.querySelectorAll("input").forEach(function (input) {
           input.checked = !!wanted[input.value];
         });
@@ -191,21 +194,24 @@
 
   function formatDate(value) {
     if (!value) return "—";
-    // Tolerate both ISO 8601 and the cja_auto_sdr "YYYY-MM-DD HH:MM:SS" shape.
+    // The display is date-only and server timestamps lead with the date
+    // ("YYYY-MM-DD..." — ISO or the cja_auto_sdr space shape), so take the
+    // prefix directly. Date-parsing naive strings is engine-dependent:
+    // Safari rejects the space shape outright, and Chrome reads it as LOCAL
+    // time while the server-computed modified_ts assumed UTC — the shown
+    // date could disagree with the modified filter by a day.
+    var m = /^(\d{4}-\d{2}-\d{2})/.exec(String(value));
+    if (m) return m[1];
     var date = new Date(value);
     if (isNaN(date.getTime())) return value;
     var y = date.getUTCFullYear();
-    var m = String(date.getUTCMonth() + 1).padStart(2, "0");
+    var mo = String(date.getUTCMonth() + 1).padStart(2, "0");
     var d = String(date.getUTCDate()).padStart(2, "0");
-    return y + "-" + m + "-" + d;
+    return y + "-" + mo + "-" + d;
   }
 
   function tagsOf(entry) {
     return entry.tags || [];
-  }
-
-  function descriptionOf(entry) {
-    return entry.description || (entry.formula_text ? entry.formula_text : "");
   }
 
   /* ----- Filtering ----- */
@@ -687,14 +693,17 @@
     var totalNodes = catalog.length;
     if (totalNodes > GRAPH_NODE_THRESHOLD) {
       $graphDegraded.hidden = false;
-      $graphRenderAnyway.addEventListener("click", function () {
-        $graphDegraded.hidden = true;
-        initGraph();
-      }, { once: true });
       return;
     }
     initGraph();
   }
+
+  // Wired once — re-entering the graph view before opting in must not
+  // stack duplicate listeners. initGraph() self-guards on re-entry.
+  $graphRenderAnyway.addEventListener("click", function () {
+    $graphDegraded.hidden = true;
+    initGraph();
+  });
 
   function initGraph() {
     if (graphState.initialized) return;

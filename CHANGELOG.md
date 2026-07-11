@@ -30,28 +30,11 @@ All notable changes to `sdr-visualizer` will be documented here. The format foll
 
 ### Added
 
-- CI browser gate now also asserts entering the graph view blocks the main
-  thread < 700 ms (`scripts/perf_browser_check.py`) — script time plus a
-  forced style/layout flush of the inserted SVG — timing the worst-case
-  "Render anyway" path on both large fixtures (and failing if that path
-  stops being exercised); plus browser-level functional tests for hover
-  neighbor-highlighting, graph search fade/highlight, and filter-cancels-
-  hover behavior.
-
-### Security
-
-- The embedded JSON payload now escapes `<` as the JSON unicode escape `\u003c` (transparent to `JSON.parse`). Previously a snapshot
-  field containing `</script>` (e.g. a hostile component description) could
-  terminate the data block and inject live markup into the generated HTML.
-
-### Added
-
 - `THIRD_PARTY_LICENSES` with the D3 v7.9.0 ISC license notice — D3 is
   redistributed in the repo, in built packages (wheel `dist-info/licenses/`,
   sdist), and inlined into every generated report. `pyproject.toml` now uses
   the SPDX `license` string + `license-files` so both files ship in
   distributions.
-
 - **Shareable URL state.** Catalog search, type/description/references/modified
   filters, sort, the active view, and the open detail panel are reflected in
   `location.hash` — copy the URL to share a filtered view ("every undocumented
@@ -60,8 +43,55 @@ All notable changes to `sdr-visualizer` will be documented here. The format foll
   components skip the force simulation and place nodes evenly on a circle —
   force-directed layouts look chaotic at that size. Drag and reset still work.
   (SPEC §14 Q2)
-- Browser-level functional tests (Playwright) covering script-injection,
-  URL-state restore, and the radial layout; run in CI's browser-perf job.
+- CI browser gate now also asserts entering the graph view blocks the main
+  thread < 700 ms (`scripts/perf_browser_check.py`) — script time plus a
+  forced style/layout flush of the inserted SVG — timing the worst-case
+  "Render anyway" path on both large fixtures (and failing if that path
+  stops being exercised); plus browser-level functional tests for hover
+  neighbor-highlighting, graph search fade/highlight, and filter-cancels-
+  hover behavior.
+- Perf gate now enforces the SPEC §6 100- and 500-component tiers (build
+  time + HTML size) via generated small fixtures, and the browser gate
+  covers the AA path and asserts per-tier budgets (1,000-component budgets
+  on the large fixtures, 2,000-component on XL).
+
+### Fixed
+
+- Canonical Adobe segment roots (`{"func": "segment", "container": {...}}`)
+  parse into a full anatomy tree instead of collapsing to one empty
+  segment reference.
+- Snapshots containing `NaN`/`Infinity` exit 3 with a clear message instead
+  of emitting a report whose payload the browser cannot parse (exit 0).
+- Usage errors exit 3, not argparse's default 2 (SPEC §7 forbids 2), and
+  unwritable `--output`/`--json` paths exit 1 with a clean message instead
+  of a traceback.
+- AA segment `nesting_depth` counts container nesting; it previously
+  reported raw JSON depth (a single-container segment claimed depth 4).
+- Explicit JSON `null` reference keys in CJA snapshots parse as empty
+  instead of crashing.
+- `--at` accepts full ISO-8601 (offsets, fractional seconds) and warns when
+  passed with non-directory input modes, where it never applied.
+- Date cells display the timestamp's date prefix — Safari showed raw
+  strings and Chrome could drift a day against the modified filter.
+- A shared URL with every type filter unchecked restores as unchecked.
+- AA calc-metric formula summaries render nested formulas readably instead
+  of leaking Python dict syntax; classifications without a name or id no
+  longer add blank tag chips.
+- Duplicate component ids in a snapshot print a build warning (anatomy
+  trees for duplicated ids are last-writer-wins).
+- Shell-out output decodes as UTF-8 regardless of host locale.
+
+### Security
+
+- The embedded JSON payload now escapes `<` as the JSON unicode escape `\u003c` (transparent to `JSON.parse`). Previously a snapshot
+  field containing `</script>` (e.g. a hostile component description) could
+  terminate the data block and inject live markup into the generated HTML.
+- Jinja autoescaping now applies to all templates (`autoescape=True`).
+  `select_autoescape(["html"])` never matched `index.html.j2` (final
+  extension `.j2`, not `.html`), so template-interpolated values — the
+  document title and instance name — rendered unescaped: a hostile Data
+  View name could inject live markup into the page. Same class of stored
+  XSS as the payload escape above; both shipped in the same fix pass.
 
 ## [0.2.0] - 2026-06-10
 
@@ -137,8 +167,8 @@ The following are explicitly internal and may change without notice:
 
 ### Known limitations
 
-- Not yet validated against real customer `cja_auto_sdr` / `aa_auto_sdr` output beyond the vendored grader fixtures.
-- No browser-side performance gate yet (Python build time + HTML size are gated; client-side render and filter latency aren't).
+- Not yet validated against real customer `cja_auto_sdr` / `aa_auto_sdr` output beyond the vendored grader fixtures. *(Since resolved: validated against real cja_auto_sdr / aa_auto_sdr output.)*
+- No browser-side performance gate yet (Python build time + HTML size are gated; client-side render and filter latency aren't). *(Resolved in 0.2.0 by scripts/perf_browser_check.py.)*
 - The PyPI publish step in `release.yml` is `continue-on-error: true` until trusted-publisher is configured at pypi.org.
 
 ### Deferred to later releases (per SPEC §13)

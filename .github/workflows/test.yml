@@ -33,6 +33,8 @@ jobs:
 
       - name: Performance gate
         run: |
+          uv run python scripts/generate_large_fixture.py --scale 0.083 --output tests/fixtures/cja_snapshot_small.json
+          uv run python scripts/generate_large_fixture.py --scale 0.417 --output tests/fixtures/cja_snapshot_medium.json
           uv run python scripts/generate_large_fixture.py --scale 1.67 --output tests/fixtures/cja_snapshot_xl.json
           uv run python scripts/perf_check.py
 
@@ -58,6 +60,7 @@ jobs:
       - name: Generate fixtures
         run: |
           uv run python scripts/generate_large_fixture.py
+          uv run python scripts/generate_aa_large_fixture.py
           uv run python scripts/generate_large_fixture.py --scale 1.67 --output tests/fixtures/cja_snapshot_xl.json
 
       - name: Browser functional tests

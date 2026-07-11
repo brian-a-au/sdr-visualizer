@@ -295,3 +295,47 @@ def test_small_graph_uses_radial_layout(browser_page, tmp_path):
     radii = [((p[0] - cx) ** 2 + (p[1] - cy) ** 2) ** 0.5 for p in positions]
     # Radial layout: every node equidistant from the centroid (loose tolerance).
     assert max(radii) - min(radii) < 1.0, f"not a circle: {radii}"
+
+
+def test_naive_space_timestamp_renders_date_prefix(browser_page, tmp_path):
+    snapshot = {
+        "metadata": {"Data View ID": "dv_dates", "Data View Name": "Dates"},
+        "data_view": {"id": "dv_dates"},
+        "metrics": [
+            {
+                "id": "metrics/m1",
+                "name": "Metric One",
+                "description": "d",
+                "modified_at": "2026-01-15 18:00:00",
+            }
+        ],
+        "dimensions": [],
+    }
+    out = tmp_path / "dates.html"
+    out.write_text(render(cja_adapt(snapshot)), encoding="utf-8")
+    # Reuse the module browser (a second sync_playwright() in one thread
+    # conflicts) but a fresh context pinned to UTC-8: pre-fix, Chrome parses
+    # the naive string as local time and getUTCDate() lands on Jan 16 — a day
+    # off from modified_ts (UTC).
+    context = browser_page.context.browser.new_context(timezone_id="America/Los_Angeles")
+    try:
+        page = context.new_page()
+        page.goto(out.as_uri())
+        page.wait_for_selector("#catalog-body tr", state="attached", timeout=10_000)
+        cell = page.evaluate("document.querySelector('#catalog-body td.col-modified').innerText")
+    finally:
+        context.close()
+    assert cell.strip() == "2026-01-15"
+
+
+def test_url_hash_zero_types_round_trips(browser_page, tmp_path):
+    out = _render_to(tmp_path, "cja_snapshot_messy.json", "zerotypes.html")
+    # Writing side already emits "#...types=" when nothing is checked;
+    # the restore side must honor it instead of showing everything.
+    browser_page.goto(out.as_uri() + "#types=")
+    browser_page.wait_for_selector("#search-input", state="attached", timeout=10_000)
+    checked = browser_page.evaluate(
+        "document.querySelectorAll('#type-filter input:checked').length"
+    )
+    assert checked == 0
+    assert browser_page.evaluate("window.__sdrPerf.rowCount()") == 0
