@@ -135,3 +135,90 @@ def test_segment_and_calc_scalar_fields_compared():
     assert by_id["cm/c1"]["fields"] == [
         {"field": "formula_text", "old": "divide(a, b)", "new": "divide(a, c)"}
     ]
+
+
+def test_volatile_fields_are_ignored():
+    old = _impl(
+        metrics=[
+            _component(
+                "metrics/m1",
+                created_at="2026-01-01T00:00:00Z",
+                modified_at="2026-01-01T00:00:00Z",
+                platform_specific={"extra": {"allocation": "last"}},
+            )
+        ],
+        calcs=[_calc("cm/c1", complexity_score=1.0)],
+    )
+    new = _impl(
+        metrics=[
+            _component(
+                "metrics/m1",
+                created_at="2026-02-02T00:00:00Z",
+                modified_at="2026-06-30T00:00:00Z",
+                platform_specific={"extra": {"allocation": "first"}},
+            )
+        ],
+        calcs=[_calc("cm/c1", complexity_score=9.0)],
+    )
+    changes = diff_implementations(old, new)
+    assert changes["modified"] == []
+
+
+def test_list_fields_diff_as_sets():
+    old = _impl(
+        metrics=[_component("metrics/m1", tags=["a", "b"])],
+        segments=[_segment("segments/s1", references=["metrics/m1", "metrics/m2"])],
+    )
+    new = _impl(
+        metrics=[_component("metrics/m1", tags=["b", "a"])],  # reorder only
+        segments=[_segment("segments/s1", references=["metrics/m2", "metrics/m3"])],
+    )
+    changes = diff_implementations(old, new)
+    by_id = {e["id"]: e for e in changes["modified"]}
+    assert "metrics/m1" not in by_id  # reordering is not a change
+    assert by_id["segments/s1"]["fields"] == [
+        {"field": "references", "added": ["metrics/m3"], "removed": ["metrics/m1"]}
+    ]
+
+
+def test_type_change_reports_removed_plus_added():
+    old = _impl(metrics=[_component("x/1", name="Was Metric")])
+    new = _impl(dimensions=[_component("x/1", name="Now Dimension", component_type="dimension")])
+    changes = diff_implementations(old, new)
+    assert changes["modified"] == []
+    assert changes["removed"] == [{"id": "x/1", "type": "metric", "name": "Was Metric"}]
+    assert changes["added"] == [{"id": "x/1", "type": "dimension", "name": "Now Dimension"}]
+
+
+def test_duplicate_ids_are_last_writer_wins():
+    old = _impl(metrics=[_component("metrics/m1", name="First"), _component("metrics/m1", name="Second")])
+    new = _impl(metrics=[_component("metrics/m1", name="Second")])
+    changes = diff_implementations(old, new)
+    assert changes["added"] == [] and changes["removed"] == [] and changes["modified"] == []
+
+
+def test_output_sorted_by_type_then_id():
+    old = _impl()
+    new = _impl(
+        metrics=[_component("metrics/z"), _component("metrics/a")],
+        segments=[_segment("segments/s1")],
+        calcs=[_calc("cm/c1")],
+        dimensions=[_component("dims/d1", component_type="dimension")],
+    )
+    changes = diff_implementations(old, new)
+    assert [e["id"] for e in changes["added"]] == [
+        "cm/c1",       # calculated_metric
+        "dims/d1",     # dimension
+        "metrics/a",   # metric
+        "metrics/z",
+        "segments/s1", # segment
+    ]
+
+
+def test_none_valued_scalar_changes_are_reported():
+    old = _impl(metrics=[_component("metrics/m1", description=None)])
+    new = _impl(metrics=[_component("metrics/m1", description="now documented")])
+    changes = diff_implementations(old, new)
+    assert changes["modified"][0]["fields"] == [
+        {"field": "description", "old": None, "new": "now documented"}
+    ]
