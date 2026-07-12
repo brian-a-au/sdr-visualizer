@@ -16,6 +16,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 from sdr_visualizer import __version__
+from sdr_visualizer.analysis.diff import diff_implementations
 from sdr_visualizer.cli.exit_codes import (
     INPUT_VALIDATION_ERROR,
     RUNTIME_ERROR,
@@ -25,6 +26,7 @@ from sdr_visualizer.core.exceptions import (
     InvalidSnapshotError,
     UnknownPlatformError,
 )
+from sdr_visualizer.core.models import Implementation
 from sdr_visualizer.core.visualizer import build_implementation
 from sdr_visualizer.input.loader import STDIN_TOKEN, load_snapshot
 from sdr_visualizer.input.shell_out import shell_aa, shell_cja
@@ -57,11 +59,15 @@ def main(argv: list[str] | None = None) -> int:
             source=source,
             platform=args.platform,
         )
+        baseline = _load_baseline(args, impl) if args.compare_to else None
         payload = build_payload_with_options(
             impl,
             exclude_orphans=args.exclude_orphans,
             max_graph_nodes=args.max_graph_nodes,
         )
+        if baseline is not None:
+            payload["changes"] = diff_implementations(baseline, impl)
+            payload["meta"]["compared_to"] = payload["changes"]["baseline"]
         html = render_payload(payload, title=args.title)
     except (InvalidSnapshotError, UnknownPlatformError) as exc:
         print(f"sdr-visualizer: {exc}", file=sys.stderr)
@@ -115,6 +121,30 @@ def _load(args: argparse.Namespace) -> tuple[dict, str]:
     return load_snapshot(args.path, at=args.at)
 
 
+def _load_baseline(args: argparse.Namespace, impl: Implementation) -> Implementation:
+    """Load and validate the --compare-to baseline.
+
+    Raised InvalidSnapshotError maps to exit 3 in main()'s except clause."""
+    if args.compare_to == STDIN_TOKEN:
+        raise InvalidSnapshotError(
+            "--compare-to does not accept stdin ('-'); pass a file or directory"
+        )
+    snapshot, source = load_snapshot(args.compare_to)
+    baseline = build_implementation(snapshot, source=source, platform=args.platform)
+    if baseline.platform != impl.platform:
+        raise InvalidSnapshotError(
+            f"--compare-to platform mismatch: baseline is {baseline.platform}, "
+            f"primary snapshot is {impl.platform}"
+        )
+    if baseline.instance_id != impl.instance_id:
+        print(
+            "sdr-visualizer: warning: comparing different instances "
+            f"({baseline.instance_id} vs {impl.instance_id})",
+            file=sys.stderr,
+        )
+    return baseline
+
+
 def _build_parser() -> argparse.ArgumentParser:
     p = _ArgumentParser(
         prog="sdr-visualizer",
@@ -145,6 +175,13 @@ def _build_parser() -> argparse.ArgumentParser:
         "--at",
         help=(
             "When path is a directory, pick the snapshot closest to (and not after) this timestamp."
+        ),
+    )
+    p.add_argument(
+        "--compare-to",
+        help=(
+            "Baseline snapshot to compare against: a file, or a directory "
+            "(resolves to its latest snapshot). Adds a Changes view to the report."
         ),
     )
     p.add_argument(
