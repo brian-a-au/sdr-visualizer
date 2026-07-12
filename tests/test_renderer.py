@@ -172,3 +172,20 @@ def test_changes_nav_renders_only_with_changes_payload():
     assert 'data-view="changes"' in compared
     assert 'id="changes-view"' in compared
     assert "Compared to" in compared
+
+
+def test_trend_nav_and_charts_render_only_with_trend_payload():
+    snap = json.loads((FIXTURES / "cja_snapshot_clean.json").read_text(encoding="utf-8"))
+    impl = cja_adapt(snap)
+    plain = render(impl)
+    assert 'data-view="trend"' not in plain
+
+    from sdr_visualizer.analysis.trend import build_trend
+    from sdr_visualizer.render.renderer import build_payload_with_options, render_payload
+
+    payload = build_payload_with_options(impl)
+    payload["trend"] = build_trend([impl, impl], capped=False)
+    with_trend = render_payload(payload)
+    assert 'data-view="trend"' in with_trend
+    assert 'id="trend-view"' in with_trend
+    assert "<polyline" in with_trend
