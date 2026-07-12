@@ -308,7 +308,13 @@ def test_trend_fewer_than_two_snapshots_exits_3(tmp_path, capsys):
     assert "at least 2" in capsys.readouterr().err
 
 
-def test_trend_platform_minority_skipped_with_warning(tmp_path, capsys):
+_AA_SNAP = {"report_suite": {"rsid": "test"}, "dimensions": [], "metrics": []}
+
+
+def test_trend_mixed_platform_without_declaration_exits_3(tmp_path, capsys):
+    # Platform is declarable, so a directory mixing CJA and AA without
+    # --platform is ambiguous: refuse rather than guess a majority (mirrors
+    # --compare-to's platform-mismatch error).
     d = _trend_dir(
         tmp_path,
         [
@@ -316,17 +322,35 @@ def test_trend_platform_minority_skipped_with_warning(tmp_path, capsys):
             ("snapshot_2026-02-01T00-00-00.json", []),
         ],
     )
-    aa_snap = {
-        "report_suite": {"rsid": "test"},
-        "dimensions": [],
-        "metrics": [],
-    }
-    _write_json(d / "snapshot_2026-03-01T00-00-00.json", aa_snap)
-    out = tmp_path / "o.html"
-    rc = main([str(d), "--trend", "--output", str(out), "--quiet"])
-    assert rc == 0
+    _write_json(d / "snapshot_2026-03-01T00-00-00.json", _AA_SNAP)
+    rc = main([str(d), "--trend", "--output", str(tmp_path / "o.html"), "--quiet"])
+    assert rc == 3
     err = capsys.readouterr().err
-    assert "platform aa differs from majority cja" in err
+    assert "mixes platforms" in err
+    assert "--platform" in err
+
+
+def test_trend_platform_declaration_selects_one_platform(tmp_path, capsys):
+    # With --platform, the non-matching snapshot fails to adapt and is skipped,
+    # leaving a clean single-platform series.
+    d = _trend_dir(
+        tmp_path,
+        [
+            (
+                "snapshot_2026-01-01T00-00-00.json",
+                [{"id": "metrics/m1", "name": "One", "description": "d"}],
+            ),
+            (
+                "snapshot_2026-02-01T00-00-00.json",
+                [{"id": "metrics/m1", "name": "One", "description": "d"}],
+            ),
+        ],
+    )
+    _write_json(d / "snapshot_2026-03-01T00-00-00.json", _AA_SNAP)
+    out = tmp_path / "o.html"
+    rc = main([str(d), "--trend", "--platform", "cja", "--output", str(out), "--quiet"])
+    assert rc == 0
+    assert "skipping" in capsys.readouterr().err  # AA snapshot failed CJA adaptation
     payload = extract_payload(out.read_text(encoding="utf-8"))
     assert len(payload["trend"]["snapshots"]) == 2
 

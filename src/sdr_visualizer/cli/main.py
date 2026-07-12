@@ -171,17 +171,26 @@ def _load_trend(args: argparse.Namespace) -> tuple[Implementation, dict]:
         try:
             impls.append(build_implementation(snapshot, source=source, platform=args.platform))
         except (InvalidSnapshotError, UnknownPlatformError, ValueError, TypeError) as exc:
-            # ValueError/TypeError cover adapter scalar-coercion failures (e.g. a
-            # non-numeric nesting_depth); skip the unusable snapshot rather than
-            # aborting the whole trend.
+            # Broad on purpose: any snapshot the adapter cannot turn into a valid
+            # Implementation — a bad platform, or a scalar-coercion failure such
+            # as a non-numeric nesting_depth surfacing as ValueError/TypeError —
+            # is a skippable unusable snapshot, not a reason to abort the whole
+            # trend. The stderr warning keeps a genuine adapter regression visible.
             print(f"sdr-visualizer: warning: skipping {source}: {exc}", file=sys.stderr)
     if impls:
-        # Keep a single implementation identity. A directory may mix platforms
-        # or several data views / report suites; diffing unrelated inventories
-        # would invent additions and removals. Filter to the majority platform,
-        # then to the majority instance within it.
-        impls = _keep_majority(impls, lambda i: i.platform, "platform")
-    if impls:
+        # Platform is a declarable dimension (--platform), so a directory that
+        # mixes CJA and AA snapshots without one is ambiguous: refuse rather than
+        # guess a majority. (With --platform set, non-matching snapshots fail to
+        # adapt above and never reach here, so this only fires when it was
+        # omitted — mirroring --compare-to's platform-mismatch error.)
+        platforms = sorted({i.platform for i in impls})
+        if len(platforms) > 1:
+            raise InvalidSnapshotError(
+                f"--trend directory mixes platforms ({', '.join(platforms)}); "
+                "pass --platform cja|aa to select one, or use a single-platform directory"
+            )
+        # Instance (data view / report suite) has no declaration flag, so keep a
+        # single identity by majority to avoid diffing unrelated inventories.
         impls = _keep_majority(impls, lambda i: i.instance_id, "instance")
     if len(impls) < 2:
         raise InvalidSnapshotError(
