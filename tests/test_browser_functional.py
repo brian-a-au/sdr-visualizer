@@ -489,7 +489,14 @@ def _trend_series_snapshots():
 
 
 def _render_trend(tmp_path, name):
-    impls = [cja_adapt(s) for s in _trend_series_snapshots()]
+    # Distinct sources per snapshot (rather than the adapter's shared
+    # "<unknown>" default): with no snapshot_taken_at, interval "from"/"to"
+    # fall back to snapshot_source, and identical sources would make every
+    # interval label an equal pair regardless of the from_source/to_source
+    # fallback under test.
+    impls = [
+        cja_adapt(s, source=f"trend_{i}.json") for i, s in enumerate(_trend_series_snapshots())
+    ]
     payload = build_payload_with_options(impls[-1])
     payload["trend"] = build_trend(impls, capped=False)
     out = tmp_path / name
@@ -510,6 +517,16 @@ def test_trend_view_renders_charts_and_log(browser_page, tmp_path):
     assert rows == 2
     summary = browser_page.inner_text("#trend-log details.trend-interval >> nth=0")
     assert "+1" in summary
+    # Interval labels must stay navigable when dates are equal or missing:
+    # the two sides of the range must never collapse to the same label.
+    range_text = browser_page.inner_text(
+        "#trend-log details.trend-interval >> nth=0 >> .trend-range"
+    )
+    sides = range_text.split(" → ")
+    assert len(sides) == 2 and sides[0] != sides[1]
+    # Second interval (m1 removed) exercises the removed-count glyph (U+2212).
+    summary_second = browser_page.inner_text("#trend-log details.trend-interval >> nth=1")
+    assert "−1" in summary_second
 
 
 def test_trend_interval_expands_to_id_lists(browser_page, tmp_path):

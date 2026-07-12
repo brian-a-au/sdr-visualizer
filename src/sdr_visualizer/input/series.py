@@ -52,6 +52,14 @@ def list_snapshot_series(
     # timestamps when any file carries one; mtime only when none do.
     annotated = [(p, _extract_timestamp(p)) for p in candidates]
     stamped = [(p, ts) for p, ts in annotated if ts is not None]
+    if stamped and len(stamped) < len(annotated):
+        for p, ts in annotated:
+            if ts is None:
+                print(
+                    f"sdr-visualizer: warning: skipping {p.name}: no filename timestamp "
+                    "while other snapshots have one",
+                    file=sys.stderr,
+                )
     if not stamped:
         stamped = [(p, datetime.fromtimestamp(p.stat().st_mtime)) for p in candidates]
 

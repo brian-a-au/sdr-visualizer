@@ -1227,10 +1227,16 @@
     if (!$trendView || !payload.trend) return;
     var parts = [];
     payload.trend.intervals.forEach(function (iv) {
+      var fromLabel = formatDate(iv.from);
+      var toLabel = formatDate(iv.to);
+      if (fromLabel === toLabel) {
+        fromLabel = iv.from_source || fromLabel;
+        toLabel = iv.to_source || toLabel;
+      }
       parts.push(
         '<details class="trend-interval"><summary>' +
           '<span class="trend-range">' +
-            escapeHtml(formatDate(iv.from)) + " → " + escapeHtml(formatDate(iv.to)) +
+            escapeHtml(fromLabel) + " → " + escapeHtml(toLabel) +
           "</span>" +
           '<span class="change-count change-count-added">+' + iv.added.length + "</span>" +
           '<span class="change-count change-count-removed">−' + iv.removed.length + "</span>" +

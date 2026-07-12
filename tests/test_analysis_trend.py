@@ -122,3 +122,19 @@ def test_interval_from_to_fall_back_to_source_when_no_timestamp():
     trend = build_trend([a, b], capped=False)
     assert trend["intervals"][0]["from"] == "old.json"
     assert trend["intervals"][0]["to"] == "new.json"
+
+
+def test_interval_from_to_source_carry_basenames():
+    a = _impl(
+        metrics=[_component("metrics/m1")],
+        taken_at="2026-06-01 00:00:00",
+        source="/some/dir/a.json",
+    )
+    b = _impl(
+        metrics=[_component("metrics/m1")],
+        taken_at="2026-06-01 00:00:00",
+        source="/some/dir/b.json",
+    )
+    trend = build_trend([a, b], capped=False)
+    assert trend["intervals"][0]["from_source"] == "a.json"
+    assert trend["intervals"][0]["to_source"] == "b.json"

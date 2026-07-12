@@ -78,6 +78,16 @@ def test_bad_at_value_raises(tmp_path):
         list_snapshot_series(str(tmp_path), at="not-a-date")
 
 
+def test_unstamped_file_dropped_from_mixed_directory_warns(tmp_path, capsys):
+    _write(tmp_path, "snapshot_2026-01-01T00-00-00.json", {"n": 1})
+    _write(tmp_path, "snapshot_2026-02-01T00-00-00.json", {"n": 2})
+    _write(tmp_path, "plain.json", {"n": 99})
+    entries, _ = list_snapshot_series(str(tmp_path))
+    assert len(entries) == 2
+    err = capsys.readouterr().err
+    assert "skipping plain.json: no filename timestamp while other snapshots have one" in err
+
+
 def test_mtime_fallback_when_no_filename_timestamps(tmp_path):
     import os
     import time

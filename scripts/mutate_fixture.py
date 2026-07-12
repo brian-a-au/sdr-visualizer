@@ -69,7 +69,9 @@ def main() -> int:
     args = parser.parse_args()
     snapshot = json.loads(Path(args.input).read_text(encoding="utf-8"))
 
-    if args.series:
+    if args.series is not None:
+        if args.series < 1:
+            parser.error("--series must be >= 1")
         if args.series > 336:
             parser.error("--series must be <= 336 (month-spill filename scheme)")
         if not args.output_dir:

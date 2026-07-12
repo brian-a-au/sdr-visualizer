@@ -202,8 +202,8 @@ The following are explicitly internal and may change without notice:
 
 ### Deferred to later releases (per SPEC §13)
 
-- Comparative view, two snapshots side-by-side (v0.2)
-- Trend mode against a directory of snapshots (v0.3)
+- Comparative view, two snapshots side-by-side (v0.2) *(Shipped in 0.4.0.)*
+- Trend mode against a directory of snapshots (v0.3) *(Shipping in 0.5.0.)*
 - Workspace project visualization (v0.4)
 - Schema map view (v0.5)
 
