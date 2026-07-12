@@ -92,6 +92,7 @@ def _render_from_payload(payload: dict[str, Any], *, title: str | None) -> str:
         js=js,
         d3_js=d3_js,
         payload_json=payload_json.replace("<", "\\u003c"),
+        has_changes="changes" in payload,
         # Snapshot stats for the header strip.
         component_count=payload["meta"]["component_count"],
         metric_count=sum(1 for c in payload["components"] if c["type"] == "metric"),

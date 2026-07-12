@@ -18,7 +18,12 @@ import pytest
 playwright_sync = pytest.importorskip("playwright.sync_api")
 
 from sdr_visualizer.adapters.cja import adapt as cja_adapt  # noqa: E402
-from sdr_visualizer.render.renderer import render  # noqa: E402
+from sdr_visualizer.analysis.diff import diff_implementations  # noqa: E402
+from sdr_visualizer.render.renderer import (  # noqa: E402
+    build_payload_with_options,
+    render,
+    render_payload,
+)
 
 FIXTURES = Path(__file__).parent / "fixtures"
 
@@ -339,3 +344,101 @@ def test_url_hash_zero_types_round_trips(browser_page, tmp_path):
     )
     assert checked == 0
     assert browser_page.evaluate("window.__sdrPerf.rowCount()") == 0
+
+
+def _compare_pair():
+    def snap(metrics):
+        return {
+            "metadata": {"Data View ID": "dv_cmp", "Data View Name": "Compare"},
+            "data_view": {"id": "dv_cmp"},
+            "metrics": metrics,
+            "dimensions": [],
+            "segments": {"segments": []},
+            "calculated_metrics": {"metrics": []},
+        }
+
+    old = snap(
+        [
+            {"id": "metrics/m1", "name": "Metric One", "description": "d"},
+            {"id": "metrics/m3", "name": "Metric Three", "description": "d"},
+        ]
+    )
+    new = snap(
+        [
+            {"id": "metrics/m1", "name": "Metric One (renamed)", "description": "d"},
+            {"id": "metrics/m2", "name": "Metric Two", "description": "d"},
+        ]
+    )
+    return old, new
+
+
+def _render_compare(tmp_path, name, old_snapshot, new_snapshot):
+    old_impl = cja_adapt(old_snapshot)
+    new_impl = cja_adapt(new_snapshot)
+    payload = build_payload_with_options(new_impl)
+    payload["changes"] = diff_implementations(old_impl, new_impl)
+    payload["meta"]["compared_to"] = payload["changes"]["baseline"]
+    out = tmp_path / name
+    out.write_text(render_payload(payload), encoding="utf-8")
+    return out
+
+
+def test_changes_view_renders_counts_and_field_detail(browser_page, tmp_path):
+    old, new = _compare_pair()
+    out = _render_compare(tmp_path, "compare.html", old, new)
+    browser_page.goto(out.as_uri())
+    browser_page.wait_for_selector("#catalog-body tr", state="attached", timeout=10_000)
+    browser_page.click('.view-button[data-view="changes"]')
+    summary = browser_page.inner_text("#changes-summary")
+    assert "+1 added" in summary
+    assert "−1 removed" in summary
+    assert "~1 modified" in summary
+    rows = browser_page.evaluate("document.querySelectorAll('#changes-body .change-row').length")
+    assert rows == 3
+    browser_page.click("#changes-body details.change-modified summary")
+    field_text = browser_page.inner_text("#changes-body .change-fields")
+    assert "Metric One" in field_text
+    assert "Metric One (renamed)" in field_text
+
+
+def test_changes_added_entry_links_to_detail_panel(browser_page, tmp_path):
+    old, new = _compare_pair()
+    out = _render_compare(tmp_path, "compare_link.html", old, new)
+    browser_page.goto(out.as_uri())
+    browser_page.wait_for_selector("#catalog-body tr", state="attached", timeout=10_000)
+    browser_page.click('.view-button[data-view="changes"]')
+    browser_page.click("#changes-body .change-added button.ref-link")
+    name = browser_page.inner_text("#detail-body .detail-name")
+    assert name == "Metric Two"
+
+
+def test_changes_view_url_state_restores(browser_page, tmp_path):
+    old, new = _compare_pair()
+    out = _render_compare(tmp_path, "compare_url.html", old, new)
+    browser_page.goto(out.as_uri() + "#view=changes")
+    browser_page.wait_for_selector("#search-input", state="attached", timeout=10_000)
+    hidden = browser_page.evaluate("document.getElementById('changes-view').hidden")
+    assert hidden is False
+
+
+def test_changes_empty_state(browser_page, tmp_path):
+    old, _ = _compare_pair()
+    out = _render_compare(tmp_path, "compare_empty.html", old, old)
+    browser_page.goto(out.as_uri())
+    browser_page.wait_for_selector("#catalog-body tr", state="attached", timeout=10_000)
+    browser_page.click('.view-button[data-view="changes"]')
+    assert "No changes" in browser_page.inner_text("#changes-body")
+
+
+def test_changes_search_filters_rows(browser_page, tmp_path):
+    old, new = _compare_pair()
+    out = _render_compare(tmp_path, "compare_search.html", old, new)
+    browser_page.goto(out.as_uri())
+    browser_page.wait_for_selector("#catalog-body tr", state="attached", timeout=10_000)
+    browser_page.click('.view-button[data-view="changes"]')
+    browser_page.fill("#changes-search", "metric two")
+    visible = browser_page.evaluate(
+        "Array.from(document.querySelectorAll('#changes-body .change-row'))"
+        ".filter(function (r) { return !r.hidden; }).length"
+    )
+    assert visible == 1

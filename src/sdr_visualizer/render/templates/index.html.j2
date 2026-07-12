@@ -21,6 +21,10 @@
           <span class="separator">·</span>
           <span>Snapshot {{ meta.snapshot_taken_at }}</span>
         {% endif %}
+        {% if meta.compared_to %}
+          <span class="separator">·</span>
+          <span>Compared to {{ meta.compared_to.taken_at or meta.compared_to.source }}</span>
+        {% endif %}
       </div>
     </div>
     <div class="meta-strip ui">
@@ -57,10 +61,14 @@
 <nav class="view-nav ui">
   <button type="button" class="view-button is-active" data-view="catalog">Catalog</button>
   <button type="button" class="view-button" data-view="graph">Reference graph</button>
+  {% if has_changes %}
+  <button type="button" class="view-button" data-view="changes">Changes</button>
+  {% endif %}
 </nav>
 
 {% include "catalog.html.j2" %}
 {% include "graph.html.j2" %}
+{% if has_changes %}{% include "changes.html.j2" %}{% endif %}
 
 <aside id="detail-panel" class="detail-panel" aria-hidden="true">
   <div class="detail-panel-inner">

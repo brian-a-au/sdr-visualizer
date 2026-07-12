@@ -647,6 +647,7 @@
   var $viewButtons = document.querySelectorAll(".view-button[data-view]");
   var $catalogView = document.getElementById("catalog-view");
   var $graphView = document.getElementById("graph-view");
+  var $changesView = document.getElementById("changes-view");
   var $graphCanvas = document.getElementById("graph-canvas");
   var $graphSearch = document.getElementById("graph-search");
   var $graphTypeFilter = document.getElementById("graph-type-filter");
@@ -676,6 +677,7 @@
     activeView = name;
     $catalogView.hidden = name !== "catalog";
     $graphView.hidden = name !== "graph";
+    if ($changesView) $changesView.hidden = name !== "changes";
     $viewButtons.forEach(function (b) {
       b.classList.toggle("is-active", b.getAttribute("data-view") === name);
     });
@@ -1055,13 +1057,133 @@
     });
   }
 
+  /* ===========================================================
+   * Changes view (comparative report, payload.changes)
+   * =========================================================== */
+
+  function formatChangeValue(value) {
+    if (value === null || value === undefined || value === "") return "—";
+    return String(value);
+  }
+
+  function changeFieldHtml(f) {
+    var label = '<span class="change-field-name mono">' + escapeHtml(f.field) + "</span> ";
+    if (f.added !== undefined || f.removed !== undefined) {
+      var parts = [];
+      (f.added || []).forEach(function (v) {
+        parts.push('<span class="change-list-added">+ ' + escapeHtml(v) + "</span>");
+      });
+      (f.removed || []).forEach(function (v) {
+        parts.push('<span class="change-list-removed">− ' + escapeHtml(v) + "</span>");
+      });
+      return '<li class="change-field">' + label + parts.join(" ") + "</li>";
+    }
+    return (
+      '<li class="change-field">' + label +
+      '<span class="change-old">' + escapeHtml(formatChangeValue(f.old)) + "</span>" +
+      '<span class="change-arrow"> → </span>' +
+      '<span class="change-new">' + escapeHtml(formatChangeValue(f.new)) + "</span></li>"
+    );
+  }
+
+  function changeEntryLabel(entry, linkable) {
+    var label =
+      '<span class="dot dot-' + escapeHtml(entry.type) + '"></span>' +
+      '<span class="change-name">' + escapeHtml(entry.name) + "</span> " +
+      '<span class="row-id mono">' + escapeHtml(entry.id) + "</span>";
+    if (linkable && byId[entry.id]) {
+      return (
+        '<button type="button" class="ref-link change-link" data-id="' +
+        escapeHtml(entry.id) + '">' + label + "</button>"
+      );
+    }
+    return '<span class="change-static">' + label + "</span>";
+  }
+
+  function changeRowSearchAttr(entry) {
+    return ' data-search="' + escapeHtml((entry.name + " " + entry.id).toLowerCase()) + '"';
+  }
+
+  function renderChanges() {
+    if (!$changesView || !payload.changes) return;
+    var ch = payload.changes;
+    var baselineLabel = ch.baseline
+      ? ch.baseline.taken_at || ch.baseline.source || "baseline"
+      : "baseline";
+    document.getElementById("changes-summary").innerHTML =
+      '<span class="change-count change-count-added">+' + ch.added.length + " added</span>" +
+      '<span class="separator">·</span>' +
+      '<span class="change-count change-count-removed">−' + ch.removed.length + " removed</span>" +
+      '<span class="separator">·</span>' +
+      '<span class="change-count change-count-modified">~' + ch.modified.length + " modified</span>" +
+      '<span class="changes-baseline">against ' + escapeHtml(baselineLabel) + "</span>";
+
+    var parts = [];
+    if (!ch.added.length && !ch.removed.length && !ch.modified.length) {
+      parts.push('<p class="changes-empty">No changes between these snapshots.</p>');
+    }
+    if (ch.added.length) {
+      parts.push('<h2 class="change-group-title ui">Added (' + ch.added.length + ")</h2>");
+      ch.added.forEach(function (entry) {
+        parts.push(
+          '<div class="change-row change-added"' + changeRowSearchAttr(entry) + ">" +
+            changeEntryLabel(entry, true) + "</div>"
+        );
+      });
+    }
+    if (ch.removed.length) {
+      parts.push('<h2 class="change-group-title ui">Removed (' + ch.removed.length + ")</h2>");
+      ch.removed.forEach(function (entry) {
+        // Removed components no longer exist in the primary snapshot: no link.
+        parts.push(
+          '<div class="change-row change-removed"' + changeRowSearchAttr(entry) + ">" +
+            changeEntryLabel(entry, false) + "</div>"
+        );
+      });
+    }
+    if (ch.modified.length) {
+      parts.push('<h2 class="change-group-title ui">Modified (' + ch.modified.length + ")</h2>");
+      ch.modified.forEach(function (entry) {
+        var count = entry.fields.length;
+        parts.push(
+          '<details class="change-row change-modified"' + changeRowSearchAttr(entry) + "><summary>" +
+            changeEntryLabel(entry, true) +
+            '<span class="change-field-count ui">' + count + " field" + (count === 1 ? "" : "s") + "</span>" +
+          "</summary>" +
+          '<ul class="change-fields">' + entry.fields.map(changeFieldHtml).join("") + "</ul>" +
+          "</details>"
+        );
+      });
+    }
+    document.getElementById("changes-body").innerHTML = parts.join("");
+
+    $changesView.addEventListener("click", function (event) {
+      var btn = event.target.closest("button.ref-link");
+      if (!btn) return;
+      // A link inside <summary> must open the detail panel, not toggle the
+      // <details> element — preventDefault cancels the toggle.
+      event.preventDefault();
+      openDetail(btn.getAttribute("data-id"));
+    });
+
+    document.getElementById("changes-search").addEventListener("input", function (event) {
+      var query = event.target.value.trim().toLowerCase();
+      $changesView.querySelectorAll("#changes-body .change-row").forEach(function (row) {
+        row.hidden = !!query && (row.getAttribute("data-search") || "").indexOf(query) === -1;
+      });
+    });
+  }
+  renderChanges();
+
   // Deferred URL-state restore: showView/openDetail need the graph section's
   // definitions, so view/detail restore runs after everything is wired. The
   // params were captured at load, before the first updateHash() rewrote
   // location.hash.
   function restoreViewAndDetail(params) {
     if (!params) return;
-    if (params.get("view") === "graph") showView("graph");
+    var viewParam = params.get("view");
+    if (viewParam === "graph") showView("graph");
+    if (viewParam === "changes" && $changesView) showView("changes");
     var detailId = params.get("detail");
     if (detailId && byId[detailId]) openDetail(detailId);
   }
