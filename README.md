@@ -89,14 +89,13 @@ components, reference edges) across the directory's snapshots, plus a
 per-interval change log. The window is capped at the 60 most recent
 snapshots.
 
-A trend directory should hold snapshots of a single implementation. If it
-mixes CJA and AA snapshots, pass `--platform cja|aa` to select one (or point
-at a single-platform directory); without it the run stops rather than guess,
-the same way `--compare-to` refuses a platform mismatch. If it mixes data
-views or report suites, the majority is charted and snapshots of the others
-are skipped with a warning. Because of that filtering, the report shown
-alongside the trend is the newest snapshot of the *charted* implementation,
-which may not be the single newest file in the directory.
+A trend directory must hold snapshots of a single implementation. If it mixes
+CJA and AA snapshots, pass `--platform cja|aa` to select one (or point at a
+single-platform directory); without it the run stops rather than guess. If it
+mixes data views or report suites, the run stops as well. This mirrors
+`--compare-to`, which refuses both a platform and an instance mismatch, so
+neither view ever diffs unrelated inventories. The report shown alongside the
+trend is the newest usable snapshot in the directory.
 
 - **Shareable links** — the catalog's filters, sort, view, and open detail panel are encoded in the URL hash; copy the address bar to share a filtered view.
 

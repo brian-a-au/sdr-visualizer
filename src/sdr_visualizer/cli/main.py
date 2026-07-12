@@ -12,8 +12,6 @@ from __future__ import annotations
 import argparse
 import json
 import sys
-from collections import Counter
-from collections.abc import Callable
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -152,16 +150,16 @@ def _load_baseline(args: argparse.Namespace, impl: Implementation) -> Implementa
             f"primary snapshot is {impl.platform}"
         )
     if baseline.instance_id != impl.instance_id:
-        print(
-            "sdr-visualizer: warning: comparing different instances "
-            f"({baseline.instance_id} vs {impl.instance_id})",
-            file=sys.stderr,
+        raise InvalidSnapshotError(
+            f"--compare-to instance mismatch: baseline is {baseline.instance_id}, "
+            f"primary snapshot is {impl.instance_id}; compare snapshots of the same "
+            "data view / report suite"
         )
     return baseline
 
 
 def _load_trend(args: argparse.Namespace) -> tuple[Implementation, dict]:
-    """Load, adapt, and majority-filter the --trend snapshot series.
+    """Load, adapt, and validate a single-implementation --trend series.
 
     Returns (newest usable Implementation, trend payload section). Raised
     InvalidSnapshotError maps to exit 3 in main()'s except clause."""
@@ -178,57 +176,30 @@ def _load_trend(args: argparse.Namespace) -> tuple[Implementation, dict]:
             # trend. The stderr warning keeps a genuine adapter regression visible.
             print(f"sdr-visualizer: warning: skipping {source}: {exc}", file=sys.stderr)
     if impls:
-        # Platform is a declarable dimension (--platform), so a directory that
-        # mixes CJA and AA snapshots without one is ambiguous: refuse rather than
-        # guess a majority. (With --platform set, non-matching snapshots fail to
-        # adapt above and never reach here, so this only fires when it was
-        # omitted — mirroring --compare-to's platform-mismatch error.)
+        # A trend must be a single implementation: one platform and one data
+        # view / report suite. Both dimensions are refused when mixed, the same
+        # way --compare-to refuses a mismatch, rather than diffing unrelated
+        # inventories. Platform is declarable, so its message points at
+        # --platform; instance has no flag, so the fix is a cleaner directory.
+        # (With --platform set, non-matching snapshots fail to adapt above and
+        # never reach here.)
         platforms = sorted({i.platform for i in impls})
         if len(platforms) > 1:
             raise InvalidSnapshotError(
                 f"--trend directory mixes platforms ({', '.join(platforms)}); "
                 "pass --platform cja|aa to select one, or use a single-platform directory"
             )
-        # Instance (data view / report suite) has no declaration flag, so keep a
-        # single identity by majority to avoid diffing unrelated inventories.
-        impls = _keep_majority(impls, lambda i: i.instance_id, "instance")
+        instances = sorted({i.instance_id for i in impls})
+        if len(instances) > 1:
+            raise InvalidSnapshotError(
+                "--trend directory mixes data views / report suites "
+                f"({', '.join(instances)}); use snapshots of a single implementation"
+            )
     if len(impls) < 2:
         raise InvalidSnapshotError(
             "--trend needs at least 2 usable snapshots after skipping unusable ones"
         )
     return impls[-1], build_trend(impls, capped=capped)
-
-
-def _keep_majority(
-    impls: list[Implementation],
-    key: Callable[[Implementation], str],
-    label: str,
-) -> list[Implementation]:
-    """Return the impls whose `key` matches the most common value.
-
-    `impls` is ordered oldest-to-newest. A strict majority wins; a count tie
-    resolves to the newest snapshot's value so the primary report (`impls[-1]`)
-    is never silently replaced by an equal-sized but older group. Divergent
-    snapshots are dropped with a stderr warning."""
-    counts = Counter(key(i) for i in impls)
-    top = max(counts.values())
-    tied = [value for value, count in counts.items() if count == top]
-    if len(tied) == 1:
-        selected, basis = tied[0], "majority"
-    else:
-        selected = next(key(i) for i in reversed(impls) if key(i) in tied)
-        basis = "newest"
-    kept: list[Implementation] = []
-    for i in impls:
-        if key(i) == selected:
-            kept.append(i)
-        else:
-            print(
-                f"sdr-visualizer: warning: skipping {i.snapshot_source}: "
-                f"{label} {key(i)} differs from {basis} {selected}",
-                file=sys.stderr,
-            )
-    return kept
 
 
 def _build_parser() -> argparse.ArgumentParser:

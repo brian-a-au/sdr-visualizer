@@ -14,13 +14,19 @@ All notable changes to `sdr-visualizer` will be documented here. The format foll
   modified component ids, computed with the 0.4.0 diff engine). The window
   honors `--at` as its end and is capped at the 60 most recent parseable
   snapshots with a build warning. Unparseable snapshots and snapshots with an
-  unconvertible scalar field are skipped with warnings, and snapshots of a
-  minority data view / report suite are skipped so unrelated inventories are
-  never diffed. A directory that mixes CJA and AA snapshots exits 3 unless
-  `--platform cja|aa` selects one (mirroring `--compare-to`'s platform-mismatch
-  error). Fewer than 2 usable snapshots exits 3, as does combining `--trend`
-  with `--compare-to`, `--dataview`, `--rsid`, a file path, or stdin.
-  (SPEC §13, trend mode)
+  unconvertible scalar field are skipped with warnings. A directory that mixes
+  platforms exits 3 unless `--platform cja|aa` selects one, and a directory
+  that mixes data views / report suites exits 3, so unrelated inventories are
+  never diffed (mirroring `--compare-to`, which refuses both). Fewer than 2
+  usable snapshots exits 3, as does combining `--trend` with `--compare-to`,
+  `--dataview`, `--rsid`, a file path, or stdin. (SPEC §13, trend mode)
+
+### Changed
+
+- **`--compare-to` now refuses an instance mismatch.** Comparing snapshots
+  from different data views / report suites exits 3 instead of warning and
+  proceeding (0.4.0 behavior), matching `--trend`; both views require a single
+  implementation so the diff never spans unrelated inventories.
 
 ## [0.4.0] - 2026-07-11
 

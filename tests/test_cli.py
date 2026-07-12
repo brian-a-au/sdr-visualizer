@@ -192,12 +192,14 @@ def test_compare_to_missing_path_exits_3(tmp_path, capsys):
     assert "snapshot path not found" in capsys.readouterr().err
 
 
-def test_compare_to_instance_mismatch_warns(tmp_path, capsys):
+def test_compare_to_instance_mismatch_exits_3(tmp_path, capsys):
+    # Instance divergence is fatal, matching --trend: comparing different data
+    # views / report suites would diff unrelated inventories.
     old = _write_json(tmp_path / "old.json", _cja_compare_snapshot(dv_id="dv_other"))
     new = _write_json(tmp_path / "new.json", _cja_compare_snapshot(dv_id="dv_cmp"))
     rc = main([str(new), "--compare-to", str(old), "--output", str(tmp_path / "o.html"), "--quiet"])
-    assert rc == 0
-    assert "comparing different instances" in capsys.readouterr().err
+    assert rc == 3
+    assert "instance mismatch" in capsys.readouterr().err
 
 
 def test_compare_to_directory_resolves_latest(tmp_path):
@@ -366,54 +368,24 @@ def _cja_trend_snapshot(dv_id, metric_ids):
     }
 
 
-def test_trend_minority_instance_skipped_with_warning(tmp_path, capsys):
-    # A directory mixing two data views of the same platform must not diff
-    # unrelated inventories; only the majority instance forms the trend.
+def test_trend_mixed_instance_exits_3(tmp_path, capsys):
+    # A directory mixing two data views of the same platform is refused rather
+    # than diffing unrelated inventories, the same way --compare-to refuses an
+    # instance mismatch.
     d = tmp_path / "series"
     d.mkdir()
     _write_json(d / "snapshot_2026-01-01T00-00-00.json", _cja_trend_snapshot("dv_main", ["m1"]))
     _write_json(
-        d / "snapshot_2026-02-01T00-00-00.json", _cja_trend_snapshot("dv_other", ["x1", "x2", "x3"])
+        d / "snapshot_2026-02-01T00-00-00.json", _cja_trend_snapshot("dv_main", ["m1", "m2"])
     )
     _write_json(
-        d / "snapshot_2026-03-01T00-00-00.json", _cja_trend_snapshot("dv_main", ["m1", "m2"])
+        d / "snapshot_2026-03-01T00-00-00.json", _cja_trend_snapshot("dv_other", ["x1", "x2"])
     )
-    _write_json(
-        d / "snapshot_2026-04-01T00-00-00.json", _cja_trend_snapshot("dv_main", ["m1", "m2"])
-    )
-    out = tmp_path / "o.html"
-    rc = main([str(d), "--trend", "--output", str(out), "--quiet"])
-    assert rc == 0
+    rc = main([str(d), "--trend", "--output", str(tmp_path / "o.html"), "--quiet"])
+    assert rc == 3
     err = capsys.readouterr().err
-    assert "instance dv_other differs from majority dv_main" in err
-    payload = extract_payload(out.read_text(encoding="utf-8"))
-    assert len(payload["trend"]["snapshots"]) == 3
-    # No spurious cross-instance churn: the first interval only adds m2.
-    assert payload["trend"]["intervals"][0]["added"] == ["m2"]
-    # Primary report is the newest majority-instance snapshot.
-    assert {c["id"] for c in payload["components"]} == {"m1", "m2"}
-
-
-def test_trend_instance_tie_prefers_newest(tmp_path, capsys):
-    # Equal snapshot counts for two instances (a captured A -> B transition).
-    # A count tie must resolve to the newest snapshot's instance so the primary
-    # report is never silently replaced by older, stale history.
-    d = tmp_path / "series"
-    d.mkdir()
-    _write_json(d / "snapshot_2026-01-01T00-00-00.json", _cja_trend_snapshot("dv_A", ["a1"]))
-    _write_json(d / "snapshot_2026-02-01T00-00-00.json", _cja_trend_snapshot("dv_A", ["a1", "a2"]))
-    _write_json(d / "snapshot_2026-03-01T00-00-00.json", _cja_trend_snapshot("dv_B", ["b1"]))
-    _write_json(d / "snapshot_2026-04-01T00-00-00.json", _cja_trend_snapshot("dv_B", ["b1", "b2"]))
-    out = tmp_path / "o.html"
-    rc = main([str(d), "--trend", "--output", str(out), "--quiet"])
-    assert rc == 0
-    err = capsys.readouterr().err
-    # On a tie the dropped group is not a minority, so it is described as
-    # differing from the "newest" instance, not the "majority".
-    assert "instance dv_A differs from newest dv_B" in err
-    payload = extract_payload(out.read_text(encoding="utf-8"))
-    assert len(payload["trend"]["snapshots"]) == 2
-    assert {c["id"] for c in payload["components"]} == {"b1", "b2"}
+    assert "mixes data views / report suites" in err
+    assert "dv_main" in err and "dv_other" in err
 
 
 def test_trend_snapshot_with_bad_scalar_skipped_not_aborted(tmp_path, capsys):
