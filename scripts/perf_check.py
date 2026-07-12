@@ -25,6 +25,7 @@ Run via:
 
 from __future__ import annotations
 
+import importlib.util
 import json
 import statistics
 import sys
@@ -33,7 +34,8 @@ from pathlib import Path
 
 from sdr_visualizer.adapters.aa import adapt as aa_adapt
 from sdr_visualizer.adapters.cja import adapt as cja_adapt
-from sdr_visualizer.render.renderer import render
+from sdr_visualizer.analysis.diff import diff_implementations
+from sdr_visualizer.render.renderer import build_payload_with_options, render, render_payload
 
 REPO = Path(__file__).resolve().parent.parent
 CJA_LARGE = REPO / "tests" / "fixtures" / "cja_snapshot_large.json"
@@ -55,6 +57,51 @@ SMALL_SIZE_BUDGET_MB = 0.5
 CJA_MEDIUM = REPO / "tests" / "fixtures" / "cja_snapshot_medium.json"
 MEDIUM_BUILD_BUDGET_S = 3.0
 MEDIUM_SIZE_BUDGET_MB = 2.0
+
+# Comparative case (0.4.0): large CJA fixture vs its mutated copy.
+# Budgets per the 0.4.0 spec: 1.5x the tier's build budget; the tier's
+# size budget + 0.5 MB.
+COMPARE_BUILD_BUDGET_S = BUILD_BUDGET_S * 1.5
+COMPARE_SIZE_BUDGET_MB = SIZE_BUDGET_MB + 0.5
+
+
+def _load_mutate():
+    spec = importlib.util.spec_from_file_location(
+        "mutate_fixture", REPO / "scripts" / "mutate_fixture.py"
+    )
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module.mutate
+
+
+def _measure_compare(old_snap: dict, new_snap: dict) -> tuple[list[str], str]:
+    times = []
+    html = ""
+    for _ in range(3):
+        start = time.perf_counter()
+        old_impl = cja_adapt(old_snap)
+        new_impl = cja_adapt(new_snap)
+        payload = build_payload_with_options(new_impl)
+        payload["changes"] = diff_implementations(old_impl, new_impl)
+        payload["meta"]["compared_to"] = payload["changes"]["baseline"]
+        html = render_payload(payload)
+        times.append(time.perf_counter() - start)
+    elapsed = statistics.median(times)
+    size_mb = len(html.encode("utf-8")) / (1024 * 1024)
+    msgs = [
+        f"[CJA-compare] build time: {elapsed:.2f}s   (budget {COMPARE_BUILD_BUDGET_S}s, median of 3)",
+        f"[CJA-compare] HTML size : {size_mb:.2f}MB  (budget {COMPARE_SIZE_BUDGET_MB}MB)",
+    ]
+    failures = []
+    if elapsed > COMPARE_BUILD_BUDGET_S:
+        failures.append(
+            f"CJA-compare build time {elapsed:.2f}s over budget {COMPARE_BUILD_BUDGET_S}s"
+        )
+    if size_mb > COMPARE_SIZE_BUDGET_MB:
+        failures.append(
+            f"CJA-compare HTML size {size_mb:.2f}MB over budget {COMPARE_SIZE_BUDGET_MB}MB"
+        )
+    return failures, "\n".join(msgs)
 
 
 def _measure(
@@ -120,6 +167,9 @@ def main() -> int:
     aa_failures, aa_report = _measure("AA", aa_snap, aa_adapt)
     print(aa_report)
 
+    compare_failures, compare_report = _measure_compare(_load_mutate()(cja_snap), cja_snap)
+    print(compare_report)
+
     xl_failures: list[str] = []
     if CJA_XL.exists():
         xl_snap = json.loads(CJA_XL.read_text(encoding="utf-8"))
@@ -130,7 +180,7 @@ def main() -> int:
     else:
         print("note: cja_snapshot_xl.json not generated; skipping 2,000-component gate")
 
-    failed = [*small_failures, *cja_failures, *aa_failures, *xl_failures]
+    failed = [*small_failures, *cja_failures, *aa_failures, *compare_failures, *xl_failures]
     if failed:
         for msg in failed:
             print(f"FAIL: {msg}", file=sys.stderr)

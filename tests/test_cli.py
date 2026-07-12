@@ -6,6 +6,7 @@ import json
 from pathlib import Path
 
 import pytest
+from conftest import extract_payload
 
 from sdr_visualizer.cli.main import main
 
@@ -104,3 +105,112 @@ def test_unwritable_output_exits_1_with_clean_message(tmp_path, capsys):
     err = capsys.readouterr().err
     assert "sdr-visualizer: could not write" in err
     assert "Traceback" not in err
+
+
+def _cja_compare_snapshot(metric_name="Metric One", extra_metric=False, dv_id="dv_cmp"):
+    metrics = [{"id": "metrics/m1", "name": metric_name, "description": "d"}]
+    if extra_metric:
+        metrics.append({"id": "metrics/m2", "name": "Metric Two", "description": "d"})
+    return {
+        "metadata": {"Data View ID": dv_id, "Data View Name": "Compare"},
+        "data_view": {"id": dv_id},
+        "metrics": metrics,
+        "dimensions": [],
+        "segments": {"segments": []},
+        "calculated_metrics": {"metrics": []},
+    }
+
+
+def _write_json(path, data):
+    path.write_text(json.dumps(data), encoding="utf-8")
+    return path
+
+
+def test_compare_to_embeds_changes_section(tmp_path):
+    old = _write_json(tmp_path / "old.json", _cja_compare_snapshot("Metric One"))
+    new = _write_json(
+        tmp_path / "new.json", _cja_compare_snapshot("Metric One (renamed)", extra_metric=True)
+    )
+    out = tmp_path / "out.html"
+    rc = main([str(new), "--compare-to", str(old), "--output", str(out), "--quiet"])
+    assert rc == 0
+    payload = extract_payload(out.read_text(encoding="utf-8"))
+    changes = payload["changes"]
+    assert [e["id"] for e in changes["added"]] == ["metrics/m2"]
+    assert changes["removed"] == []
+    assert changes["modified"][0]["fields"] == [
+        {"field": "name", "old": "Metric One", "new": "Metric One (renamed)"}
+    ]
+    assert payload["meta"]["compared_to"]["source"].endswith("old.json")
+
+
+def test_no_compare_flag_means_no_changes_section(tmp_path):
+    snap = _write_json(tmp_path / "snap.json", _cja_compare_snapshot())
+    out = tmp_path / "plain.html"
+    rc = main([str(snap), "--output", str(out), "--quiet"])
+    assert rc == 0
+    payload = extract_payload(out.read_text(encoding="utf-8"))
+    assert "changes" not in payload
+    assert "compared_to" not in payload["meta"]
+
+
+def test_compare_to_platform_mismatch_exits_3(tmp_path, capsys):
+    rc = main(
+        [
+            str(FIXTURES / "cja_snapshot_clean.json"),
+            "--compare-to",
+            str(FIXTURES / "aa_snapshot_clean.json"),
+            "--output",
+            str(tmp_path / "out.html"),
+            "--quiet",
+        ]
+    )
+    assert rc == 3
+    assert "platform mismatch" in capsys.readouterr().err
+
+
+def test_compare_to_rejects_stdin(tmp_path, capsys):
+    snap = _write_json(tmp_path / "snap.json", _cja_compare_snapshot())
+    rc = main([str(snap), "--compare-to", "-", "--output", str(tmp_path / "o.html"), "--quiet"])
+    assert rc == 3
+    assert "stdin" in capsys.readouterr().err
+
+
+def test_compare_to_missing_path_exits_3(tmp_path, capsys):
+    snap = _write_json(tmp_path / "snap.json", _cja_compare_snapshot())
+    rc = main(
+        [
+            str(snap),
+            "--compare-to",
+            str(tmp_path / "nope.json"),
+            "--output",
+            str(tmp_path / "o.html"),
+            "--quiet",
+        ]
+    )
+    assert rc == 3
+    assert "snapshot path not found" in capsys.readouterr().err
+
+
+def test_compare_to_instance_mismatch_warns(tmp_path, capsys):
+    old = _write_json(tmp_path / "old.json", _cja_compare_snapshot(dv_id="dv_other"))
+    new = _write_json(tmp_path / "new.json", _cja_compare_snapshot(dv_id="dv_cmp"))
+    rc = main([str(new), "--compare-to", str(old), "--output", str(tmp_path / "o.html"), "--quiet"])
+    assert rc == 0
+    assert "comparing different instances" in capsys.readouterr().err
+
+
+def test_compare_to_directory_resolves_latest(tmp_path):
+    base_dir = tmp_path / "baselines"
+    base_dir.mkdir()
+    _write_json(base_dir / "snapshot_2026-01-01T00-00-00.json", _cja_compare_snapshot("Old Name"))
+    _write_json(base_dir / "snapshot_2026-06-01T00-00-00.json", _cja_compare_snapshot("Metric One"))
+    new = _write_json(tmp_path / "new.json", _cja_compare_snapshot("Metric One"))
+    out = tmp_path / "out.html"
+    rc = main([str(new), "--compare-to", str(base_dir), "--output", str(out), "--quiet"])
+    assert rc == 0
+    payload = extract_payload(out.read_text(encoding="utf-8"))
+    # Latest baseline has the same name, so nothing is modified. If the old
+    # one had been picked, metrics/m1 would report a name change.
+    assert payload["changes"]["modified"] == []
+    assert payload["meta"]["compared_to"]["source"].endswith("snapshot_2026-06-01T00-00-00.json")

@@ -776,3 +776,38 @@ h1 {
 }
 .catalog-truncated { cursor: default; }
 .catalog-table tbody tr.catalog-truncated:hover { background: transparent; }
+
+/* ---------- Changes view (comparative report) ---------- */
+.changes-header { padding-bottom: 16px; border-bottom: 1px solid #ece9e0; margin-bottom: 8px; }
+.changes-summary { display: flex; align-items: baseline; gap: 10px; font-size: 14px; }
+.change-count { font-weight: 600; }
+.change-count-added    { color: #3d6b4f; }
+.change-count-removed  { color: #8c4a3f; }
+.change-count-modified { color: #8a6d2f; }
+.changes-baseline { color: #6b6b66; margin-left: auto; }
+.change-group-title {
+  font-size: 12px; font-weight: 600; letter-spacing: 0.1em;
+  text-transform: uppercase; color: #6b6b66; margin: 24px 0 8px;
+}
+.change-row { padding: 8px 12px; border-left: 3px solid transparent; border-bottom: 1px solid #ece9e0; }
+.change-added    { border-left-color: #3d6b4f; }
+.change-removed  { border-left-color: #8c4a3f; }
+.change-modified { border-left-color: #8a6d2f; }
+.change-row .dot { margin-right: 6px; }
+.change-name { font-weight: 600; }
+.change-row .row-id { color: #6b6b66; font-size: 12px; margin-left: 8px; }
+.change-no-desc { color: #6b6b66; font-size: 12px; margin-left: 8px; font-style: italic; }
+.change-link { text-align: left; padding: 0; }
+.change-link:hover .change-name { text-decoration: underline; }
+.change-modified summary { cursor: pointer; }
+.change-field-count { color: #6b6b66; font-size: 12px; margin-left: 8px; }
+.change-fields { margin: 8px 0 0; padding-left: 20px; list-style: none; }
+.change-field { font-size: 14px; margin: 4px 0; }
+.change-field-name { font-size: 12px; color: #6b6b66; margin-right: 8px; }
+.change-old { text-decoration: line-through; color: #8c4a3f; }
+.change-new { color: #3d6b4f; }
+.change-list-added   { color: #3d6b4f; margin-right: 8px; }
+.change-list-removed { color: #8c4a3f; margin-right: 8px; }
+.changes-empty { color: #6b6b66; }
+.changes-search-row { display: flex; align-items: center; gap: 10px; margin-top: 12px; }
+#changes-search { flex: 1; max-width: 420px; }

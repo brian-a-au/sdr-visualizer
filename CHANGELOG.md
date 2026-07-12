@@ -2,6 +2,19 @@
 
 All notable changes to `sdr-visualizer` will be documented here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- **Comparative view.** `--compare-to BASELINE` (a snapshot file, or a
+  directory that resolves to its latest snapshot) adds a Changes view to the
+  report: components added, removed, and modified against the baseline, with
+  field-level before/after detail. The diff is computed at build time and
+  embedded as the payload's `changes` section — the baseline snapshot itself
+  is never embedded, so the report grows only with the size of the diff.
+  A platform mismatch between the two snapshots exits 3; differing instance
+  ids warn but proceed. (SPEC §13, comparative view)
+
 ## [0.3.0] - 2026-07-11
 
 ### Changed

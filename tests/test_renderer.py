@@ -154,3 +154,21 @@ def test_nan_in_snapshot_raises_invalid_snapshot_error():
     impl = cja_adapt(snap)
     with pytest.raises(InvalidSnapshotError, match="NaN or Infinity"):
         render(impl)
+
+
+def test_changes_nav_renders_only_with_changes_payload():
+    snap = json.loads((FIXTURES / "cja_snapshot_clean.json").read_text(encoding="utf-8"))
+    impl = cja_adapt(snap)
+    plain = render(impl)
+    assert 'data-view="changes"' not in plain
+
+    from sdr_visualizer.analysis.diff import diff_implementations
+    from sdr_visualizer.render.renderer import build_payload_with_options, render_payload
+
+    payload = build_payload_with_options(impl)
+    payload["changes"] = diff_implementations(impl, impl)
+    payload["meta"]["compared_to"] = payload["changes"]["baseline"]
+    compared = render_payload(payload)
+    assert 'data-view="changes"' in compared
+    assert 'id="changes-view"' in compared
+    assert "Compared to" in compared
