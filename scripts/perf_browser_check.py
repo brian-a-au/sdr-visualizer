@@ -131,6 +131,24 @@ def _check(
     return failures
 
 
+def _check_compare(page, html_path: Path) -> list[str]:
+    """Comparative report: initial render within the 1,000-component budget,
+    plus the Changes view must actually carry rows (it renders at load, so
+    its cost is inside the initial-render number)."""
+    start = time.perf_counter()
+    page.goto(html_path.as_uri())
+    page.wait_for_selector("#catalog-body tr", state="attached", timeout=10_000)
+    render_ms = (time.perf_counter() - start) * 1000
+    rows = page.evaluate("document.querySelectorAll('#changes-body .change-row').length")
+    print(f"[cja-compare] initial render: {render_ms:.0f}ms  (budget 1000ms, {rows} change rows)")
+    failures = []
+    if render_ms > 1000.0:
+        failures.append(f"[cja-compare] initial render {render_ms:.0f}ms > 1000ms")
+    if rows == 0:
+        failures.append("[cja-compare] Changes view rendered 0 rows - the comparative path is dead")
+    return failures
+
+
 def main() -> int:
     try:
         from playwright.sync_api import sync_playwright
@@ -142,9 +160,19 @@ def main() -> int:
         )
         return 2
 
+    import importlib.util
+
     from sdr_visualizer.adapters.aa import adapt as aa_adapt
     from sdr_visualizer.adapters.cja import adapt as cja_adapt
-    from sdr_visualizer.render.renderer import render
+    from sdr_visualizer.analysis.diff import diff_implementations
+    from sdr_visualizer.render.renderer import build_payload_with_options, render, render_payload
+
+    spec = importlib.util.spec_from_file_location(
+        "mutate_fixture", REPO / "scripts" / "mutate_fixture.py"
+    )
+    mutate_module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mutate_module)
+    mutate = mutate_module.mutate
 
     adapters = {"cja": cja_adapt, "aa": aa_adapt}
 
@@ -164,6 +192,19 @@ def main() -> int:
                 failures += _check(
                     page, html_path, fixture.stem, render_budget, filter_budget, expect_opt_in
                 )
+                checked += 1
+
+            large = REPO / "tests" / "fixtures" / "cja_snapshot_large.json"
+            if large.exists():
+                snap = json.loads(large.read_text(encoding="utf-8"))
+                old_impl = adapters["cja"](mutate(snap))
+                new_impl = adapters["cja"](snap)
+                payload = build_payload_with_options(new_impl)
+                payload["changes"] = diff_implementations(old_impl, new_impl)
+                payload["meta"]["compared_to"] = payload["changes"]["baseline"]
+                compare_path = Path(tmp) / "cja_compare.html"
+                compare_path.write_text(render_payload(payload), encoding="utf-8")
+                failures += _check_compare(page, compare_path)
                 checked += 1
         browser.close()
 
