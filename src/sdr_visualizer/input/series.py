@@ -77,16 +77,18 @@ def list_snapshot_series(
     # Select the `cap` most recent *parseable* snapshots. Load newest-first and
     # skip malformed files as we go, so a run of malformed recent files can't
     # consume window slots that valid older snapshots would otherwise fill.
+    # Older candidates past the window are still loaded so `dropped`/`capped`
+    # count confirmed-parseable snapshots omitted, never merely-present files.
     entries: list[tuple[dict[str, Any], str]] = []
     dropped = 0
     for path, _ts in reversed(stamped):
-        if len(entries) >= cap:
-            dropped += 1
-            continue
         try:
             snapshot, source = _load_from_file(path)
         except InvalidSnapshotError as exc:
             print(f"sdr-visualizer: warning: skipping {path.name}: {exc}", file=sys.stderr)
+            continue
+        if len(entries) >= cap:
+            dropped += 1  # a parseable snapshot omitted by the window
             continue
         entries.append((snapshot, source))
     entries.reverse()  # restore oldest-to-newest ordering

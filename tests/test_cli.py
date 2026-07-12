@@ -370,6 +370,28 @@ def test_trend_minority_instance_skipped_with_warning(tmp_path, capsys):
     assert {c["id"] for c in payload["components"]} == {"m1", "m2"}
 
 
+def test_trend_instance_tie_prefers_newest(tmp_path, capsys):
+    # Equal snapshot counts for two instances (a captured A -> B transition).
+    # A count tie must resolve to the newest snapshot's instance so the primary
+    # report is never silently replaced by older, stale history.
+    d = tmp_path / "series"
+    d.mkdir()
+    _write_json(d / "snapshot_2026-01-01T00-00-00.json", _cja_trend_snapshot("dv_A", ["a1"]))
+    _write_json(d / "snapshot_2026-02-01T00-00-00.json", _cja_trend_snapshot("dv_A", ["a1", "a2"]))
+    _write_json(d / "snapshot_2026-03-01T00-00-00.json", _cja_trend_snapshot("dv_B", ["b1"]))
+    _write_json(d / "snapshot_2026-04-01T00-00-00.json", _cja_trend_snapshot("dv_B", ["b1", "b2"]))
+    out = tmp_path / "o.html"
+    rc = main([str(d), "--trend", "--output", str(out), "--quiet"])
+    assert rc == 0
+    err = capsys.readouterr().err
+    # On a tie the dropped group is not a minority, so it is described as
+    # differing from the "newest" instance, not the "majority".
+    assert "instance dv_A differs from newest dv_B" in err
+    payload = extract_payload(out.read_text(encoding="utf-8"))
+    assert len(payload["trend"]["snapshots"]) == 2
+    assert {c["id"] for c in payload["components"]} == {"b1", "b2"}
+
+
 def test_trend_snapshot_with_bad_scalar_skipped_not_aborted(tmp_path, capsys):
     # A non-numeric scalar makes the adapter raise ValueError. Trend mode must
     # warn and skip that one snapshot, not abort the whole build with exit 1.

@@ -197,17 +197,26 @@ def _keep_majority(
 ) -> list[Implementation]:
     """Return the impls whose `key` matches the most common value.
 
-    Ties resolve to whichever value Counter.most_common encounters first
-    (insertion order). Divergent snapshots are dropped with a stderr warning."""
-    majority = Counter(key(i) for i in impls).most_common(1)[0][0]
+    `impls` is ordered oldest-to-newest. A strict majority wins; a count tie
+    resolves to the newest snapshot's value so the primary report (`impls[-1]`)
+    is never silently replaced by an equal-sized but older group. Divergent
+    snapshots are dropped with a stderr warning."""
+    counts = Counter(key(i) for i in impls)
+    top = max(counts.values())
+    tied = [value for value, count in counts.items() if count == top]
+    if len(tied) == 1:
+        selected, basis = tied[0], "majority"
+    else:
+        selected = next(key(i) for i in reversed(impls) if key(i) in tied)
+        basis = "newest"
     kept: list[Implementation] = []
     for i in impls:
-        if key(i) == majority:
+        if key(i) == selected:
             kept.append(i)
         else:
             print(
                 f"sdr-visualizer: warning: skipping {i.snapshot_source}: "
-                f"{label} {key(i)} differs from majority {majority}",
+                f"{label} {key(i)} differs from {basis} {selected}",
                 file=sys.stderr,
             )
     return kept

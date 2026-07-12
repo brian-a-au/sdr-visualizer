@@ -70,6 +70,20 @@ def test_malformed_recent_files_do_not_consume_cap_slots(tmp_path):
     assert capped is False
 
 
+def test_cap_flag_ignores_unparseable_older_files(tmp_path, capsys):
+    # The newest `cap` snapshots are valid; every older file is malformed.
+    # No parseable history is actually omitted, so the window must not report
+    # as capped (dropped/capped count parseable snapshots, not files).
+    _write(tmp_path, "snapshot_2026-03-01T00-00-00.json", {"n": 3})
+    _write(tmp_path, "snapshot_2026-04-01T00-00-00.json", {"n": 4})
+    (tmp_path / "snapshot_2026-01-01T00-00-00.json").write_text("{bad", encoding="utf-8")
+    (tmp_path / "snapshot_2026-02-01T00-00-00.json").write_text("{bad", encoding="utf-8")
+    entries, capped = list_snapshot_series(str(tmp_path), cap=2)
+    assert [s["n"] for s, _ in entries] == [3, 4]
+    assert capped is False
+    assert "capped at" not in capsys.readouterr().err
+
+
 def test_fewer_than_two_parseable_raises(tmp_path):
     _write(tmp_path, "snapshot_2026-01-01T00-00-00.json", {"n": 1})
     with pytest.raises(InvalidSnapshotError, match="at least 2"):
