@@ -648,6 +648,7 @@
   var $catalogView = document.getElementById("catalog-view");
   var $graphView = document.getElementById("graph-view");
   var $changesView = document.getElementById("changes-view");
+  var $trendView = document.getElementById("trend-view");
   var $graphCanvas = document.getElementById("graph-canvas");
   var $graphSearch = document.getElementById("graph-search");
   var $graphTypeFilter = document.getElementById("graph-type-filter");
@@ -678,6 +679,7 @@
     $catalogView.hidden = name !== "catalog";
     $graphView.hidden = name !== "graph";
     if ($changesView) $changesView.hidden = name !== "changes";
+    if ($trendView) $trendView.hidden = name !== "trend";
     $viewButtons.forEach(function (b) {
       b.classList.toggle("is-active", b.getAttribute("data-view") === name);
     });
@@ -1205,6 +1207,51 @@
   }
   renderChanges();
 
+  /* ===========================================================
+   * Trend view (interval log; charts are server-rendered SVG)
+   * =========================================================== */
+
+  function trendIdList(label, ids, cls) {
+    if (!ids.length) return "";
+    return (
+      '<div class="trend-ids"><span class="trend-ids-label ' + cls + '">' +
+        label + " (" + ids.length + ")</span> " +
+      ids.map(function (id) {
+        return '<span class="mono trend-id">' + escapeHtml(id) + "</span>";
+      }).join(" ") +
+      "</div>"
+    );
+  }
+
+  function renderTrendLog() {
+    if (!$trendView || !payload.trend) return;
+    var parts = [];
+    payload.trend.intervals.forEach(function (iv) {
+      parts.push(
+        '<details class="trend-interval"><summary>' +
+          '<span class="trend-range">' +
+            escapeHtml(formatDate(iv.from)) + " → " + escapeHtml(formatDate(iv.to)) +
+          "</span>" +
+          '<span class="change-count change-count-added">+' + iv.added.length + "</span>" +
+          '<span class="change-count change-count-removed">−' + iv.removed.length + "</span>" +
+          '<span class="change-count change-count-modified">~' + iv.modified.length + "</span>" +
+        "</summary>" +
+        trendIdList("Added", iv.added, "change-count-added") +
+        trendIdList("Removed", iv.removed, "change-count-removed") +
+        trendIdList("Modified", iv.modified, "change-count-modified") +
+        "</details>"
+      );
+    });
+    if (payload.trend.capped) {
+      parts.push(
+        '<p class="trend-capped ui">Window capped at the most recent snapshots; ' +
+        "older history not shown.</p>"
+      );
+    }
+    document.getElementById("trend-log").innerHTML = parts.join("");
+  }
+  renderTrendLog();
+
   // Deferred URL-state restore: showView/openDetail need the graph section's
   // definitions, so view/detail restore runs after everything is wired. The
   // params were captured at load, before the first updateHash() rewrote
@@ -1214,6 +1261,7 @@
     var viewParam = params.get("view");
     if (viewParam === "graph") showView("graph");
     if (viewParam === "changes" && $changesView) showView("changes");
+    if (viewParam === "trend" && $trendView) showView("trend");
     var detailId = params.get("detail");
     if (detailId && byId[detailId]) openDetail(detailId);
   }
