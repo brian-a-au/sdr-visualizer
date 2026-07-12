@@ -13,6 +13,7 @@ import argparse
 import json
 import sys
 from collections import Counter
+from collections.abc import Callable
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -169,23 +170,47 @@ def _load_trend(args: argparse.Namespace) -> tuple[Implementation, dict]:
     for snapshot, source in entries:
         try:
             impls.append(build_implementation(snapshot, source=source, platform=args.platform))
-        except (InvalidSnapshotError, UnknownPlatformError) as exc:
+        except (InvalidSnapshotError, UnknownPlatformError, ValueError, TypeError) as exc:
+            # ValueError/TypeError cover adapter scalar-coercion failures (e.g. a
+            # non-numeric nesting_depth); skip the unusable snapshot rather than
+            # aborting the whole trend.
             print(f"sdr-visualizer: warning: skipping {source}: {exc}", file=sys.stderr)
     if impls:
-        majority = Counter(i.platform for i in impls).most_common(1)[0][0]
-        for i in impls:
-            if i.platform != majority:
-                print(
-                    f"sdr-visualizer: warning: skipping {i.snapshot_source}: "
-                    f"platform {i.platform} differs from majority {majority}",
-                    file=sys.stderr,
-                )
-        impls = [i for i in impls if i.platform == majority]
+        # Keep a single implementation identity. A directory may mix platforms
+        # or several data views / report suites; diffing unrelated inventories
+        # would invent additions and removals. Filter to the majority platform,
+        # then to the majority instance within it.
+        impls = _keep_majority(impls, lambda i: i.platform, "platform")
+    if impls:
+        impls = _keep_majority(impls, lambda i: i.instance_id, "instance")
     if len(impls) < 2:
         raise InvalidSnapshotError(
             "--trend needs at least 2 usable snapshots after skipping unusable ones"
         )
     return impls[-1], build_trend(impls, capped=capped)
+
+
+def _keep_majority(
+    impls: list[Implementation],
+    key: Callable[[Implementation], str],
+    label: str,
+) -> list[Implementation]:
+    """Return the impls whose `key` matches the most common value.
+
+    Ties resolve to whichever value Counter.most_common encounters first
+    (insertion order). Divergent snapshots are dropped with a stderr warning."""
+    majority = Counter(key(i) for i in impls).most_common(1)[0][0]
+    kept: list[Implementation] = []
+    for i in impls:
+        if key(i) == majority:
+            kept.append(i)
+        else:
+            print(
+                f"sdr-visualizer: warning: skipping {i.snapshot_source}: "
+                f"{label} {key(i)} differs from majority {majority}",
+                file=sys.stderr,
+            )
+    return kept
 
 
 def _build_parser() -> argparse.ArgumentParser:

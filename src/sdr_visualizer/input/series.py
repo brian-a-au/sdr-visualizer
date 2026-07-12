@@ -74,24 +74,30 @@ def list_snapshot_series(
 
     stamped.sort(key=lambda pair: pair[1])
 
-    capped = len(stamped) > cap
-    if capped:
-        dropped = len(stamped) - cap
-        print(
-            f"sdr-visualizer: warning: trend window capped at {cap} snapshots; "
-            f"dropped {dropped} older",
-            file=sys.stderr,
-        )
-        stamped = stamped[-cap:]
-
+    # Select the `cap` most recent *parseable* snapshots. Load newest-first and
+    # skip malformed files as we go, so a run of malformed recent files can't
+    # consume window slots that valid older snapshots would otherwise fill.
     entries: list[tuple[dict[str, Any], str]] = []
-    for path, _ts in stamped:
+    dropped = 0
+    for path, _ts in reversed(stamped):
+        if len(entries) >= cap:
+            dropped += 1
+            continue
         try:
             snapshot, source = _load_from_file(path)
         except InvalidSnapshotError as exc:
             print(f"sdr-visualizer: warning: skipping {path.name}: {exc}", file=sys.stderr)
             continue
         entries.append((snapshot, source))
+    entries.reverse()  # restore oldest-to-newest ordering
+
+    capped = dropped > 0
+    if capped:
+        print(
+            f"sdr-visualizer: warning: trend window capped at {cap} snapshots; "
+            f"dropped {dropped} older",
+            file=sys.stderr,
+        )
 
     if len(entries) < 2:
         raise InvalidSnapshotError("--trend needs at least 2 parseable snapshots in the directory")

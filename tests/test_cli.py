@@ -329,3 +329,76 @@ def test_trend_platform_minority_skipped_with_warning(tmp_path, capsys):
     assert "platform aa differs from majority cja" in err
     payload = extract_payload(out.read_text(encoding="utf-8"))
     assert len(payload["trend"]["snapshots"]) == 2
+
+
+def _cja_trend_snapshot(dv_id, metric_ids):
+    return {
+        "metadata": {"Data View ID": dv_id, "Data View Name": dv_id},
+        "data_view": {"id": dv_id},
+        "metrics": [{"id": mid, "name": mid, "description": "d"} for mid in metric_ids],
+        "dimensions": [],
+        "segments": {"segments": []},
+        "calculated_metrics": {"metrics": []},
+    }
+
+
+def test_trend_minority_instance_skipped_with_warning(tmp_path, capsys):
+    # A directory mixing two data views of the same platform must not diff
+    # unrelated inventories; only the majority instance forms the trend.
+    d = tmp_path / "series"
+    d.mkdir()
+    _write_json(d / "snapshot_2026-01-01T00-00-00.json", _cja_trend_snapshot("dv_main", ["m1"]))
+    _write_json(
+        d / "snapshot_2026-02-01T00-00-00.json", _cja_trend_snapshot("dv_other", ["x1", "x2", "x3"])
+    )
+    _write_json(
+        d / "snapshot_2026-03-01T00-00-00.json", _cja_trend_snapshot("dv_main", ["m1", "m2"])
+    )
+    _write_json(
+        d / "snapshot_2026-04-01T00-00-00.json", _cja_trend_snapshot("dv_main", ["m1", "m2"])
+    )
+    out = tmp_path / "o.html"
+    rc = main([str(d), "--trend", "--output", str(out), "--quiet"])
+    assert rc == 0
+    err = capsys.readouterr().err
+    assert "instance dv_other differs from majority dv_main" in err
+    payload = extract_payload(out.read_text(encoding="utf-8"))
+    assert len(payload["trend"]["snapshots"]) == 3
+    # No spurious cross-instance churn: the first interval only adds m2.
+    assert payload["trend"]["intervals"][0]["added"] == ["m2"]
+    # Primary report is the newest majority-instance snapshot.
+    assert {c["id"] for c in payload["components"]} == {"m1", "m2"}
+
+
+def test_trend_snapshot_with_bad_scalar_skipped_not_aborted(tmp_path, capsys):
+    # A non-numeric scalar makes the adapter raise ValueError. Trend mode must
+    # warn and skip that one snapshot, not abort the whole build with exit 1.
+    d = _trend_dir(
+        tmp_path,
+        [
+            (
+                "snapshot_2026-01-01T00-00-00.json",
+                [{"id": "metrics/m1", "name": "One", "description": "d"}],
+            ),
+            (
+                "snapshot_2026-02-01T00-00-00.json",
+                [
+                    {"id": "metrics/m1", "name": "One", "description": "d"},
+                    {"id": "metrics/m2", "name": "Two", "description": "d"},
+                ],
+            ),
+        ],
+    )
+    bad = _cja_compare_snapshot()
+    bad["calculated_metrics"] = {
+        "metrics": [{"metric_id": "cm/c1", "name": "C", "complexity_score": "high"}]
+    }
+    _write_json(d / "snapshot_2026-03-01T00-00-00.json", bad)
+    out = tmp_path / "o.html"
+    rc = main([str(d), "--trend", "--output", str(out), "--quiet"])
+    assert rc == 0
+    err = capsys.readouterr().err
+    assert "skipping" in err
+    assert "snapshot_2026-03-01T00-00-00.json" in err
+    payload = extract_payload(out.read_text(encoding="utf-8"))
+    assert len(payload["trend"]["snapshots"]) == 2
