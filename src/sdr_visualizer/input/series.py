@@ -76,22 +76,24 @@ def list_snapshot_series(
 
     # Select the `cap` most recent *parseable* snapshots, loading newest-first
     # so a run of malformed recent files can't consume window slots that valid
-    # older snapshots would otherwise fill. Corrupt files (bad JSON or bad
-    # encoding) are skipped with a warning rather than aborting the trend. Once
-    # the window is full we probe older candidates only until the first
-    # parseable one confirms real history was omitted, then stop — so work stays
-    # bounded to roughly the window size instead of the whole archive.
+    # older snapshots would otherwise fill. Corrupt files (bad JSON, bad
+    # encoding, or values the parser rejects such as an oversized integer) are
+    # skipped with a warning rather than aborting the trend. The window is
+    # checked *before* loading, so once it is full we never read an older
+    # candidate — reads stay bounded to the window regardless of how large or
+    # corrupt the older archive is. `capped` therefore records that older
+    # candidate files exist beyond the window, not that they are parseable.
     entries: list[tuple[dict[str, Any], str]] = []
     capped = False
     for path, _ts in reversed(stamped):
+        if len(entries) >= cap:
+            capped = True  # older candidate files exist beyond the window
+            break
         try:
             snapshot, source = _load_from_file(path)
-        except (InvalidSnapshotError, UnicodeDecodeError) as exc:
+        except (InvalidSnapshotError, ValueError) as exc:
             print(f"sdr-visualizer: warning: skipping {path.name}: {exc}", file=sys.stderr)
             continue
-        if len(entries) >= cap:
-            capped = True  # at least one parseable snapshot lies beyond the window
-            break
         entries.append((snapshot, source))
     entries.reverse()  # restore oldest-to-newest ordering
 
