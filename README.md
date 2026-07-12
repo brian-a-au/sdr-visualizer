@@ -94,8 +94,11 @@ CJA and AA snapshots, pass `--platform cja|aa` to select one (or point at a
 single-platform directory); without it the run stops rather than guess. If it
 mixes data views or report suites, the run stops as well. This mirrors
 `--compare-to`, which refuses both a platform and an instance mismatch, so
-neither view ever diffs unrelated inventories. The report shown alongside the
-trend is the newest usable snapshot in the directory.
+neither view ever diffs unrelated inventories. To compare or chart across
+different data views or report suites on purpose (for example staging versus
+prod drift), pass `--allow-instance-mismatch`; the run then proceeds with a
+warning. Platform mismatches are always rejected. The report shown alongside
+the trend is the newest usable snapshot in the directory.
 
 - **Shareable links** — the catalog's filters, sort, view, and open detail panel are encoded in the URL hash; copy the address bar to share a filtered view.
 

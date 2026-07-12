@@ -202,6 +202,28 @@ def test_compare_to_instance_mismatch_exits_3(tmp_path, capsys):
     assert "instance mismatch" in capsys.readouterr().err
 
 
+def test_compare_to_instance_mismatch_allowed_with_flag(tmp_path, capsys):
+    # Explicit opt-in restores the cross-instance comparison (e.g. staging vs
+    # prod drift): the run proceeds with a warning instead of exiting 3.
+    old = _write_json(tmp_path / "old.json", _cja_compare_snapshot(dv_id="dv_other"))
+    new = _write_json(tmp_path / "new.json", _cja_compare_snapshot(dv_id="dv_cmp"))
+    rc = main(
+        [
+            str(new),
+            "--compare-to",
+            str(old),
+            "--allow-instance-mismatch",
+            "--output",
+            str(tmp_path / "o.html"),
+            "--quiet",
+        ]
+    )
+    assert rc == 0
+    err = capsys.readouterr().err
+    assert "different instances" in err
+    assert "allow-instance-mismatch" in err
+
+
 def test_compare_to_directory_resolves_latest(tmp_path):
     base_dir = tmp_path / "baselines"
     base_dir.mkdir()
@@ -386,6 +408,28 @@ def test_trend_mixed_instance_exits_3(tmp_path, capsys):
     err = capsys.readouterr().err
     assert "mixes data views / report suites" in err
     assert "dv_main" in err and "dv_other" in err
+
+
+def test_trend_mixed_instance_allowed_with_flag(tmp_path, capsys):
+    # Explicit opt-in lets a mixed-instance directory chart anyway, with a
+    # warning; every usable snapshot is included.
+    d = tmp_path / "series"
+    d.mkdir()
+    _write_json(d / "snapshot_2026-01-01T00-00-00.json", _cja_trend_snapshot("dv_main", ["m1"]))
+    _write_json(
+        d / "snapshot_2026-02-01T00-00-00.json", _cja_trend_snapshot("dv_main", ["m1", "m2"])
+    )
+    _write_json(
+        d / "snapshot_2026-03-01T00-00-00.json", _cja_trend_snapshot("dv_other", ["x1", "x2"])
+    )
+    out = tmp_path / "o.html"
+    rc = main([str(d), "--trend", "--allow-instance-mismatch", "--output", str(out), "--quiet"])
+    assert rc == 0
+    err = capsys.readouterr().err
+    assert "mixes data views / report suites" in err
+    assert "allow-instance-mismatch" in err
+    payload = extract_payload(out.read_text(encoding="utf-8"))
+    assert len(payload["trend"]["snapshots"]) == 3
 
 
 def test_trend_snapshot_with_bad_scalar_skipped_not_aborted(tmp_path, capsys):

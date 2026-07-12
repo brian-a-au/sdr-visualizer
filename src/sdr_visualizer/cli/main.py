@@ -150,10 +150,16 @@ def _load_baseline(args: argparse.Namespace, impl: Implementation) -> Implementa
             f"primary snapshot is {impl.platform}"
         )
     if baseline.instance_id != impl.instance_id:
-        raise InvalidSnapshotError(
-            f"--compare-to instance mismatch: baseline is {baseline.instance_id}, "
-            f"primary snapshot is {impl.instance_id}; compare snapshots of the same "
-            "data view / report suite"
+        if not args.allow_instance_mismatch:
+            raise InvalidSnapshotError(
+                f"--compare-to instance mismatch: baseline is {baseline.instance_id}, "
+                f"primary snapshot is {impl.instance_id}; compare snapshots of the same "
+                "data view / report suite (or pass --allow-instance-mismatch)"
+            )
+        print(
+            "sdr-visualizer: warning: comparing different instances "
+            f"({baseline.instance_id} vs {impl.instance_id}); --allow-instance-mismatch set",
+            file=sys.stderr,
         )
     return baseline
 
@@ -191,9 +197,16 @@ def _load_trend(args: argparse.Namespace) -> tuple[Implementation, dict]:
             )
         instances = sorted({i.instance_id for i in impls})
         if len(instances) > 1:
-            raise InvalidSnapshotError(
-                "--trend directory mixes data views / report suites "
-                f"({', '.join(instances)}); use snapshots of a single implementation"
+            if not args.allow_instance_mismatch:
+                raise InvalidSnapshotError(
+                    "--trend directory mixes data views / report suites "
+                    f"({', '.join(instances)}); use snapshots of a single implementation "
+                    "(or pass --allow-instance-mismatch)"
+                )
+            print(
+                "sdr-visualizer: warning: --trend directory mixes data views / report "
+                f"suites ({', '.join(instances)}); --allow-instance-mismatch set",
+                file=sys.stderr,
             )
     if len(impls) < 2:
         raise InvalidSnapshotError(
@@ -247,6 +260,16 @@ def _build_parser() -> argparse.ArgumentParser:
         help=(
             "When path is a snapshot directory, chart aggregates and per-interval "
             "changes across its snapshots (adds a Trend view)."
+        ),
+    )
+    p.add_argument(
+        "--allow-instance-mismatch",
+        action="store_true",
+        help=(
+            "Permit --compare-to / --trend to span different data views or report "
+            "suites (an instance mismatch otherwise exits 3). The diff or trend then "
+            "spans unrelated inventories; a warning is printed. Platform mismatches "
+            "are always rejected."
         ),
     )
     p.add_argument(

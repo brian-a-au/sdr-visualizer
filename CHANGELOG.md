@@ -20,13 +20,19 @@ All notable changes to `sdr-visualizer` will be documented here. The format foll
   never diffed (mirroring `--compare-to`, which refuses both). Fewer than 2
   usable snapshots exits 3, as does combining `--trend` with `--compare-to`,
   `--dataview`, `--rsid`, a file path, or stdin. (SPEC §13, trend mode)
+- **`--allow-instance-mismatch`.** Opt-in flag that lets `--compare-to` and
+  `--trend` span different data views / report suites on purpose (for example
+  staging versus prod drift); the run proceeds with a warning instead of
+  exiting 3. Platform mismatches are always rejected.
 
 ### Changed
 
 - **`--compare-to` now refuses an instance mismatch.** Comparing snapshots
   from different data views / report suites exits 3 instead of warning and
   proceeding (0.4.0 behavior), matching `--trend`; both views require a single
-  implementation so the diff never spans unrelated inventories.
+  implementation so the diff never spans unrelated inventories. Pass
+  `--allow-instance-mismatch` to restore the cross-instance comparison on
+  demand.
 
 ## [0.4.0] - 2026-07-11
 
