@@ -214,3 +214,118 @@ def test_compare_to_directory_resolves_latest(tmp_path):
     # one had been picked, metrics/m1 would report a name change.
     assert payload["changes"]["modified"] == []
     assert payload["meta"]["compared_to"]["source"].endswith("snapshot_2026-06-01T00-00-00.json")
+
+
+def _trend_dir(tmp_path, names_and_metric_lists):
+    d = tmp_path / "series"
+    d.mkdir()
+    for name, metrics in names_and_metric_lists:
+        snap = _cja_compare_snapshot()
+        snap["metrics"] = metrics
+        _write_json(d / name, snap)
+    return d
+
+
+def test_trend_embeds_trend_section(tmp_path):
+    d = _trend_dir(
+        tmp_path,
+        [
+            (
+                "snapshot_2026-01-01T00-00-00.json",
+                [{"id": "metrics/m1", "name": "One", "description": "d"}],
+            ),
+            (
+                "snapshot_2026-02-01T00-00-00.json",
+                [
+                    {"id": "metrics/m1", "name": "One", "description": "d"},
+                    {"id": "metrics/m2", "name": "Two", "description": "d"},
+                ],
+            ),
+            (
+                "snapshot_2026-03-01T00-00-00.json",
+                [{"id": "metrics/m2", "name": "Two", "description": "d"}],
+            ),
+        ],
+    )
+    out = tmp_path / "trend.html"
+    rc = main([str(d), "--trend", "--output", str(out), "--quiet"])
+    assert rc == 0
+    payload = extract_payload(out.read_text(encoding="utf-8"))
+    trend = payload["trend"]
+    assert len(trend["snapshots"]) == 3
+    assert [s["aggregates"]["metrics"] for s in trend["snapshots"]] == [1, 2, 1]
+    assert len(trend["intervals"]) == 2
+    assert trend["intervals"][0]["added"] == ["metrics/m2"]
+    assert trend["intervals"][1]["removed"] == ["metrics/m1"]
+    assert trend["capped"] is False
+    # The primary report is the newest snapshot.
+    ids = {c["id"] for c in payload["components"]}
+    assert ids == {"metrics/m2"}
+
+
+def test_no_trend_flag_means_no_trend_section(tmp_path):
+    snap = _write_json(tmp_path / "snap.json", _cja_compare_snapshot())
+    out = tmp_path / "plain.html"
+    rc = main([str(snap), "--output", str(out), "--quiet"])
+    assert rc == 0
+    assert "trend" not in extract_payload(out.read_text(encoding="utf-8"))
+
+
+def test_trend_with_file_input_exits_3(tmp_path, capsys):
+    snap = _write_json(tmp_path / "snap.json", _cja_compare_snapshot())
+    rc = main([str(snap), "--trend", "--output", str(tmp_path / "o.html"), "--quiet"])
+    assert rc == 3
+    assert "snapshot directory" in capsys.readouterr().err
+
+
+def test_trend_with_compare_to_exits_3(tmp_path):
+    d = _trend_dir(
+        tmp_path,
+        [
+            ("snapshot_2026-01-01T00-00-00.json", []),
+            ("snapshot_2026-02-01T00-00-00.json", []),
+        ],
+    )
+    other = _write_json(tmp_path / "b.json", _cja_compare_snapshot())
+    with pytest.raises(SystemExit) as exc_info:
+        main([str(d), "--trend", "--compare-to", str(other), "--quiet"])
+    assert exc_info.value.code == 3
+
+
+def test_trend_with_dataview_exits_3():
+    with pytest.raises(SystemExit) as exc_info:
+        main(["--dataview", "dv_1", "--trend", "--quiet"])
+    assert exc_info.value.code == 3
+
+
+def test_trend_fewer_than_two_snapshots_exits_3(tmp_path, capsys):
+    d = _trend_dir(
+        tmp_path,
+        [("snapshot_2026-01-01T00-00-00.json", [])],
+    )
+    rc = main([str(d), "--trend", "--output", str(tmp_path / "o.html"), "--quiet"])
+    assert rc == 3
+    assert "at least 2" in capsys.readouterr().err
+
+
+def test_trend_platform_minority_skipped_with_warning(tmp_path, capsys):
+    d = _trend_dir(
+        tmp_path,
+        [
+            ("snapshot_2026-01-01T00-00-00.json", []),
+            ("snapshot_2026-02-01T00-00-00.json", []),
+        ],
+    )
+    aa_snap = {
+        "report_suite": {"rsid": "test"},
+        "dimensions": [],
+        "metrics": [],
+    }
+    _write_json(d / "snapshot_2026-03-01T00-00-00.json", aa_snap)
+    out = tmp_path / "o.html"
+    rc = main([str(d), "--trend", "--output", str(out), "--quiet"])
+    assert rc == 0
+    err = capsys.readouterr().err
+    assert "platform aa differs from majority cja" in err
+    payload = extract_payload(out.read_text(encoding="utf-8"))
+    assert len(payload["trend"]["snapshots"]) == 2
