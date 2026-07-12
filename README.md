@@ -47,6 +47,9 @@ sdr-visualizer --rsid prod_us                # AA
 
 # Mode 4: stdin
 cja_auto_sdr dv_prod_web --format json --output - | sdr-visualizer -
+
+# Compare against an earlier snapshot: adds a Changes view to the report
+sdr-visualizer snapshot_new.json --compare-to snapshot_old.json
 ```
 
 The output lands at `./visualize-{instance_id}-{timestamp}.html` by default. Open it in a browser — that's the whole experience.
@@ -72,6 +75,10 @@ Open the generated HTML and you'll see four views, accessible from the top-level
 2. **Reference graph** — a force-directed view of every component and the edges between them; small implementations (under 20 components) use a static radial layout instead. Hover dims unrelated nodes; click opens the same detail panel; drag pins; pan/zoom.
 3. **Segment anatomy** (contextual) — opens from a segment's detail panel. Renders the segment's definition tree as nested containers with subtle alpha-stacked shading per nesting level, color-coded AND/OR/NOT chips, and clickable inline references to other segments.
 4. **Calculated metric anatomy** (contextual) — opens from a calc metric's detail panel. Renders the formula as a tree of operations and operands; metric refs are clickable.
+
+With `--compare-to`, a fifth **Changes** view appears, listing components
+added, removed, and modified relative to a baseline snapshot, with
+field-level before/after detail.
 
 - **Shareable links** — the catalog's filters, sort, view, and open detail panel are encoded in the URL hash; copy the address bar to share a filtered view.
 
