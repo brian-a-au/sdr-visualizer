@@ -50,6 +50,9 @@ cja_auto_sdr dv_prod_web --format json --output - | sdr-visualizer -
 
 # Compare against an earlier snapshot: adds a Changes view to the report
 sdr-visualizer snapshot_new.json --compare-to snapshot_old.json
+
+# Chart evolution across a directory of snapshots: adds a Trend view
+sdr-visualizer ./snapshots/ --trend
 ```
 
 The output lands at `./visualize-{instance_id}-{timestamp}.html` by default. Open it in a browser — that's the whole experience.
@@ -79,6 +82,12 @@ Open the generated HTML and you'll see four views, accessible from the top-level
 With `--compare-to`, a fifth **Changes** view appears, listing components
 added, removed, and modified relative to a baseline snapshot, with
 field-level before/after detail.
+
+With `--trend` on a snapshot directory, a **Trend** view appears: sparkline
+charts of descriptive aggregates (component counts, orphans, undocumented
+components, reference edges) across the directory's snapshots, plus a
+per-interval change log. The window is capped at the 60 most recent
+snapshots.
 
 - **Shareable links** — the catalog's filters, sort, view, and open detail panel are encoded in the URL hash; copy the address bar to share a filtered view.
 
