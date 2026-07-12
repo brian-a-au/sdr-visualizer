@@ -796,6 +796,7 @@ h1 {
 .change-row .dot { margin-right: 6px; }
 .change-name { font-weight: 600; }
 .change-row .row-id { color: #6b6b66; font-size: 12px; margin-left: 8px; }
+.change-no-desc { color: #6b6b66; font-size: 12px; margin-left: 8px; font-style: italic; }
 .change-link { text-align: left; padding: 0; }
 .change-link:hover .change-name { text-decoration: underline; }
 .change-modified summary { cursor: pointer; }

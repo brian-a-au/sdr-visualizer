@@ -126,7 +126,7 @@ def _write_json(path, data):
     return path
 
 
-def test_compare_to_embeds_changes_section(tmp_path, capsys):
+def test_compare_to_embeds_changes_section(tmp_path):
     old = _write_json(tmp_path / "old.json", _cja_compare_snapshot("Metric One"))
     new = _write_json(
         tmp_path / "new.json", _cja_compare_snapshot("Metric One (renamed)", extra_metric=True)
@@ -189,6 +189,7 @@ def test_compare_to_missing_path_exits_3(tmp_path, capsys):
         ]
     )
     assert rc == 3
+    assert "snapshot path not found" in capsys.readouterr().err
 
 
 def test_compare_to_instance_mismatch_warns(tmp_path, capsys):

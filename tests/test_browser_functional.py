@@ -391,6 +391,7 @@ def test_changes_view_renders_counts_and_field_detail(browser_page, tmp_path):
     browser_page.click('.view-button[data-view="changes"]')
     summary = browser_page.inner_text("#changes-summary")
     assert "+1 added" in summary
+    assert "(1 metric)" in summary  # per-type breakdown: 1 added metric
     assert "−1 removed" in summary
     assert "~1 modified" in summary
     rows = browser_page.evaluate("document.querySelectorAll('#changes-body .change-row').length")
@@ -399,6 +400,25 @@ def test_changes_view_renders_counts_and_field_detail(browser_page, tmp_path):
     field_text = browser_page.inner_text("#changes-body .change-fields")
     assert "Metric One" in field_text
     assert "Metric One (renamed)" in field_text
+
+    # Close the <details> again before exercising the ref-link inside its
+    # <summary> — the link must open the detail panel without toggling the
+    # enclosing <details> back open.
+    browser_page.click("#changes-body details.change-modified summary")
+    assert (
+        browser_page.evaluate(
+            "document.querySelector('#changes-body details.change-modified').open"
+        )
+        is False
+    )
+    browser_page.click("#changes-body details.change-modified summary button.ref-link")
+    assert browser_page.inner_text("#detail-body .detail-name") == "Metric One (renamed)"
+    assert (
+        browser_page.evaluate(
+            "document.querySelector('#changes-body details.change-modified').open"
+        )
+        is False
+    )
 
 
 def test_changes_added_entry_links_to_detail_panel(browser_page, tmp_path):

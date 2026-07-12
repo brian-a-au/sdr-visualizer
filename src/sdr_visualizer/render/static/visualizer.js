@@ -1104,6 +1104,29 @@
     return ' data-search="' + escapeHtml((entry.name + " " + entry.id).toLowerCase()) + '"';
   }
 
+  // Per-type breakdown for a summary count, e.g. "(3 metrics, 9 dimensions)".
+  // Counts entry.type occurrences preserving first-seen order; empty lists
+  // get no parenthetical. Types are a fixed vocabulary, but the assembled
+  // text is still routed through escapeHtml for consistency with the rest
+  // of this view.
+  function changeTypeBreakdown(entries) {
+    if (!entries.length) return "";
+    var order = [];
+    var counts = {};
+    entries.forEach(function (entry) {
+      if (!Object.prototype.hasOwnProperty.call(counts, entry.type)) {
+        counts[entry.type] = 0;
+        order.push(entry.type);
+      }
+      counts[entry.type]++;
+    });
+    var parts = order.map(function (type) {
+      var count = counts[type];
+      return count + " " + formatTypeLabel(type).toLowerCase() + (count > 1 ? "s" : "");
+    });
+    return " (" + escapeHtml(parts.join(", ")) + ")";
+  }
+
   function renderChanges() {
     if (!$changesView || !payload.changes) return;
     var ch = payload.changes;
@@ -1111,11 +1134,14 @@
       ? ch.baseline.taken_at || ch.baseline.source || "baseline"
       : "baseline";
     document.getElementById("changes-summary").innerHTML =
-      '<span class="change-count change-count-added">+' + ch.added.length + " added</span>" +
+      '<span class="change-count change-count-added">+' + ch.added.length + " added" +
+        changeTypeBreakdown(ch.added) + "</span>" +
       '<span class="separator">·</span>' +
-      '<span class="change-count change-count-removed">−' + ch.removed.length + " removed</span>" +
+      '<span class="change-count change-count-removed">−' + ch.removed.length + " removed" +
+        changeTypeBreakdown(ch.removed) + "</span>" +
       '<span class="separator">·</span>' +
-      '<span class="change-count change-count-modified">~' + ch.modified.length + " modified</span>" +
+      '<span class="change-count change-count-modified">~' + ch.modified.length + " modified" +
+        changeTypeBreakdown(ch.modified) + "</span>" +
       '<span class="changes-baseline">against ' + escapeHtml(baselineLabel) + "</span>";
 
     var parts = [];
@@ -1125,9 +1151,13 @@
     if (ch.added.length) {
       parts.push('<h2 class="change-group-title ui">Added (' + ch.added.length + ")</h2>");
       ch.added.forEach(function (entry) {
+        var catalogEntry = byId[entry.id];
+        var noDesc = catalogEntry && !catalogEntry.description
+          ? '<span class="change-no-desc ui">no description</span>'
+          : "";
         parts.push(
           '<div class="change-row change-added"' + changeRowSearchAttr(entry) + ">" +
-            changeEntryLabel(entry, true) + "</div>"
+            changeEntryLabel(entry, true) + noDesc + "</div>"
         );
       });
     }

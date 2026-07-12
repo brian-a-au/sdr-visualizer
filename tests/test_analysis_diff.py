@@ -93,7 +93,9 @@ def test_added_and_removed_by_id():
 
 
 def test_baseline_block_carries_old_snapshot_identity():
-    old = _impl(snapshot_source="old.json", snapshot_taken_at="2026-05-01 09:00:00", instance_id="dv_a")
+    old = _impl(
+        snapshot_source="old.json", snapshot_taken_at="2026-05-01 09:00:00", instance_id="dv_a"
+    )
     new = _impl(snapshot_source="new.json", instance_id="dv_b")
     changes = diff_implementations(old, new)
     assert changes["baseline"] == {
@@ -191,7 +193,9 @@ def test_type_change_reports_removed_plus_added():
 
 
 def test_duplicate_ids_are_last_writer_wins():
-    old = _impl(metrics=[_component("metrics/m1", name="First"), _component("metrics/m1", name="Second")])
+    old = _impl(
+        metrics=[_component("metrics/m1", name="First"), _component("metrics/m1", name="Second")]
+    )
     new = _impl(metrics=[_component("metrics/m1", name="Second")])
     changes = diff_implementations(old, new)
     assert changes["added"] == [] and changes["removed"] == [] and changes["modified"] == []
@@ -207,11 +211,11 @@ def test_output_sorted_by_type_then_id():
     )
     changes = diff_implementations(old, new)
     assert [e["id"] for e in changes["added"]] == [
-        "cm/c1",       # calculated_metric
-        "dims/d1",     # dimension
-        "metrics/a",   # metric
+        "cm/c1",  # calculated_metric
+        "dims/d1",  # dimension
+        "metrics/a",  # metric
         "metrics/z",
-        "segments/s1", # segment
+        "segments/s1",  # segment
     ]
 
 
