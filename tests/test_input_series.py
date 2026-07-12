@@ -54,7 +54,7 @@ def test_cap_keeps_most_recent_and_warns(tmp_path, capsys):
     assert len(entries) == TREND_SNAPSHOT_CAP
     assert entries[0][0]["n"] == 3  # the 3 oldest were dropped
     assert entries[-1][0]["n"] == TREND_SNAPSHOT_CAP + 2
-    assert "capped at 60 snapshots; dropped 3" in capsys.readouterr().err
+    assert "capped at 60 snapshots; older history omitted" in capsys.readouterr().err
 
 
 def test_malformed_recent_files_do_not_consume_cap_slots(tmp_path):
@@ -82,6 +82,20 @@ def test_cap_flag_ignores_unparseable_older_files(tmp_path, capsys):
     assert [s["n"] for s, _ in entries] == [3, 4]
     assert capped is False
     assert "capped at" not in capsys.readouterr().err
+
+
+def test_invalid_utf8_snapshot_skipped_with_warning(tmp_path, capsys):
+    # Invalid UTF-8 bytes make read_text() raise UnicodeDecodeError, which is a
+    # ValueError (not the OSError _load_from_file wraps), so it would otherwise
+    # escape and abort an otherwise valid trend. It must be skipped with a
+    # warning like any other corrupt file.
+    _write(tmp_path, "snapshot_2026-01-01T00-00-00.json", {"n": 1})
+    _write(tmp_path, "snapshot_2026-02-01T00-00-00.json", {"n": 2})
+    (tmp_path / "snapshot_2026-03-01T00-00-00.json").write_bytes(b"\xff\xfe\xfa\x00")
+    entries, capped = list_snapshot_series(str(tmp_path))
+    assert [s["n"] for s, _ in entries] == [1, 2]
+    assert capped is False
+    assert "skipping snapshot_2026-03-01T00-00-00.json" in capsys.readouterr().err
 
 
 def test_fewer_than_two_parseable_raises(tmp_path):

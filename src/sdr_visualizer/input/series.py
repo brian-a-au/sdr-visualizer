@@ -74,30 +74,31 @@ def list_snapshot_series(
 
     stamped.sort(key=lambda pair: pair[1])
 
-    # Select the `cap` most recent *parseable* snapshots. Load newest-first and
-    # skip malformed files as we go, so a run of malformed recent files can't
-    # consume window slots that valid older snapshots would otherwise fill.
-    # Older candidates past the window are still loaded so `dropped`/`capped`
-    # count confirmed-parseable snapshots omitted, never merely-present files.
+    # Select the `cap` most recent *parseable* snapshots, loading newest-first
+    # so a run of malformed recent files can't consume window slots that valid
+    # older snapshots would otherwise fill. Corrupt files (bad JSON or bad
+    # encoding) are skipped with a warning rather than aborting the trend. Once
+    # the window is full we probe older candidates only until the first
+    # parseable one confirms real history was omitted, then stop — so work stays
+    # bounded to roughly the window size instead of the whole archive.
     entries: list[tuple[dict[str, Any], str]] = []
-    dropped = 0
+    capped = False
     for path, _ts in reversed(stamped):
         try:
             snapshot, source = _load_from_file(path)
-        except InvalidSnapshotError as exc:
+        except (InvalidSnapshotError, UnicodeDecodeError) as exc:
             print(f"sdr-visualizer: warning: skipping {path.name}: {exc}", file=sys.stderr)
             continue
         if len(entries) >= cap:
-            dropped += 1  # a parseable snapshot omitted by the window
-            continue
+            capped = True  # at least one parseable snapshot lies beyond the window
+            break
         entries.append((snapshot, source))
     entries.reverse()  # restore oldest-to-newest ordering
 
-    capped = dropped > 0
     if capped:
         print(
             f"sdr-visualizer: warning: trend window capped at {cap} snapshots; "
-            f"dropped {dropped} older",
+            "older history omitted",
             file=sys.stderr,
         )
 
