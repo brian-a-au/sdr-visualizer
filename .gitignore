@@ -34,6 +34,10 @@ MANIFEST
 venv/
 env/
 
+# Local tool state (Claude Code session state, Hypothesis example cache)
+.claude/
+.hypothesis/
+
 # Testing
 .pytest_cache/
 .coverage

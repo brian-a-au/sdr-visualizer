@@ -39,7 +39,17 @@ All notable changes to `sdr-visualizer` will be documented here. The format foll
   present-but-unconvertible `nesting_depth` or `complexity_score` now raises
   `InvalidSnapshotError` (so a single snapshot exits 3 and the trend loader
   skips such a snapshot) instead of a bare exception. These files are
-  vendored from sdr-grader; the same fix is owed to the sibling repo.
+  vendored from sdr-grader, which already carried equivalent type guards —
+  the visualizer had drifted behind, and nothing is owed to the sibling repo.
+- The sdist is now built from an explicit file allowlist
+  (`[tool.hatch.build.targets.sdist]`). Hatchling's default includes every
+  non-gitignored file in the project directory — tracked or not — which
+  swept local tool state (a Claude Code lock file, the Hypothesis example
+  cache) and repo-meta content (the example HTML pages, the README
+  screenshot, `uv.lock`, `CLAUDE.md`) into the tarball. The wheel was
+  always restricted to `src/sdr_visualizer` and is unaffected, and no sdist
+  was ever published (PyPI publishing starts with 0.6.0). `.claude/` and
+  `.hypothesis/` are gitignored as a second layer of defense.
 
 ## [0.5.0] - 2026-07-12
 
