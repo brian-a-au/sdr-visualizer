@@ -13,6 +13,10 @@ Static-output visual catalog generator for Adobe Customer Journey Analytics (CJA
 - Per-segment anatomy diagrams that make deeply-nested segments legible
 - Per-calculated-metric formula trees with click-through to referenced metrics
 
+![The catalog view: header stats strip, search and filters, and the component table](docs/screenshot-catalog.png)
+
+**Live examples:** [CJA report](https://brian-a-au.github.io/sdr-visualizer/cja-typical.html) · [AA report](https://brian-a-au.github.io/sdr-visualizer/aa-typical.html)
+
 The output is one HTML file: no server, no build step on the consumer side, no CDN dependencies. Everything is built into that one file. The component data is stored as JSON, the styling as CSS, and the interactive code as JavaScript, all inside it. You open it by double-clicking it in any modern web browser, and it works without an internet connection. There are no network requests, so no data is sent anywhere, and you can open it safely inside a locked-down corporate environment. You can move it, rename it, or copy it anywhere, and it still opens the same way. Drop it on a wiki, email it to a stakeholder, screenshot it into a deck.
 
 ## Install
