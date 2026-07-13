@@ -2,6 +2,45 @@
 
 All notable changes to `sdr-visualizer` will be documented here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- Property-based fuzz suite (`tests/test_adapter_fuzz.py`, ported from
+  sdr-grader and extended): random and mutated-fixture inputs must produce
+  a valid report or `InvalidSnapshotError` — never a bare crash — through
+  the adapters AND the render path, including the NaN/Infinity payload
+  class.
+- Browser functional tests now run on webkit as well as Chromium in CI;
+  performance budgets remain Chromium-only by design.
+- `scripts/corpus_check.py`: sweep a private directory tree of real
+  snapshots through the full build, asserting adapter acceptance, payload
+  serializability, embedded-payload parseability, and (optionally) the
+  §6 size budget per tier. A clean corpus sweep becomes the 1.0.0 gate.
+- Contributor hygiene: `CONTRIBUTING.md`, PR and issue templates, and
+  `SECURITY.md` with private reporting via GitHub security advisories.
+- The example reports are published via GitHub Pages, and the README
+  gains a catalog screenshot and live example links.
+
+### Changed
+
+- Releases now publish to PyPI via trusted publishing (OIDC, `pypi`
+  environment) as a hard step — a publish failure fails the release.
+  Release assets no longer include the stray `default.gitignore` file.
+- README install instructions point at PyPI again (0.6.0 is the first
+  published release); installing from the repo remains the development
+  path.
+
+### Fixed
+
+- The AA and CJA adapters no longer crash with a bare `TypeError`/`ValueError`
+  on a malformed optional field (found by the new fuzz suite). A truthy
+  non-list `tags` or `*_references` value degrades to an empty list; a
+  present-but-unconvertible `nesting_depth` or `complexity_score` now raises
+  `InvalidSnapshotError` (so a single snapshot exits 3 and the trend loader
+  skips such a snapshot) instead of a bare exception. These files are
+  vendored from sdr-grader; the same fix is owed to the sibling repo.
+
 ## [0.5.0] - 2026-07-12
 
 ### Added
