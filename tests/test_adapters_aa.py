@@ -208,3 +208,27 @@ def test_non_numeric_complexity_score_rejected_as_invalid_not_bare_error():
     snap["calculated_metrics"][0]["complexity_score"] = "high"  # not float()-able
     with pytest.raises(InvalidSnapshotError):
         adapt(snap)
+
+
+# ---------------------------------------------------------------------------
+# sdr-grader parity: stringified JSON tag lists parse (SPEC §11/§15).
+# ---------------------------------------------------------------------------
+
+
+def test_stringified_tags_are_parsed_not_dropped():
+    snap = json.loads((FIXTURES / "aa_snapshot_clean.json").read_text(encoding="utf-8"))
+    snap["dimensions"][0]["tags"] = '["x", "y"]'
+    impl = adapt(snap)
+    assert impl.dimensions[0].tags == ["x", "y"]
+
+
+def test_nan_complexity_score_passes_through_adapter_for_renderer_to_reject():
+    # Deliberate divergence from sdr-grader: the visualizer passes NaN through
+    # so the renderer's allow_nan=False guard rejects the snapshot (audit H2)
+    # rather than silently substituting 0.0.
+    import math
+
+    snap = json.loads((FIXTURES / "aa_snapshot_clean.json").read_text(encoding="utf-8"))
+    snap["calculated_metrics"][0]["complexity_score"] = float("nan")
+    impl = adapt(snap)
+    assert math.isnan(impl.calculated_metrics[0].complexity_score)

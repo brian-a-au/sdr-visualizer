@@ -339,3 +339,41 @@ def test_falsy_numeric_scalars_still_default():
     impl = adapt(snap)
     assert impl.segments[0].nesting_depth == 0
     assert impl.calculated_metrics[0].complexity_score == 0.0
+
+
+# ---------------------------------------------------------------------------
+# sdr-grader parity: cja_auto_sdr ships tags/refs as JSON-encoded list strings.
+# Match the grader's _parse_tag_list / _parse_ref_list behavior (SPEC §11/§15).
+# ---------------------------------------------------------------------------
+
+
+def test_stringified_tags_are_parsed_not_dropped():
+    # A JSON-encoded list string must parse to real tags, not iterate as chars
+    # (the old `list(... or [])` bug) and not silently drop to [].
+    snap = json.loads((FIXTURES / "cja_snapshot_clean.json").read_text(encoding="utf-8"))
+    snap["metrics"][0]["tags"] = '["campaign", "paid"]'
+    impl = adapt(snap)
+    assert impl.metrics[0].tags == ["campaign", "paid"]
+
+
+def test_stringified_reference_lists_are_parsed():
+    snap = json.loads((FIXTURES / "cja_snapshot_clean.json").read_text(encoding="utf-8"))
+    snap["calculated_metrics"]["metrics"][0]["metric_references"] = '["metrics/x"]'
+    snap["calculated_metrics"]["metrics"][0]["segment_references"] = []
+    impl = adapt(snap)
+    assert impl.calculated_metrics[0].references == ["metrics/x"]
+
+
+def test_nan_complexity_score_passes_through_adapter_for_renderer_to_reject():
+    # Deliberate divergence from sdr-grader (which coerces NaN to a default):
+    # the visualizer passes NaN through so the renderer's allow_nan=False guard
+    # rejects the snapshot loudly rather than emit a report that can't boot in
+    # a browser (audit H2). See test_renderer's
+    # test_nan_in_snapshot_raises_invalid_snapshot_error and test_cli's
+    # test_nan_snapshot_exits_3.
+    import math
+
+    snap = json.loads((FIXTURES / "cja_snapshot_clean.json").read_text(encoding="utf-8"))
+    snap["calculated_metrics"]["metrics"][0]["complexity_score"] = float("nan")
+    impl = adapt(snap)
+    assert math.isnan(impl.calculated_metrics[0].complexity_score)

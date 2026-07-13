@@ -7,6 +7,7 @@ classifications attach as tags on the parent dimension.
 
 from __future__ import annotations
 
+import json
 from typing import Any
 
 from sdr_visualizer.core.exceptions import InvalidSnapshotError
@@ -91,7 +92,7 @@ def _component_from_record(
     description = _normalize_description(record.get("description"))
     data_type = record.get("type")
     polarity = _normalize_polarity(record.get("polarity"))
-    tags = _as_list(record.get("tags"))
+    tags = _parse_tag_list(record.get("tags"))
     # Pick up classifications attached to this component as tags.
     extra_class_tags = classifications_by_parent.get(str(component_id), [])
     if extra_class_tags:
@@ -284,11 +285,30 @@ def _walk_segment_definition(definition: Any) -> tuple[int, list[str]]:
 # ---------------------------------------------------------------------------
 
 
+def _parse_tag_list(value: Any) -> list[str]:
+    """aa_auto_sdr can ship `tags` as a JSON-encoded list string, same as
+    cja_auto_sdr (see cja.py's copy — adapters stay standalone reference
+    examples, so this helper is intentionally duplicated). Handles native
+    lists, stringified lists, and falls back to [] for anything else. Kept
+    behavior-identical to sdr-grader's copy (SPEC §11/§15)."""
+    if value is None or value == "":
+        return []
+    if isinstance(value, list):
+        return [str(t) for t in value]
+    if isinstance(value, str):
+        try:
+            parsed = json.loads(value)
+        except json.JSONDecodeError:
+            return []
+        if isinstance(parsed, list):
+            return [str(t) for t in parsed]
+    return []
+
+
 def _as_list(value: Any) -> list[Any]:
-    """Coerce an optional list field. Missing / None / empty stays [];
-    a malformed non-list scalar is treated as absent rather than crashing a
-    later list() or *-unpack. The adapter must never raise a bare TypeError on
-    a wrong-typed optional field (fuzz contract)."""
+    """Coerce an optional section list (calculated_metrics, segments). Missing
+    / None / empty stays []; a malformed non-list scalar is treated as absent
+    rather than crashing a later `for` loop (fuzz contract)."""
     return value if isinstance(value, list) else []
 
 
@@ -297,7 +317,11 @@ def _as_float(value: Any) -> float:
     default for falsy input. A present but unconvertible value is a malformed
     snapshot: raise InvalidSnapshotError rather than leak a bare
     ValueError/TypeError (the trend loader skips such a snapshot; a single
-    snapshot exits 3)."""
+    snapshot exits 3). NaN/Infinity intentionally pass through unchanged — the
+    renderer's allow_nan=False guard rejects them loudly (audit H2). Unlike
+    sdr-grader (which coerces NaN to a default because it is evaluative), the
+    visualizer must not emit a report that cannot boot in a browser, so it
+    rejects rather than silently substituting 0.0."""
     if not value:
         return 0.0
     try:

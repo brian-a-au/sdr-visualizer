@@ -124,7 +124,7 @@ def _component_from_record(record: dict[str, Any], component_type: str) -> Compo
         created_at=record.get("created") or record.get("created_at"),
         modified_at=record.get("modified") or record.get("modified_at"),
         owner=record.get("owner"),
-        tags=_as_list(record.get("tags")),
+        tags=_parse_tag_list(record.get("tags")),
         platform_specific=platform_specific,
     )
 
@@ -177,7 +177,7 @@ def _derived_field_from_record(record: dict[str, Any]) -> Component:
         created_at=record.get("created") or record.get("created_at"),
         modified_at=record.get("modified") or record.get("modified_at"),
         owner=record.get("owner"),
-        tags=_as_list(record.get("tags")),
+        tags=_parse_tag_list(record.get("tags")),
         platform_specific=platform_specific,
     )
 
@@ -210,8 +210,8 @@ def _calc_metric_from_record(record: dict[str, Any]) -> CalculatedMetric:
     references = list(
         dict.fromkeys(
             [
-                *_as_list(record.get("metric_references")),
-                *_as_list(record.get("segment_references")),
+                *_parse_ref_list(record.get("metric_references")),
+                *_parse_ref_list(record.get("segment_references")),
             ]
         )
     )
@@ -288,9 +288,9 @@ def _segment_from_record(record: dict[str, Any]) -> Segment:
     references = list(
         dict.fromkeys(
             [
-                *_as_list(record.get("dimension_references")),
-                *_as_list(record.get("metric_references")),
-                *_as_list(record.get("other_segment_references")),
+                *_parse_ref_list(record.get("dimension_references")),
+                *_parse_ref_list(record.get("metric_references")),
+                *_parse_ref_list(record.get("other_segment_references")),
             ]
         )
     )
@@ -344,12 +344,45 @@ def _walk_for_contexts(node: Any, out: list[str]) -> None:
 # ---------------------------------------------------------------------------
 
 
-def _as_list(value: Any) -> list[Any]:
-    """Coerce an optional list field. Missing / None / empty stays [];
-    a malformed non-list scalar is treated as absent rather than crashing a
-    later list() or *-unpack. The adapter must never raise a bare TypeError on
-    a wrong-typed optional field (fuzz contract)."""
-    return value if isinstance(value, list) else []
+def _parse_tag_list(value: Any) -> list[str]:
+    """cja_auto_sdr ships `tags` as a JSON-encoded list string (e.g. `'["a"]'`).
+
+    The naive `list(record.get("tags") or [])` iterates that string as
+    characters — producing fake tags like `'['`, `'"'`, `'c'` — so this
+    helper handles both the stringified and native-list shapes and falls back
+    to `[]` for anything unparseable. Kept behavior-identical to sdr-grader's
+    copy so the vendored adapters stay comparable (SPEC §11/§15)."""
+    if value is None or value == "":
+        return []
+    if isinstance(value, list):
+        return [str(t) for t in value]
+    if isinstance(value, str):
+        try:
+            parsed = json.loads(value)
+        except json.JSONDecodeError:
+            return []
+        if isinstance(parsed, list):
+            return [str(t) for t in parsed]
+        return []
+    return []
+
+
+def _parse_ref_list(value: Any) -> list[str]:
+    """Reference lists arrive as native lists or (like tags) as JSON-encoded
+    list strings; anything else contributes nothing. Behavior-identical to
+    sdr-grader's copy."""
+    if value is None or value == "":
+        return []
+    if isinstance(value, list):
+        return [str(t) for t in value]
+    if isinstance(value, str):
+        try:
+            parsed = json.loads(value)
+        except json.JSONDecodeError:
+            return []
+        if isinstance(parsed, list):
+            return [str(t) for t in parsed]
+    return []
 
 
 def _as_float(value: Any) -> float:
@@ -357,7 +390,11 @@ def _as_float(value: Any) -> float:
     default for falsy input. A present but unconvertible value is a malformed
     snapshot: raise InvalidSnapshotError rather than leak a bare
     ValueError/TypeError (the trend loader skips such a snapshot; a single
-    snapshot exits 3)."""
+    snapshot exits 3). NaN/Infinity intentionally pass through unchanged — the
+    renderer's allow_nan=False guard rejects them loudly (audit H2). Unlike
+    sdr-grader (which coerces NaN to a default because it is evaluative), the
+    visualizer must not emit a report that cannot boot in a browser, so it
+    rejects rather than silently substituting 0.0."""
     if not value:
         return 0.0
     try:
