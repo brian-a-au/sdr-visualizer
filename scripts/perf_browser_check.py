@@ -149,6 +149,29 @@ def _check_compare(page, html_path: Path) -> list[str]:
     return failures
 
 
+def _check_trend(page, html_path: Path) -> list[str]:
+    """Trend report: initial render within the 1,000-component budget, with
+    charts and the interval log present (both render at load)."""
+    start = time.perf_counter()
+    page.goto(html_path.as_uri())
+    page.wait_for_selector("#catalog-body tr", state="attached", timeout=10_000)
+    render_ms = (time.perf_counter() - start) * 1000
+    charts = page.evaluate("document.querySelectorAll('#trend-view svg.sparkline').length")
+    rows = page.evaluate("document.querySelectorAll('#trend-log details.trend-interval').length")
+    print(
+        f"[cja-trend] initial render: {render_ms:.0f}ms  "
+        f"(budget 1000ms, {charts} charts, {rows} intervals)"
+    )
+    failures = []
+    if render_ms > 1000.0:
+        failures.append(f"[cja-trend] initial render {render_ms:.0f}ms > 1000ms")
+    if charts == 0:
+        failures.append("[cja-trend] no sparkline charts rendered - trend path is dead")
+    if rows == 0:
+        failures.append("[cja-trend] interval log rendered 0 rows - trend path is dead")
+    return failures
+
+
 def main() -> int:
     try:
         from playwright.sync_api import sync_playwright
@@ -165,6 +188,7 @@ def main() -> int:
     from sdr_visualizer.adapters.aa import adapt as aa_adapt
     from sdr_visualizer.adapters.cja import adapt as cja_adapt
     from sdr_visualizer.analysis.diff import diff_implementations
+    from sdr_visualizer.analysis.trend import build_trend
     from sdr_visualizer.render.renderer import build_payload_with_options, render, render_payload
 
     spec = importlib.util.spec_from_file_location(
@@ -205,6 +229,18 @@ def main() -> int:
                 compare_path = Path(tmp) / "cja_compare.html"
                 compare_path.write_text(render_payload(payload), encoding="utf-8")
                 failures += _check_compare(page, compare_path)
+                checked += 1
+
+            if large.exists():
+                series = [snap]
+                for _ in range(5):
+                    series.append(mutate(series[-1]))
+                impls = [adapters["cja"](s) for s in series]
+                trend_payload = build_payload_with_options(impls[-1])
+                trend_payload["trend"] = build_trend(impls, capped=False)
+                trend_path = Path(tmp) / "cja_trend.html"
+                trend_path.write_text(render_payload(trend_payload), encoding="utf-8")
+                failures += _check_trend(page, trend_path)
                 checked += 1
         browser.close()
 

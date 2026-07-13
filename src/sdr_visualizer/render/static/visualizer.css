@@ -811,3 +811,26 @@ h1 {
 .changes-empty { color: #6b6b66; }
 .changes-search-row { display: flex; align-items: center; gap: 10px; margin-top: 12px; }
 #changes-search { flex: 1; max-width: 420px; }
+
+/* ---------- Trend view ---------- */
+.trend-charts {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 16px;
+  padding-bottom: 24px;
+  border-bottom: 1px solid #ece9e0;
+}
+.trend-chart { padding: 12px; border: 1px solid #ece9e0; background: #fff; }
+.trend-chart-label {
+  font-size: 11px; font-weight: 600; letter-spacing: 0.1em;
+  text-transform: uppercase; color: #6b6b66; margin-bottom: 6px;
+}
+.trend-chart-values { font-size: 12px; color: #6b6b66; margin-top: 4px; }
+.trend-interval { padding: 8px 12px; border-bottom: 1px solid #ece9e0; }
+.trend-interval summary { cursor: pointer; }
+.trend-interval summary .change-count { margin-left: 10px; }
+.trend-range { font-weight: 600; }
+.trend-ids { margin: 8px 0 4px 20px; font-size: 13px; line-height: 1.9; }
+.trend-ids-label { font-weight: 600; margin-right: 8px; }
+.trend-id { background: #f2f0e9; padding: 1px 6px; margin-right: 4px; }
+.trend-capped { color: #6b6b66; margin-top: 12px; }

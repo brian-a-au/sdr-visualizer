@@ -17,6 +17,7 @@ from pathlib import Path
 
 from sdr_visualizer import __version__
 from sdr_visualizer.analysis.diff import diff_implementations
+from sdr_visualizer.analysis.trend import build_trend
 from sdr_visualizer.cli.exit_codes import (
     INPUT_VALIDATION_ERROR,
     RUNTIME_ERROR,
@@ -29,6 +30,7 @@ from sdr_visualizer.core.exceptions import (
 from sdr_visualizer.core.models import Implementation
 from sdr_visualizer.core.visualizer import build_implementation
 from sdr_visualizer.input.loader import STDIN_TOKEN, load_snapshot
+from sdr_visualizer.input.series import list_snapshot_series
 from sdr_visualizer.input.shell_out import shell_aa, shell_cja
 from sdr_visualizer.render.renderer import build_payload_with_options, render_payload
 
@@ -51,15 +53,34 @@ def main(argv: list[str] | None = None) -> int:
         parser.error(
             "provide exactly one of: snapshot path/directory/'-', --dataview ID, or --rsid ID"
         )
+    if args.trend and args.compare_to:
+        parser.error("--trend and --compare-to are mutually exclusive")
+    if args.trend and (args.dataview or args.rsid):
+        parser.error("--trend applies only to snapshot directories")
+    if (args.dataview or args.rsid) and args.platform:
+        # Mode 3 already fixes the platform (--dataview -> CJA, --rsid -> AA);
+        # honoring --platform here could force a mismatched adapter. Ignore it
+        # with a warning, mirroring how --at is handled for these modes.
+        print(
+            "sdr-visualizer: --platform does not apply to --dataview / --rsid "
+            "(the mode selects the platform); ignoring",
+            file=sys.stderr,
+        )
+        args.platform = None
 
     try:
-        snapshot, source = _load(args)
-        impl = build_implementation(
-            snapshot,
-            source=source,
-            platform=args.platform,
-        )
-        baseline = _load_baseline(args, impl) if args.compare_to else None
+        trend = None
+        if args.trend:
+            impl, trend = _load_trend(args)
+            baseline = None
+        else:
+            snapshot, source = _load(args)
+            impl = build_implementation(
+                snapshot,
+                source=source,
+                platform=args.platform,
+            )
+            baseline = _load_baseline(args, impl) if args.compare_to else None
         payload = build_payload_with_options(
             impl,
             exclude_orphans=args.exclude_orphans,
@@ -68,6 +89,8 @@ def main(argv: list[str] | None = None) -> int:
         if baseline is not None:
             payload["changes"] = diff_implementations(baseline, impl)
             payload["meta"]["compared_to"] = payload["changes"]["baseline"]
+        if trend is not None:
+            payload["trend"] = trend
         html = render_payload(payload, title=args.title)
     except (InvalidSnapshotError, UnknownPlatformError) as exc:
         print(f"sdr-visualizer: {exc}", file=sys.stderr)
@@ -129,7 +152,11 @@ def _load_baseline(args: argparse.Namespace, impl: Implementation) -> Implementa
         raise InvalidSnapshotError(
             "--compare-to does not accept stdin ('-'); pass a file or directory"
         )
-    snapshot, source = load_snapshot(args.compare_to)
+    # --at resolves a baseline *directory* the same way it resolves the primary
+    # directory (to the snapshot at or before the target); a file baseline
+    # ignores it without a spurious "ignoring" warning.
+    compare_at = args.at if Path(args.compare_to).is_dir() else None
+    snapshot, source = load_snapshot(args.compare_to, at=compare_at)
     baseline = build_implementation(snapshot, source=source, platform=args.platform)
     if baseline.platform != impl.platform:
         raise InvalidSnapshotError(
@@ -137,12 +164,69 @@ def _load_baseline(args: argparse.Namespace, impl: Implementation) -> Implementa
             f"primary snapshot is {impl.platform}"
         )
     if baseline.instance_id != impl.instance_id:
+        if not args.allow_instance_mismatch:
+            raise InvalidSnapshotError(
+                f"--compare-to instance mismatch: baseline is {baseline.instance_id}, "
+                f"primary snapshot is {impl.instance_id}; compare snapshots of the same "
+                "data view / report suite (or pass --allow-instance-mismatch)"
+            )
         print(
             "sdr-visualizer: warning: comparing different instances "
-            f"({baseline.instance_id} vs {impl.instance_id})",
+            f"({baseline.instance_id} vs {impl.instance_id}); --allow-instance-mismatch set",
             file=sys.stderr,
         )
     return baseline
+
+
+def _load_trend(args: argparse.Namespace) -> tuple[Implementation, dict]:
+    """Load, adapt, and validate a single-implementation --trend series.
+
+    Returns (newest usable Implementation, trend payload section). Raised
+    InvalidSnapshotError maps to exit 3 in main()'s except clause."""
+    entries, capped = list_snapshot_series(args.path, at=args.at)
+    impls: list[Implementation] = []
+    for snapshot, source in entries:
+        try:
+            impls.append(build_implementation(snapshot, source=source, platform=args.platform))
+        except (InvalidSnapshotError, UnknownPlatformError, ValueError, TypeError) as exc:
+            # Broad on purpose: any snapshot the adapter cannot turn into a valid
+            # Implementation — a bad platform, or a scalar-coercion failure such
+            # as a non-numeric nesting_depth surfacing as ValueError/TypeError —
+            # is a skippable unusable snapshot, not a reason to abort the whole
+            # trend. The stderr warning keeps a genuine adapter regression visible.
+            print(f"sdr-visualizer: warning: skipping {source}: {exc}", file=sys.stderr)
+    if impls:
+        # A trend must be a single implementation: one platform and one data
+        # view / report suite. Both dimensions are refused when mixed, the same
+        # way --compare-to refuses a mismatch, rather than diffing unrelated
+        # inventories. Platform is declarable, so its message points at
+        # --platform; instance has no flag, so the fix is a cleaner directory.
+        # (With --platform set, non-matching snapshots fail to adapt above and
+        # never reach here.)
+        platforms = sorted({i.platform for i in impls})
+        if len(platforms) > 1:
+            raise InvalidSnapshotError(
+                f"--trend directory mixes platforms ({', '.join(platforms)}); "
+                "pass --platform cja|aa to select one, or use a single-platform directory"
+            )
+        instances = sorted({i.instance_id for i in impls})
+        if len(instances) > 1:
+            if not args.allow_instance_mismatch:
+                raise InvalidSnapshotError(
+                    "--trend directory mixes data views / report suites "
+                    f"({', '.join(instances)}); use snapshots of a single implementation "
+                    "(or pass --allow-instance-mismatch)"
+                )
+            print(
+                "sdr-visualizer: warning: --trend directory mixes data views / report "
+                f"suites ({', '.join(instances)}); --allow-instance-mismatch set",
+                file=sys.stderr,
+            )
+    if len(impls) < 2:
+        raise InvalidSnapshotError(
+            "--trend needs at least 2 usable snapshots after skipping unusable ones"
+        )
+    return impls[-1], build_trend(impls, capped=capped)
 
 
 def _build_parser() -> argparse.ArgumentParser:
@@ -174,7 +258,8 @@ def _build_parser() -> argparse.ArgumentParser:
     p.add_argument(
         "--at",
         help=(
-            "When path is a directory, pick the snapshot closest to (and not after) this timestamp."
+            "For a directory (the path or a --compare-to baseline), pick the snapshot "
+            "closest to (and not after) this timestamp."
         ),
     )
     p.add_argument(
@@ -182,6 +267,24 @@ def _build_parser() -> argparse.ArgumentParser:
         help=(
             "Baseline snapshot to compare against: a file, or a directory "
             "(resolves to its latest snapshot). Adds a Changes view to the report."
+        ),
+    )
+    p.add_argument(
+        "--trend",
+        action="store_true",
+        help=(
+            "When path is a snapshot directory, chart aggregates and per-interval "
+            "changes across its snapshots (adds a Trend view)."
+        ),
+    )
+    p.add_argument(
+        "--allow-instance-mismatch",
+        action="store_true",
+        help=(
+            "Permit --compare-to / --trend to span different data views or report "
+            "suites (an instance mismatch otherwise exits 3). The diff or trend then "
+            "spans unrelated inventories; a warning is printed. Platform mismatches "
+            "are always rejected."
         ),
     )
     p.add_argument(

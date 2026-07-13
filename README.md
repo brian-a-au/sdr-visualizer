@@ -50,6 +50,9 @@ cja_auto_sdr dv_prod_web --format json --output - | sdr-visualizer -
 
 # Compare against an earlier snapshot: adds a Changes view to the report
 sdr-visualizer snapshot_new.json --compare-to snapshot_old.json
+
+# Chart evolution across a directory of snapshots: adds a Trend view
+sdr-visualizer ./snapshots/ --trend
 ```
 
 The output lands at `./visualize-{instance_id}-{timestamp}.html` by default. Open it in a browser — that's the whole experience.
@@ -79,6 +82,23 @@ Open the generated HTML and you'll see four views, accessible from the top-level
 With `--compare-to`, a fifth **Changes** view appears, listing components
 added, removed, and modified relative to a baseline snapshot, with
 field-level before/after detail.
+
+With `--trend` on a snapshot directory, a **Trend** view appears: sparkline
+charts of descriptive aggregates (component counts, orphans, undocumented
+components, reference edges) across the directory's snapshots, plus a
+per-interval change log. The window is capped at the 60 most recent
+snapshots.
+
+A trend directory must hold snapshots of a single implementation. If it mixes
+CJA and AA snapshots, pass `--platform cja|aa` to select one (or point at a
+single-platform directory); without it the run stops rather than guess. If it
+mixes data views or report suites, the run stops as well. This mirrors
+`--compare-to`, which refuses both a platform and an instance mismatch, so
+neither view ever diffs unrelated inventories. To compare or chart across
+different data views or report suites on purpose (for example staging versus
+prod drift), pass `--allow-instance-mismatch`; the run then proceeds with a
+warning. Platform mismatches are always rejected. The report shown alongside
+the trend is the newest usable snapshot in the directory.
 
 - **Shareable links** — the catalog's filters, sort, view, and open detail panel are encoded in the URL hash; copy the address bar to share a filtered view.
 

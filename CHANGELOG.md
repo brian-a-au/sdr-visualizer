@@ -2,6 +2,48 @@
 
 All notable changes to `sdr-visualizer` will be documented here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.0] - 2026-07-12
+
+### Added
+
+- **Trend mode.** `--trend` on a snapshot directory adds a Trend view:
+  server-rendered sparkline charts of descriptive aggregates (total and
+  per-type component counts, orphans, components without a description,
+  reference edge count) across the directory's snapshots, plus a change log
+  with one expandable row per adjacent snapshot pair (added / removed /
+  modified component ids, computed with the 0.4.0 diff engine). The window
+  honors `--at` as its end and is capped at the 60 most recent parseable
+  snapshots with a build warning. Unparseable snapshots and snapshots with an
+  unconvertible scalar field are skipped with warnings. A directory that mixes
+  platforms exits 3 unless `--platform cja|aa` selects one, and a directory
+  that mixes data views / report suites exits 3, so unrelated inventories are
+  never diffed (mirroring `--compare-to`, which refuses both). Fewer than 2
+  usable snapshots exits 3, as does combining `--trend` with `--compare-to`,
+  `--dataview`, `--rsid`, a file path, or stdin. (SPEC §13, trend mode)
+- **`--allow-instance-mismatch`.** Opt-in flag that lets `--compare-to` and
+  `--trend` span different data views / report suites on purpose (for example
+  staging versus prod drift); the run proceeds with a warning instead of
+  exiting 3. Platform mismatches are always rejected.
+
+### Changed
+
+- **`--compare-to` now refuses an instance mismatch.** Comparing snapshots
+  from different data views / report suites exits 3 instead of warning and
+  proceeding (0.4.0 behavior), matching `--trend`; both views require a single
+  implementation so the diff never spans unrelated inventories. Pass
+  `--allow-instance-mismatch` to restore the cross-instance comparison on
+  demand.
+
+### Fixed
+
+- **Cross-command flag consistency.** `--at` now resolves a `--compare-to`
+  baseline directory the same way it resolves the primary directory (it was
+  silently ignored for the baseline, which always used the latest snapshot).
+  A directory mixing timestamped and un-timestamped snapshots now warns about
+  the dropped un-timestamped files in single-snapshot and `--compare-to`
+  selection, matching `--trend`. `--platform` combined with `--dataview` /
+  `--rsid` is ignored with a warning instead of forcing a mismatched adapter.
+
 ## [0.4.0] - 2026-07-11
 
 ### Added
@@ -186,8 +228,8 @@ The following are explicitly internal and may change without notice:
 
 ### Deferred to later releases (per SPEC §13)
 
-- Comparative view, two snapshots side-by-side (v0.2)
-- Trend mode against a directory of snapshots (v0.3)
+- Comparative view, two snapshots side-by-side (v0.2) *(Shipped in 0.4.0.)*
+- Trend mode against a directory of snapshots (v0.3) *(Shipping in 0.5.0.)*
 - Workspace project visualization (v0.4)
 - Schema map view (v0.5)
 

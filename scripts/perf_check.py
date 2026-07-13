@@ -35,6 +35,7 @@ from pathlib import Path
 from sdr_visualizer.adapters.aa import adapt as aa_adapt
 from sdr_visualizer.adapters.cja import adapt as cja_adapt
 from sdr_visualizer.analysis.diff import diff_implementations
+from sdr_visualizer.analysis.trend import build_trend
 from sdr_visualizer.render.renderer import build_payload_with_options, render, render_payload
 
 REPO = Path(__file__).resolve().parent.parent
@@ -63,6 +64,12 @@ MEDIUM_SIZE_BUDGET_MB = 2.0
 # size budget + 0.5 MB.
 COMPARE_BUILD_BUDGET_S = BUILD_BUDGET_S * 1.5
 COMPARE_SIZE_BUDGET_MB = SIZE_BUDGET_MB + 0.5
+
+# Trend case (0.5.0): a 6-snapshot series derived from the large CJA fixture
+# by applying the deterministic mutation iteratively, built in memory.
+TREND_SERIES_LEN = 6
+TREND_BUILD_BUDGET_S = TREND_SERIES_LEN * 1.0
+TREND_SIZE_BUDGET_MB = SIZE_BUDGET_MB + 0.5
 
 
 def _load_mutate():
@@ -101,6 +108,35 @@ def _measure_compare(old_snap: dict, new_snap: dict) -> tuple[list[str], str]:
         failures.append(
             f"CJA-compare HTML size {size_mb:.2f}MB over budget {COMPARE_SIZE_BUDGET_MB}MB"
         )
+    return failures, "\n".join(msgs)
+
+
+def _measure_trend(base_snap: dict, mutate) -> tuple[list[str], str]:
+    series = [base_snap]
+    for _ in range(TREND_SERIES_LEN - 1):
+        series.append(mutate(series[-1]))
+    times = []
+    html = ""
+    for _ in range(3):
+        start = time.perf_counter()
+        impls = [cja_adapt(s) for s in series]
+        trend = build_trend(impls, capped=False)
+        payload = build_payload_with_options(impls[-1])
+        payload["trend"] = trend
+        html = render_payload(payload)
+        times.append(time.perf_counter() - start)
+    elapsed = statistics.median(times)
+    size_mb = len(html.encode("utf-8")) / (1024 * 1024)
+    msgs = [
+        f"[CJA-trend] build time: {elapsed:.2f}s   (budget {TREND_BUILD_BUDGET_S}s, "
+        f"median of 3, {TREND_SERIES_LEN} snapshots)",
+        f"[CJA-trend] HTML size : {size_mb:.2f}MB  (budget {TREND_SIZE_BUDGET_MB}MB)",
+    ]
+    failures = []
+    if elapsed > TREND_BUILD_BUDGET_S:
+        failures.append(f"CJA-trend build time {elapsed:.2f}s over budget {TREND_BUILD_BUDGET_S}s")
+    if size_mb > TREND_SIZE_BUDGET_MB:
+        failures.append(f"CJA-trend HTML size {size_mb:.2f}MB over budget {TREND_SIZE_BUDGET_MB}MB")
     return failures, "\n".join(msgs)
 
 
@@ -167,8 +203,13 @@ def main() -> int:
     aa_failures, aa_report = _measure("AA", aa_snap, aa_adapt)
     print(aa_report)
 
-    compare_failures, compare_report = _measure_compare(_load_mutate()(cja_snap), cja_snap)
+    mutate = _load_mutate()
+
+    compare_failures, compare_report = _measure_compare(mutate(cja_snap), cja_snap)
     print(compare_report)
+
+    trend_failures, trend_report = _measure_trend(cja_snap, mutate)
+    print(trend_report)
 
     xl_failures: list[str] = []
     if CJA_XL.exists():
@@ -180,7 +221,14 @@ def main() -> int:
     else:
         print("note: cja_snapshot_xl.json not generated; skipping 2,000-component gate")
 
-    failed = [*small_failures, *cja_failures, *aa_failures, *compare_failures, *xl_failures]
+    failed = [
+        *small_failures,
+        *cja_failures,
+        *aa_failures,
+        *compare_failures,
+        *trend_failures,
+        *xl_failures,
+    ]
     if failed:
         for msg in failed:
             print(f"FAIL: {msg}", file=sys.stderr)

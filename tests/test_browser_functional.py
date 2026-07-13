@@ -19,6 +19,7 @@ playwright_sync = pytest.importorskip("playwright.sync_api")
 
 from sdr_visualizer.adapters.cja import adapt as cja_adapt  # noqa: E402
 from sdr_visualizer.analysis.diff import diff_implementations  # noqa: E402
+from sdr_visualizer.analysis.trend import build_trend  # noqa: E402
 from sdr_visualizer.render.renderer import (  # noqa: E402
     build_payload_with_options,
     render,
@@ -462,3 +463,94 @@ def test_changes_search_filters_rows(browser_page, tmp_path):
         ".filter(function (r) { return !r.hidden; }).length"
     )
     assert visible == 1
+
+
+def _trend_series_snapshots():
+    def snap(metrics):
+        return {
+            "metadata": {"Data View ID": "dv_trend", "Data View Name": "Trend"},
+            "data_view": {"id": "dv_trend"},
+            "metrics": metrics,
+            "dimensions": [],
+            "segments": {"segments": []},
+            "calculated_metrics": {"metrics": []},
+        }
+
+    return [
+        snap([{"id": "metrics/m1", "name": "One", "description": "d"}]),
+        snap(
+            [
+                {"id": "metrics/m1", "name": "One", "description": "d"},
+                {"id": "metrics/m2", "name": "Two", "description": "d"},
+            ]
+        ),
+        snap([{"id": "metrics/m2", "name": "Two", "description": "d"}]),
+    ]
+
+
+def _render_trend(tmp_path, name):
+    # Distinct sources per snapshot (rather than the adapter's shared
+    # "<unknown>" default): with no snapshot_taken_at, interval "from"/"to"
+    # fall back to snapshot_source, and identical sources would make every
+    # interval label an equal pair regardless of the from_source/to_source
+    # fallback under test.
+    impls = [
+        cja_adapt(s, source=f"trend_{i}.json") for i, s in enumerate(_trend_series_snapshots())
+    ]
+    payload = build_payload_with_options(impls[-1])
+    payload["trend"] = build_trend(impls, capped=False)
+    out = tmp_path / name
+    out.write_text(render_payload(payload), encoding="utf-8")
+    return out
+
+
+def test_trend_view_renders_charts_and_log(browser_page, tmp_path):
+    out = _render_trend(tmp_path, "trend.html")
+    browser_page.goto(out.as_uri())
+    browser_page.wait_for_selector("#catalog-body tr", state="attached", timeout=10_000)
+    browser_page.click('.view-button[data-view="trend"]')
+    charts = browser_page.evaluate("document.querySelectorAll('#trend-view svg.sparkline').length")
+    assert charts >= 5
+    rows = browser_page.evaluate(
+        "document.querySelectorAll('#trend-log details.trend-interval').length"
+    )
+    assert rows == 2
+    summary = browser_page.inner_text("#trend-log details.trend-interval >> nth=0")
+    assert "+1" in summary
+    # Interval labels must stay navigable when dates are equal or missing:
+    # the two sides of the range must never collapse to the same label.
+    range_text = browser_page.inner_text(
+        "#trend-log details.trend-interval >> nth=0 >> .trend-range"
+    )
+    sides = range_text.split(" → ")
+    assert len(sides) == 2 and sides[0] != sides[1]
+    # Second interval (m1 removed) exercises the removed-count glyph (U+2212).
+    summary_second = browser_page.inner_text("#trend-log details.trend-interval >> nth=1")
+    assert "−1" in summary_second
+
+
+def test_trend_interval_expands_to_id_lists(browser_page, tmp_path):
+    out = _render_trend(tmp_path, "trend_expand.html")
+    browser_page.goto(out.as_uri())
+    browser_page.wait_for_selector("#catalog-body tr", state="attached", timeout=10_000)
+    browser_page.click('.view-button[data-view="trend"]')
+    browser_page.click("#trend-log details.trend-interval >> nth=1 >> summary")
+    body = browser_page.inner_text("#trend-log details.trend-interval >> nth=1")
+    assert "metrics/m1" in body  # removed in the second interval
+
+
+def test_trend_view_url_state_restores(browser_page, tmp_path):
+    out = _render_trend(tmp_path, "trend_url.html")
+    browser_page.goto(out.as_uri() + "#view=trend")
+    browser_page.wait_for_selector("#search-input", state="attached", timeout=10_000)
+    assert browser_page.evaluate("document.getElementById('trend-view').hidden") is False
+
+
+def test_trend_absent_without_flag(browser_page, tmp_path):
+    out = _render_to(tmp_path, "cja_snapshot_messy.json", "notrend.html")
+    browser_page.goto(out.as_uri())
+    browser_page.wait_for_selector("#catalog-body tr", state="attached", timeout=10_000)
+    assert (
+        browser_page.evaluate("document.querySelector('.view-button[data-view=\\'trend\\']')")
+        is None
+    )

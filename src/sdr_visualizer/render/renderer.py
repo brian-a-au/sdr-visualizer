@@ -17,6 +17,7 @@ from jinja2 import Environment, PackageLoader
 from sdr_visualizer.core.exceptions import InvalidSnapshotError
 from sdr_visualizer.core.models import Implementation
 from sdr_visualizer.render.data_payload import build_payload
+from sdr_visualizer.render.trend_charts import build_trend_charts
 
 _env = Environment(
     loader=PackageLoader("sdr_visualizer.render", "templates"),
@@ -93,6 +94,8 @@ def _render_from_payload(payload: dict[str, Any], *, title: str | None) -> str:
         d3_js=d3_js,
         payload_json=payload_json.replace("<", "\\u003c"),
         has_changes="changes" in payload,
+        has_trend="trend" in payload,
+        trend_charts=build_trend_charts(payload["trend"]) if "trend" in payload else [],
         # Snapshot stats for the header strip.
         component_count=payload["meta"]["component_count"],
         metric_count=sum(1 for c in payload["components"] if c["type"] == "metric"),

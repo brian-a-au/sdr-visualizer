@@ -33,11 +33,19 @@ def mutate(snapshot: dict[str, Any]) -> dict[str, Any]:
         if i % 15 == 0:
             record["description"] = "Mutated description for the comparative perf gate."
 
+    existing_ids = {str(r.get("id")) for r in metrics if isinstance(r, dict)}
     clones = []
     for i, record in enumerate(metrics):
         if i % 25 == 0 and isinstance(record, dict):
             clone = copy.deepcopy(record)
-            clone["id"] = f"{clone.get('id') or f'metrics/clone_{i}'}_added"
+            base_id = f"{clone.get('id') or f'metrics/clone_{i}'}_added"
+            candidate = base_id
+            k = 2
+            while candidate in existing_ids:
+                candidate = f"{base_id}{k}"
+                k += 1
+            existing_ids.add(candidate)
+            clone["id"] = candidate
             clone["name"] = f"{clone.get('name') or 'Metric'} (added)"
             clones.append(clone)
     out["metrics"] = metrics + clones
@@ -51,9 +59,35 @@ def mutate(snapshot: dict[str, Any]) -> dict[str, Any]:
 def main() -> int:
     parser = argparse.ArgumentParser(description="Deterministically mutate a CJA snapshot.")
     parser.add_argument("input", help="CJA snapshot JSON to mutate")
-    parser.add_argument("--output", required=True, help="Where to write the mutated snapshot")
+    parser.add_argument("--output", help="Where to write a single mutated snapshot")
+    parser.add_argument(
+        "--series",
+        type=int,
+        help="Write N progressively mutated snapshots (snapshot_2026-01-01T00-00-00.json style names)",
+    )
+    parser.add_argument("--output-dir", help="Directory for --series output")
     args = parser.parse_args()
     snapshot = json.loads(Path(args.input).read_text(encoding="utf-8"))
+
+    if args.series is not None:
+        if args.series < 1:
+            parser.error("--series must be >= 1")
+        if args.series > 336:
+            parser.error("--series must be <= 336 (month-spill filename scheme)")
+        if not args.output_dir:
+            parser.error("--series requires --output-dir")
+        out_dir = Path(args.output_dir)
+        out_dir.mkdir(parents=True, exist_ok=True)
+        current = snapshot
+        for i in range(args.series):
+            name = f"snapshot_2026-{i // 28 + 1:02d}-{i % 28 + 1:02d}T00-00-00.json"
+            (out_dir / name).write_text(json.dumps(current), encoding="utf-8")
+            print(f"wrote {out_dir / name}")
+            current = mutate(current)
+        return 0
+
+    if not args.output:
+        parser.error("--output is required without --series")
     Path(args.output).write_text(json.dumps(mutate(snapshot)), encoding="utf-8")
     print(f"wrote {args.output}")
     return 0

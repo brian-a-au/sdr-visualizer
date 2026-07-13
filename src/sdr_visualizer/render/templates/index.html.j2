@@ -64,11 +64,15 @@
   {% if has_changes %}
   <button type="button" class="view-button" data-view="changes">Changes</button>
   {% endif %}
+  {% if has_trend %}
+  <button type="button" class="view-button" data-view="trend">Trend</button>
+  {% endif %}
 </nav>
 
 {% include "catalog.html.j2" %}
 {% include "graph.html.j2" %}
 {% if has_changes %}{% include "changes.html.j2" %}{% endif %}
+{% if has_trend %}{% include "trend.html.j2" %}{% endif %}
 
 <aside id="detail-panel" class="detail-panel" aria-hidden="true">
   <div class="detail-panel-inner">

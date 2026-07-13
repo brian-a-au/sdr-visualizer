@@ -1,0 +1,13 @@
+<section id="trend-view" class="view view-trend" hidden>
+  <div class="trend-charts">
+    {% for chart in trend_charts %}
+    <div class="trend-chart ui">
+      <div class="trend-chart-label">{{ chart.label }}</div>
+      {{ chart.svg | safe }}
+      <div class="trend-chart-values mono">{{ chart.first }} → {{ chart.last }}</div>
+    </div>
+    {% endfor %}
+  </div>
+  <h2 class="change-group-title ui">Changes between snapshots</h2>
+  <div id="trend-log" class="trend-log"></div>
+</section>
