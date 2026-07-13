@@ -183,3 +183,42 @@ def test_at_on_file_input_warns_and_ignores(tmp_path, capsys):
     snap, _ = load_snapshot(str(f), at="2026-01-01")
     assert snap == {"a": 1}
     assert "--at applies only to snapshot directories" in capsys.readouterr().err
+
+
+def test_directory_drops_untimestamped_file_with_warning(tmp_path, capsys):
+    # An un-timestamped file in an otherwise-timestamped directory is excluded
+    # from selection with the same warning --trend emits (consistent feedback).
+    (tmp_path / "snapshot_2026-01-01T00-00-00.json").write_text('{"a": 1}', encoding="utf-8")
+    (tmp_path / "snapshot_2026-02-01T00-00-00.json").write_text('{"b": 2}', encoding="utf-8")
+    (tmp_path / "plain.json").write_text('{"c": 3}', encoding="utf-8")
+    snap, _ = load_snapshot(str(tmp_path))
+    assert snap == {"b": 2}  # latest timestamped; plain.json excluded
+    assert (
+        "skipping plain.json: no filename timestamp while other snapshots have one"
+        in capsys.readouterr().err
+    )
+
+
+def test_mode3_ignores_platform_with_warning(tmp_path, monkeypatch, capsys):
+    # --platform does not apply to Mode 3 (the flag selects the platform), so a
+    # contradictory --platform is ignored with a warning rather than forced onto
+    # a mismatched adapter (which would exit 3).
+    payload = json.loads((FIXTURES / "cja_snapshot_clean.json").read_text(encoding="utf-8"))
+    monkeypatch.setattr(
+        "sdr_visualizer.input.shell_out.shutil.which",
+        lambda name: "/usr/local/bin/" + name,
+    )
+
+    class FakeRun:
+        def __init__(self, stdout: str):
+            self.stdout = stdout
+            self.returncode = 0
+
+    monkeypatch.setattr(
+        "sdr_visualizer.input.shell_out.subprocess.run",
+        lambda cmd, **kwargs: FakeRun(json.dumps(payload)),
+    )
+    output = tmp_path / "out.html"
+    rc = main(["--dataview", "dv_xyz", "--platform", "aa", "--output", str(output), "--quiet"])
+    assert rc == 0
+    assert "--platform does not apply to --dataview / --rsid" in capsys.readouterr().err

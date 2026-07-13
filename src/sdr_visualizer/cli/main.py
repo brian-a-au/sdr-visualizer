@@ -57,6 +57,16 @@ def main(argv: list[str] | None = None) -> int:
         parser.error("--trend and --compare-to are mutually exclusive")
     if args.trend and (args.dataview or args.rsid):
         parser.error("--trend applies only to snapshot directories")
+    if (args.dataview or args.rsid) and args.platform:
+        # Mode 3 already fixes the platform (--dataview -> CJA, --rsid -> AA);
+        # honoring --platform here could force a mismatched adapter. Ignore it
+        # with a warning, mirroring how --at is handled for these modes.
+        print(
+            "sdr-visualizer: --platform does not apply to --dataview / --rsid "
+            "(the mode selects the platform); ignoring",
+            file=sys.stderr,
+        )
+        args.platform = None
 
     try:
         trend = None
@@ -142,7 +152,11 @@ def _load_baseline(args: argparse.Namespace, impl: Implementation) -> Implementa
         raise InvalidSnapshotError(
             "--compare-to does not accept stdin ('-'); pass a file or directory"
         )
-    snapshot, source = load_snapshot(args.compare_to)
+    # --at resolves a baseline *directory* the same way it resolves the primary
+    # directory (to the snapshot at or before the target); a file baseline
+    # ignores it without a spurious "ignoring" warning.
+    compare_at = args.at if Path(args.compare_to).is_dir() else None
+    snapshot, source = load_snapshot(args.compare_to, at=compare_at)
     baseline = build_implementation(snapshot, source=source, platform=args.platform)
     if baseline.platform != impl.platform:
         raise InvalidSnapshotError(
@@ -244,7 +258,8 @@ def _build_parser() -> argparse.ArgumentParser:
     p.add_argument(
         "--at",
         help=(
-            "When path is a directory, pick the snapshot closest to (and not after) this timestamp."
+            "For a directory (the path or a --compare-to baseline), pick the snapshot "
+            "closest to (and not after) this timestamp."
         ),
     )
     p.add_argument(

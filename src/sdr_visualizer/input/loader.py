@@ -95,6 +95,17 @@ def _pick_snapshot(candidates: list[Path], *, at: str | None) -> Path:
     """
     annotated: list[tuple[Path, datetime | None]] = [(p, _extract_timestamp(p)) for p in candidates]
     has_timestamp = [(p, ts) for p, ts in annotated if ts is not None]
+    if has_timestamp and len(has_timestamp) < len(annotated):
+        # Mixed directory: some files carry a filename timestamp, some don't.
+        # The un-timestamped ones can't be ordered against the rest, so they are
+        # excluded from selection — with the same warning --trend emits.
+        for p, ts in annotated:
+            if ts is None:
+                print(
+                    f"sdr-visualizer: warning: skipping {p.name}: no filename timestamp "
+                    "while other snapshots have one",
+                    file=sys.stderr,
+                )
     if not has_timestamp:
         # Fall back to filesystem mtime — deterministic across runs on the
         # same machine, even if not portable.

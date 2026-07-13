@@ -240,6 +240,37 @@ def test_compare_to_directory_resolves_latest(tmp_path):
     assert payload["meta"]["compared_to"]["source"].endswith("snapshot_2026-06-01T00-00-00.json")
 
 
+def test_compare_to_directory_honors_at(tmp_path):
+    # --at resolves a --compare-to baseline directory the same way it resolves
+    # the primary directory: to the snapshot at or before the target, not latest.
+    base_dir = tmp_path / "baselines"
+    base_dir.mkdir()
+    _write_json(base_dir / "snapshot_2026-01-01T00-00-00.json", _cja_compare_snapshot("Old Name"))
+    _write_json(base_dir / "snapshot_2026-06-01T00-00-00.json", _cja_compare_snapshot("Metric One"))
+    new = _write_json(tmp_path / "new.json", _cja_compare_snapshot("Metric One"))
+    out = tmp_path / "out.html"
+    rc = main(
+        [
+            str(new),
+            "--compare-to",
+            str(base_dir),
+            "--at",
+            "2026-03-01",
+            "--output",
+            str(out),
+            "--quiet",
+        ]
+    )
+    assert rc == 0
+    payload = extract_payload(out.read_text(encoding="utf-8"))
+    # --at pins the baseline to the January snapshot ("Old Name"); comparing the
+    # "Metric One" primary against it shows the rename. Latest (June) shows none.
+    assert payload["changes"]["modified"][0]["fields"] == [
+        {"field": "name", "old": "Old Name", "new": "Metric One"}
+    ]
+    assert payload["meta"]["compared_to"]["source"].endswith("snapshot_2026-01-01T00-00-00.json")
+
+
 def _trend_dir(tmp_path, names_and_metric_lists):
     d = tmp_path / "series"
     d.mkdir()

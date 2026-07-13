@@ -34,6 +34,16 @@ All notable changes to `sdr-visualizer` will be documented here. The format foll
   `--allow-instance-mismatch` to restore the cross-instance comparison on
   demand.
 
+### Fixed
+
+- **Cross-command flag consistency.** `--at` now resolves a `--compare-to`
+  baseline directory the same way it resolves the primary directory (it was
+  silently ignored for the baseline, which always used the latest snapshot).
+  A directory mixing timestamped and un-timestamped snapshots now warns about
+  the dropped un-timestamped files in single-snapshot and `--compare-to`
+  selection, matching `--trend`. `--platform` combined with `--dataview` /
+  `--rsid` is ignored with a warning instead of forcing a mismatched adapter.
+
 ## [0.4.0] - 2026-07-11
 
 ### Added
