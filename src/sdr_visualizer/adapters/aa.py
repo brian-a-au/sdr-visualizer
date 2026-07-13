@@ -50,8 +50,10 @@ def adapt(snapshot: dict[str, Any], *, source: str = "<unknown>") -> Implementat
         _component_from_record(r, "dimension", classifications_by_parent) for r in dims_raw
     ]
     metrics = [_component_from_record(r, "metric", classifications_by_parent) for r in metrics_raw]
-    calculated_metrics = [_calc_from_record(r) for r in (snapshot.get("calculated_metrics") or [])]
-    segments = [_segment_from_record(r) for r in (snapshot.get("segments") or [])]
+    calculated_metrics = [
+        _calc_from_record(r) for r in _as_list(snapshot.get("calculated_metrics"))
+    ]
+    segments = [_segment_from_record(r) for r in _as_list(snapshot.get("segments"))]
 
     return Implementation(
         platform="aa",
@@ -89,7 +91,7 @@ def _component_from_record(
     description = _normalize_description(record.get("description"))
     data_type = record.get("type")
     polarity = _normalize_polarity(record.get("polarity"))
-    tags = list(record.get("tags") or [])
+    tags = _as_list(record.get("tags"))
     # Pick up classifications attached to this component as tags.
     extra_class_tags = classifications_by_parent.get(str(component_id), [])
     if extra_class_tags:
@@ -178,7 +180,7 @@ def _calc_from_record(record: Any) -> CalculatedMetric:
         formula_text=formula_text,
         attribution_model=record.get("attribution") or record.get("attribution_model"),
         allocation=record.get("allocation"),
-        complexity_score=float(record.get("complexity_score") or 0.0),
+        complexity_score=_as_float(record.get("complexity_score")),
         references=references,
         created_at=record.get("created") or record.get("created_at"),
         modified_at=record.get("modified") or record.get("modified_at"),
@@ -280,6 +282,28 @@ def _walk_segment_definition(definition: Any) -> tuple[int, list[str]]:
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
+
+def _as_list(value: Any) -> list[Any]:
+    """Coerce an optional list field. Missing / None / empty stays [];
+    a malformed non-list scalar is treated as absent rather than crashing a
+    later list() or *-unpack. The adapter must never raise a bare TypeError on
+    a wrong-typed optional field (fuzz contract)."""
+    return value if isinstance(value, list) else []
+
+
+def _as_float(value: Any) -> float:
+    """Coerce a numeric field to float, preserving the old `value or 0.0`
+    default for falsy input. A present but unconvertible value is a malformed
+    snapshot: raise InvalidSnapshotError rather than leak a bare
+    ValueError/TypeError (the trend loader skips such a snapshot; a single
+    snapshot exits 3)."""
+    if not value:
+        return 0.0
+    try:
+        return float(value)
+    except (TypeError, ValueError) as exc:
+        raise InvalidSnapshotError(f"expected a number, got {value!r}") from exc
 
 
 def _ensure_list(snapshot: dict[str, Any], key: str) -> list[Any]:

@@ -24,6 +24,7 @@ Issues = "https://github.com/brian-a-au/sdr-visualizer/issues"
 dev = [
     "pytest>=8.0",
     "ruff>=0.4",
+    "hypothesis>=6.100",
 ]
 browser = [
     "playwright>=1.43",

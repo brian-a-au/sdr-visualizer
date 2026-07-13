@@ -124,7 +124,7 @@ def _component_from_record(record: dict[str, Any], component_type: str) -> Compo
         created_at=record.get("created") or record.get("created_at"),
         modified_at=record.get("modified") or record.get("modified_at"),
         owner=record.get("owner"),
-        tags=list(record.get("tags") or []),
+        tags=_as_list(record.get("tags")),
         platform_specific=platform_specific,
     )
 
@@ -177,7 +177,7 @@ def _derived_field_from_record(record: dict[str, Any]) -> Component:
         created_at=record.get("created") or record.get("created_at"),
         modified_at=record.get("modified") or record.get("modified_at"),
         owner=record.get("owner"),
-        tags=list(record.get("tags") or []),
+        tags=_as_list(record.get("tags")),
         platform_specific=platform_specific,
     )
 
@@ -210,12 +210,12 @@ def _calc_metric_from_record(record: dict[str, Any]) -> CalculatedMetric:
     references = list(
         dict.fromkeys(
             [
-                *(record.get("metric_references") or []),
-                *(record.get("segment_references") or []),
+                *_as_list(record.get("metric_references")),
+                *_as_list(record.get("segment_references")),
             ]
         )
     )
-    complexity = float(record.get("complexity_score") or 0.0)
+    complexity = _as_float(record.get("complexity_score"))
 
     attribution_model, allocation = _extract_attribution(formula)
 
@@ -283,14 +283,14 @@ def _segment_from_record(record: dict[str, Any]) -> Segment:
     name = record.get("segment_name") or record.get("name") or segment_id
     description = _normalize_description(record.get("description"))
     definition = _parse_definition_json(record.get("definition_json"))
-    nesting_depth = int(record.get("nesting_depth") or 0)
+    nesting_depth = _as_int(record.get("nesting_depth"))
     container_types = _extract_container_types(record.get("container_type"), definition)
     references = list(
         dict.fromkeys(
             [
-                *(record.get("dimension_references") or []),
-                *(record.get("metric_references") or []),
-                *(record.get("other_segment_references") or []),
+                *_as_list(record.get("dimension_references")),
+                *_as_list(record.get("metric_references")),
+                *_as_list(record.get("other_segment_references")),
             ]
         )
     )
@@ -342,6 +342,40 @@ def _walk_for_contexts(node: Any, out: list[str]) -> None:
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
+
+def _as_list(value: Any) -> list[Any]:
+    """Coerce an optional list field. Missing / None / empty stays [];
+    a malformed non-list scalar is treated as absent rather than crashing a
+    later list() or *-unpack. The adapter must never raise a bare TypeError on
+    a wrong-typed optional field (fuzz contract)."""
+    return value if isinstance(value, list) else []
+
+
+def _as_float(value: Any) -> float:
+    """Coerce a numeric field to float, preserving the old `value or 0.0`
+    default for falsy input. A present but unconvertible value is a malformed
+    snapshot: raise InvalidSnapshotError rather than leak a bare
+    ValueError/TypeError (the trend loader skips such a snapshot; a single
+    snapshot exits 3)."""
+    if not value:
+        return 0.0
+    try:
+        return float(value)
+    except (TypeError, ValueError) as exc:
+        raise InvalidSnapshotError(f"expected a number, got {value!r}") from exc
+
+
+def _as_int(value: Any) -> int:
+    """Coerce an integer field, preserving the old `value or 0` default for
+    falsy input. A present but unconvertible value raises InvalidSnapshotError
+    rather than a bare ValueError/TypeError (see _as_float)."""
+    if not value:
+        return 0
+    try:
+        return int(value)
+    except (TypeError, ValueError) as exc:
+        raise InvalidSnapshotError(f"expected an integer, got {value!r}") from exc
 
 
 def _require_dict(snapshot: dict[str, Any], key: str) -> dict[str, Any]:

@@ -176,3 +176,35 @@ def test_classification_without_name_or_id_is_skipped():
         ]
     )
     assert idx == {"variables/evar1": ["Campaign"]}
+
+
+# ---------------------------------------------------------------------------
+# Fuzz-found regressions: malformed optional fields must degrade gracefully,
+# never raise a bare TypeError/ValueError (see tests/test_adapter_fuzz.py).
+# ---------------------------------------------------------------------------
+
+
+def test_truthy_non_list_tags_coerce_to_empty():
+    snap = json.loads((FIXTURES / "aa_snapshot_clean.json").read_text(encoding="utf-8"))
+    snap["dimensions"][0]["tags"] = 7  # not a list
+    impl = adapt(snap)  # must not raise "'int' object is not iterable"
+    assert impl.dimensions[0].tags == []
+
+
+def test_truthy_non_list_calc_and_segment_sections_coerce_to_empty():
+    snap = json.loads((FIXTURES / "aa_snapshot_clean.json").read_text(encoding="utf-8"))
+    snap["calculated_metrics"] = 7  # optional section, not a list
+    snap["segments"] = 7
+    impl = adapt(snap)  # must not raise "'int' object is not iterable"
+    assert impl.calculated_metrics == []
+    assert impl.segments == []
+
+
+def test_non_numeric_complexity_score_rejected_as_invalid_not_bare_error():
+    # A present-but-unconvertible numeric scalar is a malformed snapshot: it
+    # must surface as InvalidSnapshotError (the trend loader skips it; a single
+    # snapshot exits 3), never a bare ValueError/TypeError.
+    snap = json.loads((FIXTURES / "aa_snapshot_clean.json").read_text(encoding="utf-8"))
+    snap["calculated_metrics"][0]["complexity_score"] = "high"  # not float()-able
+    with pytest.raises(InvalidSnapshotError):
+        adapt(snap)
