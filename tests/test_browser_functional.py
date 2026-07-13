@@ -3,7 +3,7 @@
 These verify behavior pytest can't see from the Python side: script
 injection actually not executing, URL state restoring, and the radial
 layout positioning nodes. Skipped automatically when playwright isn't
-installed (`uv sync --group browser` + `uv run playwright install chromium`).
+installed (`uv sync --group browser` + `uv run playwright install chromium webkit`).
 CI runs them in the browser-perf job.
 """
 
@@ -29,10 +29,20 @@ from sdr_visualizer.render.renderer import (  # noqa: E402
 FIXTURES = Path(__file__).parent / "fixtures"
 
 
-@pytest.fixture(scope="module")
-def browser_page():
+@pytest.fixture(scope="module", params=["chromium", "webkit"])
+def browser_page(request):
+    """One page per engine; every test in this module runs on both.
+
+    The perf budgets (scripts/perf_browser_check.py) stay chromium-only —
+    §6 numbers were set against Chromium. This fixture is about functional
+    parity: the Safari date bug (0.3.0 audit M5) was caught by review, not
+    CI, and webkit coverage closes that gap.
+    """
     with playwright_sync.sync_playwright() as pw:
-        browser = pw.chromium.launch(headless=True)
+        try:
+            browser = getattr(pw, request.param).launch(headless=True)
+        except Exception as exc:  # engine not installed in this environment
+            pytest.skip(f"{request.param} not available: {exc}")
         page = browser.new_page()
         yield page
         browser.close()
