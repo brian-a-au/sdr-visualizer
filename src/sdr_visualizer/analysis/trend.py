@@ -12,6 +12,7 @@ judgment is attached to any of them.
 
 from __future__ import annotations
 
+from pathlib import Path
 from typing import Any
 
 from sdr_visualizer.analysis.diff import diff_implementations
@@ -60,8 +61,8 @@ def build_trend(impls: list[Implementation], *, capped: bool) -> dict[str, Any]:
             {
                 "from": prev.snapshot_taken_at or prev.snapshot_source,
                 "to": curr.snapshot_taken_at or curr.snapshot_source,
-                "from_source": prev.snapshot_source.rsplit("/", 1)[-1],
-                "to_source": curr.snapshot_source.rsplit("/", 1)[-1],
+                "from_source": Path(prev.snapshot_source).name,
+                "to_source": Path(curr.snapshot_source).name,
                 "added": [e["id"] for e in diff["added"]],
                 "removed": [e["id"] for e in diff["removed"]],
                 "modified": [e["id"] for e in diff["modified"]],

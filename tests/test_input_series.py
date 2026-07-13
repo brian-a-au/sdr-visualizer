@@ -136,6 +136,15 @@ def test_bad_at_value_raises(tmp_path):
         list_snapshot_series(str(tmp_path), at="not-a-date")
 
 
+def test_at_excluding_all_but_one_reports_at_specific_error(tmp_path):
+    # --at older than every snapshot leaves too few; the error must point at
+    # --at, not claim the (parseable) snapshots are unparseable.
+    _write(tmp_path, "snapshot_2026-05-01T00-00-00.json", {"n": 1})
+    _write(tmp_path, "snapshot_2026-06-01T00-00-00.json", {"n": 2})
+    with pytest.raises(InvalidSnapshotError, match="at or before"):
+        list_snapshot_series(str(tmp_path), at="2026-01-01")
+
+
 def test_unstamped_file_dropped_from_mixed_directory_warns(tmp_path, capsys):
     _write(tmp_path, "snapshot_2026-01-01T00-00-00.json", {"n": 1})
     _write(tmp_path, "snapshot_2026-02-01T00-00-00.json", {"n": 2})

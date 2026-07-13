@@ -71,6 +71,13 @@ def list_snapshot_series(
                 "use ISO-8601 (e.g. 2026-04-25 or 2026-04-25T09:14)."
             )
         stamped = [(p, ts) for p, ts in stamped if ts <= target]
+        if len(stamped) < 2:
+            # --at is the limiting factor here, not corruption; say so plainly
+            # instead of the generic "needs at least 2 parseable" below.
+            raise InvalidSnapshotError(
+                f"--trend found only {len(stamped)} snapshot(s) at or before {at!r}; "
+                "at least 2 are required (widen or drop --at)"
+            )
 
     stamped.sort(key=lambda pair: pair[1])
 
