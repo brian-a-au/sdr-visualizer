@@ -95,7 +95,7 @@ The fixtures may diverge from sdr-grader's over time — the visualizer wants mo
 - `_parse_tag_list` / `_parse_ref_list` — parse `tags` and reference fields that `cja_auto_sdr` ships as JSON-encoded list strings (`'["a"]'`), tolerating native lists and dropping anything unparseable to `[]`.
 - `_optional_list` (AA) — an absent/null optional section is `[]`, but a present non-list value raises `InvalidSnapshotError` (a malformed export, not an empty one). CJA gets the same guarantee through `_section_records`.
 
-**Grader-only (do not port — evaluative, not descriptive):** the grader carries governance helpers (`_governance_approved`, `_governance_shared_to_count`, `_normalize_owner`, `_aa_governance_signals`) that feed its grading rules. The visualizer describes; it doesn't grade, so it never adopts them.
+**Grader-only (do not port — evaluative, not descriptive):** the grader carries logic that exists only to serve its grading rules — governance signals (`_governance_approved`, `_governance_shared_to_count`, `_normalize_owner`, `_aa_governance_signals`) and inline-echo de-duplication (`_echoes_derived_field`, which drops a metric/dimension that merely re-declares a derived field so rule SCH-001 doesn't false-fire on the duplicate name). The visualizer describes rather than grades: it keeps such echoes and instead warns on duplicate component ids (last-writer-wins for anatomy), so it never adopts these helpers.
 
 **Visualizer-only numeric coercion — intentional divergence, do NOT reconcile to the grader:** `_as_float` / `_as_int` are the visualizer's variant of the grader's tolerant `_safe_float` / `_safe_int`. Two deltas, both driven by visualizer-only features:
 
