@@ -386,15 +386,19 @@ def _parse_ref_list(value: Any) -> list[str]:
 
 
 def _as_float(value: Any) -> float:
-    """Coerce a numeric field to float, preserving the old `value or 0.0`
-    default for falsy input. A present but unconvertible value is a malformed
-    snapshot: raise InvalidSnapshotError rather than leak a bare
-    ValueError/TypeError (the trend loader skips such a snapshot; a single
-    snapshot exits 3). NaN/Infinity intentionally pass through unchanged — the
-    renderer's allow_nan=False guard rejects them loudly (audit H2). Unlike
-    sdr-grader (which coerces NaN to a default because it is evaluative), the
-    visualizer must not emit a report that cannot boot in a browser, so it
-    rejects rather than silently substituting 0.0."""
+    """The visualizer's variant of sdr-grader's `_safe_float` (SPEC §11/§15).
+    Two intentional deltas from the grader, both driven by visualizer-only
+    behavior — do NOT reconcile them away to match the sibling:
+
+    1. A present but unconvertible value RAISES InvalidSnapshotError (the
+       grader returns a default). Trend mode relies on the raise to skip a
+       malformed snapshot; a single snapshot exits 3.
+    2. NaN/Infinity pass through unchanged (the grader coerces them to a
+       default). The renderer's allow_nan=False guard then rejects the
+       snapshot loudly (audit H2) — a report that cannot boot in a browser is
+       worse than a rejected one.
+
+    Falsy input keeps the old `value or 0.0` default."""
     if not value:
         return 0.0
     try:
@@ -404,9 +408,9 @@ def _as_float(value: Any) -> float:
 
 
 def _as_int(value: Any) -> int:
-    """Coerce an integer field, preserving the old `value or 0` default for
-    falsy input. A present but unconvertible value raises InvalidSnapshotError
-    rather than a bare ValueError/TypeError (see _as_float)."""
+    """The visualizer's variant of sdr-grader's `_safe_int`; see _as_float for
+    the intentional raise-on-unconvertible delta. Falsy input keeps the old
+    `value or 0` default."""
     if not value:
         return 0
     try:

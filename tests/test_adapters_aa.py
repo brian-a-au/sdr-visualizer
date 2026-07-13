@@ -191,11 +191,22 @@ def test_truthy_non_list_tags_coerce_to_empty():
     assert impl.dimensions[0].tags == []
 
 
-def test_truthy_non_list_calc_and_segment_sections_coerce_to_empty():
+def test_present_non_list_optional_section_rejected_not_bare_error():
+    # _optional_list (vendored from sdr-grader): a null/absent section is [],
+    # but a present non-list value is a malformed export -> InvalidSnapshotError,
+    # never a bare "'int' object is not iterable". Matches the grader and the
+    # CJA adapter's own _section_records.
     snap = json.loads((FIXTURES / "aa_snapshot_clean.json").read_text(encoding="utf-8"))
-    snap["calculated_metrics"] = 7  # optional section, not a list
-    snap["segments"] = 7
-    impl = adapt(snap)  # must not raise "'int' object is not iterable"
+    snap["calculated_metrics"] = 7  # present but not a list
+    with pytest.raises(InvalidSnapshotError):
+        adapt(snap)
+
+
+def test_absent_optional_sections_are_empty():
+    snap = json.loads((FIXTURES / "aa_snapshot_clean.json").read_text(encoding="utf-8"))
+    snap["calculated_metrics"] = None
+    snap.pop("segments", None)
+    impl = adapt(snap)
     assert impl.calculated_metrics == []
     assert impl.segments == []
 

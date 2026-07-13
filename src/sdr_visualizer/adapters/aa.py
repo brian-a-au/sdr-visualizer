@@ -52,9 +52,9 @@ def adapt(snapshot: dict[str, Any], *, source: str = "<unknown>") -> Implementat
     ]
     metrics = [_component_from_record(r, "metric", classifications_by_parent) for r in metrics_raw]
     calculated_metrics = [
-        _calc_from_record(r) for r in _as_list(snapshot.get("calculated_metrics"))
+        _calc_from_record(r) for r in _optional_list(snapshot, "calculated_metrics")
     ]
-    segments = [_segment_from_record(r) for r in _as_list(snapshot.get("segments"))]
+    segments = [_segment_from_record(r) for r in _optional_list(snapshot, "segments")]
 
     return Implementation(
         platform="aa",
@@ -305,23 +305,34 @@ def _parse_tag_list(value: Any) -> list[str]:
     return []
 
 
-def _as_list(value: Any) -> list[Any]:
-    """Coerce an optional section list (calculated_metrics, segments). Missing
-    / None / empty stays []; a malformed non-list scalar is treated as absent
-    rather than crashing a later `for` loop (fuzz contract)."""
-    return value if isinstance(value, list) else []
+def _optional_list(snapshot: dict[str, Any], key: str) -> list[Any]:
+    """Optional sections (segments, calculated_metrics) may be absent or null,
+    but a present non-list value is a malformed export, not an empty one.
+    Vendored verbatim from sdr-grader (SPEC §11/§15)."""
+    value = snapshot.get(key)
+    if value is None:
+        return []
+    if not isinstance(value, list):
+        raise InvalidSnapshotError(
+            f"AA snapshot '{key}' must be a list, got {type(value).__name__}"
+        )
+    return value
 
 
 def _as_float(value: Any) -> float:
-    """Coerce a numeric field to float, preserving the old `value or 0.0`
-    default for falsy input. A present but unconvertible value is a malformed
-    snapshot: raise InvalidSnapshotError rather than leak a bare
-    ValueError/TypeError (the trend loader skips such a snapshot; a single
-    snapshot exits 3). NaN/Infinity intentionally pass through unchanged — the
-    renderer's allow_nan=False guard rejects them loudly (audit H2). Unlike
-    sdr-grader (which coerces NaN to a default because it is evaluative), the
-    visualizer must not emit a report that cannot boot in a browser, so it
-    rejects rather than silently substituting 0.0."""
+    """The visualizer's variant of sdr-grader's `_safe_float` (SPEC §11/§15).
+    Two intentional deltas from the grader, both driven by visualizer-only
+    behavior — do NOT reconcile them away to match the sibling:
+
+    1. A present but unconvertible value RAISES InvalidSnapshotError (the
+       grader returns a default). Trend mode relies on the raise to skip a
+       malformed snapshot; a single snapshot exits 3.
+    2. NaN/Infinity pass through unchanged (the grader coerces them to a
+       default). The renderer's allow_nan=False guard then rejects the
+       snapshot loudly (audit H2) — a report that cannot boot in a browser is
+       worse than a rejected one.
+
+    Falsy input keeps the old `value or 0.0` default."""
     if not value:
         return 0.0
     try:
