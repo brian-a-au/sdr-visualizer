@@ -7,7 +7,6 @@ on:
 
 permissions:
   contents: write
-  id-token: write   # required for PyPI trusted publishing
 
 jobs:
   browser-perf:
@@ -16,9 +15,10 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Install uv
-        uses: astral-sh/setup-uv@v3
+        uses: astral-sh/setup-uv@11f9893b081a58869d3b5fccaea48c9e9e46f990 # v8.3.2
         with:
           enable-cache: true
+          prune-cache: false
 
       - name: Set up Python
         run: uv python install 3.12
@@ -26,8 +26,8 @@ jobs:
       - name: Sync dependencies
         run: uv sync --dev --group browser
 
-      - name: Install Chromium
-        run: uv run playwright install --with-deps chromium
+      - name: Install browsers
+        run: uv run playwright install --with-deps chromium webkit
 
       - name: Generate fixtures
         run: |
@@ -48,7 +48,10 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Install uv
-        uses: astral-sh/setup-uv@v3
+        uses: astral-sh/setup-uv@11f9893b081a58869d3b5fccaea48c9e9e46f990 # v8.3.2
+        with:
+          enable-cache: true
+          prune-cache: false
 
       - name: Set up Python
         run: uv python install 3.12
@@ -94,15 +97,34 @@ jobs:
       - name: Upload distributions to GitHub release
         uses: softprops/action-gh-release@v2
         with:
-          files: dist/*
+          files: |
+            dist/*.whl
+            dist/*.tar.gz
           generate_release_notes: true
+
+      - name: Store distributions for the publish job
+        uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: |
+            dist/*.whl
+            dist/*.tar.gz
+
+  publish:
+    needs: build
+    runs-on: ubuntu-latest
+    # Trusted publishing: the pypi.org pending publisher names this
+    # workflow and this environment. No token is stored anywhere; the
+    # OIDC id-token below is the whole credential.
+    environment: pypi
+    permissions:
+      id-token: write
+    steps:
+      - name: Fetch distributions
+        uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist
 
       - name: Upload distributions to PyPI
         uses: pypa/gh-action-pypi-publish@release/v1
-        continue-on-error: true
-        # Trusted-publisher relationship must be configured on PyPI for the
-        # repo before this step succeeds. Until then, this step is allowed
-        # to fail without blocking the release — GitHub release artifacts
-        # are still produced by the previous step. To enforce PyPI
-        # publishing once trusted-publisher is configured, drop the
-        # `continue-on-error: true` line above.

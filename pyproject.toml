@@ -1,6 +1,6 @@
 [project]
 name = "sdr-visualizer"
-version = "0.5.0"
+version = "0.6.0"
 description = "Static-output visual catalog generator for Adobe Customer Journey Analytics and Adobe Analytics implementations."
 readme = "README.md"
 license = "MIT"
@@ -24,6 +24,7 @@ Issues = "https://github.com/brian-a-au/sdr-visualizer/issues"
 dev = [
     "pytest>=8.0",
     "ruff>=0.4",
+    "hypothesis>=6.100",
 ]
 browser = [
     "playwright>=1.43",
@@ -35,6 +36,22 @@ build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/sdr_visualizer"]
+
+# The sdist is an explicit allowlist: the build runs from a working
+# directory that also holds untracked reference material, and hatchling's
+# default is to include every non-gitignored file. README, LICENSE,
+# THIRD_PARTY_LICENSES, pyproject.toml, and .gitignore are added by
+# hatchling automatically.
+[tool.hatch.build.targets.sdist]
+include = [
+    "src/sdr_visualizer",
+    "tests",
+    "scripts",
+    "docs/*.md",
+    "CHANGELOG.md",
+    "CONTRIBUTING.md",
+    "SECURITY.md",
+]
 
 [tool.pytest.ini_options]
 minversion = "8.0"

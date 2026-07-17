@@ -285,3 +285,95 @@ def test_null_reference_keys_parse_as_empty():
     impl = adapt(snap)  # must not raise TypeError
     assert impl.calculated_metrics[0].references == []
     assert impl.segments[0].references == []
+
+
+# ---------------------------------------------------------------------------
+# Fuzz-found regressions: malformed optional fields must degrade gracefully,
+# never raise a bare TypeError/ValueError (see tests/test_adapter_fuzz.py).
+# ---------------------------------------------------------------------------
+
+
+def test_truthy_non_list_tags_coerce_to_empty():
+    snap = json.loads((FIXTURES / "cja_snapshot_clean.json").read_text(encoding="utf-8"))
+    snap["metrics"][0]["tags"] = 7  # not a list
+    impl = adapt(snap)  # must not raise "'int' object is not iterable"
+    assert impl.metrics[0].tags == []
+
+
+def test_truthy_non_list_reference_fields_coerce_to_empty():
+    snap = json.loads((FIXTURES / "cja_snapshot_clean.json").read_text(encoding="utf-8"))
+    # Every reference sub-field on the record made a truthy non-list: each is
+    # dropped rather than crashing the *-unpack, so the merged list is empty.
+    snap["calculated_metrics"]["metrics"][0]["metric_references"] = 7
+    snap["calculated_metrics"]["metrics"][0]["segment_references"] = 7
+    snap["segments"]["segments"][0]["dimension_references"] = 7
+    snap["segments"]["segments"][0]["metric_references"] = 7
+    snap["segments"]["segments"][0]["other_segment_references"] = 7
+    impl = adapt(snap)  # must not raise "Value after * must be an iterable"
+    assert impl.calculated_metrics[0].references == []
+    assert impl.segments[0].references == []
+
+
+def test_non_numeric_nesting_depth_rejected_as_invalid_not_bare_error():
+    # A present-but-unconvertible numeric scalar is a malformed snapshot: it
+    # must surface as InvalidSnapshotError (the trend loader skips it; a single
+    # snapshot exits 3), never a bare ValueError/TypeError.
+    snap = json.loads((FIXTURES / "cja_snapshot_clean.json").read_text(encoding="utf-8"))
+    snap["segments"]["segments"][0]["nesting_depth"] = "deep"  # not int()-able
+    with pytest.raises(InvalidSnapshotError):
+        adapt(snap)
+
+
+def test_non_numeric_complexity_score_rejected_as_invalid_not_bare_error():
+    snap = json.loads((FIXTURES / "cja_snapshot_clean.json").read_text(encoding="utf-8"))
+    snap["calculated_metrics"]["metrics"][0]["complexity_score"] = "high"  # not float()-able
+    with pytest.raises(InvalidSnapshotError):
+        adapt(snap)
+
+
+def test_falsy_numeric_scalars_still_default():
+    # Falsy values keep the old `value or 0` default — only truthy garbage raises.
+    snap = json.loads((FIXTURES / "cja_snapshot_clean.json").read_text(encoding="utf-8"))
+    snap["segments"]["segments"][0]["nesting_depth"] = ""
+    snap["calculated_metrics"]["metrics"][0]["complexity_score"] = None
+    impl = adapt(snap)
+    assert impl.segments[0].nesting_depth == 0
+    assert impl.calculated_metrics[0].complexity_score == 0.0
+
+
+# ---------------------------------------------------------------------------
+# sdr-grader parity: cja_auto_sdr ships tags/refs as JSON-encoded list strings.
+# Match the grader's _parse_tag_list / _parse_ref_list behavior (SPEC §11/§15).
+# ---------------------------------------------------------------------------
+
+
+def test_stringified_tags_are_parsed_not_dropped():
+    # A JSON-encoded list string must parse to real tags, not iterate as chars
+    # (the old `list(... or [])` bug) and not silently drop to [].
+    snap = json.loads((FIXTURES / "cja_snapshot_clean.json").read_text(encoding="utf-8"))
+    snap["metrics"][0]["tags"] = '["campaign", "paid"]'
+    impl = adapt(snap)
+    assert impl.metrics[0].tags == ["campaign", "paid"]
+
+
+def test_stringified_reference_lists_are_parsed():
+    snap = json.loads((FIXTURES / "cja_snapshot_clean.json").read_text(encoding="utf-8"))
+    snap["calculated_metrics"]["metrics"][0]["metric_references"] = '["metrics/x"]'
+    snap["calculated_metrics"]["metrics"][0]["segment_references"] = []
+    impl = adapt(snap)
+    assert impl.calculated_metrics[0].references == ["metrics/x"]
+
+
+def test_nan_complexity_score_passes_through_adapter_for_renderer_to_reject():
+    # Deliberate divergence from sdr-grader (which coerces NaN to a default):
+    # the visualizer passes NaN through so the renderer's allow_nan=False guard
+    # rejects the snapshot loudly rather than emit a report that can't boot in
+    # a browser (audit H2). See test_renderer's
+    # test_nan_in_snapshot_raises_invalid_snapshot_error and test_cli's
+    # test_nan_snapshot_exits_3.
+    import math
+
+    snap = json.loads((FIXTURES / "cja_snapshot_clean.json").read_text(encoding="utf-8"))
+    snap["calculated_metrics"]["metrics"][0]["complexity_score"] = float("nan")
+    impl = adapt(snap)
+    assert math.isnan(impl.calculated_metrics[0].complexity_score)

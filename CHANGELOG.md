@@ -2,6 +2,66 @@
 
 All notable changes to `sdr-visualizer` will be documented here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.6.0] - 2026-07-17
+
+### Added
+
+- Property-based fuzz suite (`tests/test_adapter_fuzz.py`, ported from
+  sdr-grader and extended): random and mutated-fixture inputs must produce
+  a valid report or `InvalidSnapshotError` — never a bare crash — through
+  the adapters AND the render path, including the NaN/Infinity payload
+  class.
+- Browser functional tests now run on webkit as well as Chromium in CI;
+  performance budgets remain Chromium-only by design.
+- `scripts/corpus_check.py`: sweep a private directory tree of real
+  snapshots through the full build, asserting adapter acceptance, payload
+  serializability, embedded-payload parseability, and (optionally) the
+  §6 size budget per tier. A clean corpus sweep becomes the 1.0.0 gate;
+  swept clean ahead of this release over the local real corpus
+  (108 snapshots, budget checks included).
+- Contributor hygiene: `CONTRIBUTING.md`, PR and issue templates, and
+  `SECURITY.md` with private reporting via GitHub security advisories.
+- The example reports can be published via GitHub Pages (`pages.yml`;
+  deploys are manual until Pages is enabled for the repo). The README's
+  catalog screenshot and live-example links are held back until the site
+  is live — the README is also the PyPI page, where they cannot resolve
+  yet; `docs/screenshot-catalog.png` ships in the repo meanwhile.
+- Dependabot keeps the SHA-pinned GitHub Actions and the Python
+  dependencies current (weekly, grouped into one PR per ecosystem).
+
+### Changed
+
+- Releases now publish to PyPI via trusted publishing (OIDC, `pypi`
+  environment) as a hard step — a publish failure fails the release.
+  Release assets no longer include the stray `default.gitignore` file.
+- README install instructions point at PyPI again (0.6.0 is the first
+  published release); installing from the repo remains the development
+  path.
+- CI pins `astral-sh/setup-uv` by commit SHA at v8.3.2 (previously the
+  mutable `v3` tag) and sets `prune-cache: false`, so cached pre-built
+  wheels are no longer stripped and re-downloaded from PyPI on every
+  run. The release build job now uses the cache too.
+
+### Fixed
+
+- The AA and CJA adapters no longer crash with a bare `TypeError`/`ValueError`
+  on a malformed optional field (found by the new fuzz suite). A truthy
+  non-list `tags` or `*_references` value degrades to an empty list; a
+  present-but-unconvertible `nesting_depth` or `complexity_score` now raises
+  `InvalidSnapshotError` (so a single snapshot exits 3 and the trend loader
+  skips such a snapshot) instead of a bare exception. These files are
+  vendored from sdr-grader, which already carried equivalent type guards —
+  the visualizer had drifted behind, and nothing is owed to the sibling repo.
+- The sdist is now built from an explicit file allowlist
+  (`[tool.hatch.build.targets.sdist]`). Hatchling's default includes every
+  non-gitignored file in the project directory — tracked or not — which
+  swept local tool state (a Claude Code lock file, the Hypothesis example
+  cache) and repo-meta content (the example HTML pages, the README
+  screenshot, `uv.lock`, `CLAUDE.md`) into the tarball. The wheel was
+  always restricted to `src/sdr_visualizer` and is unaffected, and no sdist
+  was ever published (PyPI publishing starts with 0.6.0). `.claude/` and
+  `.hypothesis/` are gitignored as a second layer of defense.
+
 ## [0.5.0] - 2026-07-12
 
 ### Added
@@ -224,7 +284,7 @@ The following are explicitly internal and may change without notice:
 
 - Not yet validated against real customer `cja_auto_sdr` / `aa_auto_sdr` output beyond the vendored grader fixtures. *(Since resolved: validated against real cja_auto_sdr / aa_auto_sdr output.)*
 - No browser-side performance gate yet (Python build time + HTML size are gated; client-side render and filter latency aren't). *(Resolved in 0.2.0 by scripts/perf_browser_check.py.)*
-- The PyPI publish step in `release.yml` is `continue-on-error: true` until trusted-publisher is configured at pypi.org.
+- The PyPI publish step in `release.yml` is `continue-on-error: true` until trusted-publisher is configured at pypi.org. *(Resolved in 0.6.0: publishing moved to a hard, gated publish job — a failure fails the release.)*
 
 ### Deferred to later releases (per SPEC §13)
 
@@ -233,6 +293,8 @@ The following are explicitly internal and may change without notice:
 - Workspace project visualization (v0.4)
 - Schema map view (v0.5)
 
+[0.6.0]: https://github.com/brian-a-au/sdr-visualizer/releases/tag/v0.6.0
+[0.5.0]: https://github.com/brian-a-au/sdr-visualizer/releases/tag/v0.5.0
 [0.4.0]: https://github.com/brian-a-au/sdr-visualizer/releases/tag/v0.4.0
 [0.3.0]: https://github.com/brian-a-au/sdr-visualizer/releases/tag/v0.3.0
 [0.2.0]: https://github.com/brian-a-au/sdr-visualizer/releases/tag/v0.2.0

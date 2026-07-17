@@ -124,7 +124,7 @@ def _component_from_record(record: dict[str, Any], component_type: str) -> Compo
         created_at=record.get("created") or record.get("created_at"),
         modified_at=record.get("modified") or record.get("modified_at"),
         owner=record.get("owner"),
-        tags=list(record.get("tags") or []),
+        tags=_parse_tag_list(record.get("tags")),
         platform_specific=platform_specific,
     )
 
@@ -177,7 +177,7 @@ def _derived_field_from_record(record: dict[str, Any]) -> Component:
         created_at=record.get("created") or record.get("created_at"),
         modified_at=record.get("modified") or record.get("modified_at"),
         owner=record.get("owner"),
-        tags=list(record.get("tags") or []),
+        tags=_parse_tag_list(record.get("tags")),
         platform_specific=platform_specific,
     )
 
@@ -210,12 +210,12 @@ def _calc_metric_from_record(record: dict[str, Any]) -> CalculatedMetric:
     references = list(
         dict.fromkeys(
             [
-                *(record.get("metric_references") or []),
-                *(record.get("segment_references") or []),
+                *_parse_ref_list(record.get("metric_references")),
+                *_parse_ref_list(record.get("segment_references")),
             ]
         )
     )
-    complexity = float(record.get("complexity_score") or 0.0)
+    complexity = _as_float(record.get("complexity_score"))
 
     attribution_model, allocation = _extract_attribution(formula)
 
@@ -283,14 +283,14 @@ def _segment_from_record(record: dict[str, Any]) -> Segment:
     name = record.get("segment_name") or record.get("name") or segment_id
     description = _normalize_description(record.get("description"))
     definition = _parse_definition_json(record.get("definition_json"))
-    nesting_depth = int(record.get("nesting_depth") or 0)
+    nesting_depth = _as_int(record.get("nesting_depth"))
     container_types = _extract_container_types(record.get("container_type"), definition)
     references = list(
         dict.fromkeys(
             [
-                *(record.get("dimension_references") or []),
-                *(record.get("metric_references") or []),
-                *(record.get("other_segment_references") or []),
+                *_parse_ref_list(record.get("dimension_references")),
+                *_parse_ref_list(record.get("metric_references")),
+                *_parse_ref_list(record.get("other_segment_references")),
             ]
         )
     )
@@ -342,6 +342,81 @@ def _walk_for_contexts(node: Any, out: list[str]) -> None:
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
+
+def _parse_tag_list(value: Any) -> list[str]:
+    """cja_auto_sdr ships `tags` as a JSON-encoded list string (e.g. `'["a"]'`).
+
+    The naive `list(record.get("tags") or [])` iterates that string as
+    characters — producing fake tags like `'['`, `'"'`, `'c'` — so this
+    helper handles both the stringified and native-list shapes and falls back
+    to `[]` for anything unparseable. Kept behavior-identical to sdr-grader's
+    copy so the vendored adapters stay comparable (SPEC §11/§15)."""
+    if value is None or value == "":
+        return []
+    if isinstance(value, list):
+        return [str(t) for t in value]
+    if isinstance(value, str):
+        try:
+            parsed = json.loads(value)
+        except json.JSONDecodeError:
+            return []
+        if isinstance(parsed, list):
+            return [str(t) for t in parsed]
+        return []
+    return []
+
+
+def _parse_ref_list(value: Any) -> list[str]:
+    """Reference lists arrive as native lists or (like tags) as JSON-encoded
+    list strings; anything else contributes nothing. Behavior-identical to
+    sdr-grader's copy."""
+    if value is None or value == "":
+        return []
+    if isinstance(value, list):
+        return [str(t) for t in value]
+    if isinstance(value, str):
+        try:
+            parsed = json.loads(value)
+        except json.JSONDecodeError:
+            return []
+        if isinstance(parsed, list):
+            return [str(t) for t in parsed]
+    return []
+
+
+def _as_float(value: Any) -> float:
+    """The visualizer's variant of sdr-grader's `_safe_float` (SPEC §11/§15).
+    Two intentional deltas from the grader, both driven by visualizer-only
+    behavior — do NOT reconcile them away to match the sibling:
+
+    1. A present but unconvertible value RAISES InvalidSnapshotError (the
+       grader returns a default). Trend mode relies on the raise to skip a
+       malformed snapshot; a single snapshot exits 3.
+    2. NaN/Infinity pass through unchanged (the grader coerces them to a
+       default). The renderer's allow_nan=False guard then rejects the
+       snapshot loudly (audit H2) — a report that cannot boot in a browser is
+       worse than a rejected one.
+
+    Falsy input keeps the old `value or 0.0` default."""
+    if not value:
+        return 0.0
+    try:
+        return float(value)
+    except (TypeError, ValueError) as exc:
+        raise InvalidSnapshotError(f"expected a number, got {value!r}") from exc
+
+
+def _as_int(value: Any) -> int:
+    """The visualizer's variant of sdr-grader's `_safe_int`; see _as_float for
+    the intentional raise-on-unconvertible delta. Falsy input keeps the old
+    `value or 0` default."""
+    if not value:
+        return 0
+    try:
+        return int(value)
+    except (TypeError, ValueError) as exc:
+        raise InvalidSnapshotError(f"expected an integer, got {value!r}") from exc
 
 
 def _require_dict(snapshot: dict[str, Any], key: str) -> dict[str, Any]:

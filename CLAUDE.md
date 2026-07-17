@@ -34,6 +34,8 @@ The full project spec lives **outside the repo** at `./SPEC-VISUALIZER.md` in th
 
 When vendoring, rewrite `sdr_grader` → `sdr_visualizer` in import paths. Fixtures may diverge over time (visualizer wants more component variety; grader wants more rule-triggering edge cases) but start identical.
 
+The adapters have themselves diverged from the grader's copies — some legitimately (the grader carries evaluative/governance helpers the descriptive visualizer omits), some as deliberate visualizer-only behavior (numeric coercion raises for trend-skip and passes `NaN` through for the audit-H2 render guard, where the grader defaults). The shared defensive-coercion helpers (`_parse_tag_list`, `_parse_ref_list`, `_optional_list`) are kept behavior-identical and must be mirrored when touched. Before "syncing" an adapter to the sibling, read the **Vendoring parity with sdr-grader** section of [`docs/ADAPTER_GUIDE.md`](docs/ADAPTER_GUIDE.md) — it enumerates what is shared, what is grader-only, and which divergences are intentional and pinned by tests.
+
 ## Phase discipline
 
 Each phase in §10 produces a single reviewable artifact. Don't proceed to phase N+1 until phase N is reviewed. Don't bundle phases. Phase 3 (catalog view) is the largest single piece of work — spend disproportionate care there.

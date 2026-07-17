@@ -1,0 +1,82 @@
+name: pages
+
+# Manual-only until the owner enables GitHub Pages for the repo:
+# deploy-pages fails while Pages is unconfigured, so a push trigger would
+# put a failing run on every merge to main. When Pages is enabled, restore
+#
+#   push:
+#     branches: [main]
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@11f9893b081a58869d3b5fccaea48c9e9e46f990 # v8.3.2
+        with:
+          enable-cache: true
+          prune-cache: false
+
+      - name: Set up Python
+        run: uv python install 3.12
+
+      - name: Sync dependencies
+        run: uv sync --all-extras --dev
+
+      - name: Regenerate examples
+        run: uv run python scripts/generate_examples.py
+
+      - name: Assemble site
+        run: |
+          mkdir -p _site
+          cp examples/cja-typical.html examples/aa-typical.html _site/
+          cat > _site/index.html <<'EOF'
+          <!doctype html>
+          <html lang="en">
+          <head>
+            <meta charset="utf-8" />
+            <meta name="viewport" content="width=device-width, initial-scale=1" />
+            <title>sdr-visualizer — example reports</title>
+            <style>
+              body { font-family: Georgia, serif; max-width: 640px; margin: 80px auto; padding: 0 24px; color: #1a1a1a; background: #fafaf7; line-height: 1.6; }
+              a { color: #1a1a1a; }
+              .sub { color: #6b6b66; font-size: 0.9em; }
+            </style>
+          </head>
+          <body>
+            <h1>sdr-visualizer</h1>
+            <p>Example reports generated from the bundled test fixtures. Each is one
+            self-contained HTML file — what the tool actually ships.</p>
+            <ul>
+              <li><a href="cja-typical.html">CJA example report</a> <span class="sub">(Customer Journey Analytics)</span></li>
+              <li><a href="aa-typical.html">AA example report</a> <span class="sub">(Adobe Analytics)</span></li>
+            </ul>
+            <p class="sub"><a href="https://github.com/brian-a-au/sdr-visualizer">Repository</a></p>
+          </body>
+          </html>
+          EOF
+
+      - name: Upload site
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+
+      - name: Deploy
+        id: deployment
+        uses: actions/deploy-pages@v4

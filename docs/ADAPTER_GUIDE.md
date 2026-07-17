@@ -85,3 +85,21 @@ The visualizer is single-platform-per-snapshot, but the architecture doesn't pre
 The downstream layers need no changes — `analysis/`, `render/`, the catalog UI, and the graph view all work against the normalized model.
 
 The fixtures may diverge from sdr-grader's over time — the visualizer wants more component variety to exercise rendering; the grader wants more rule-triggering edge cases — but the model contract is shared between projects per [`SPEC-VISUALIZER.md`](../SPEC-VISUALIZER.md) §11.
+
+## Vendoring parity with sdr-grader
+
+`adapters/{cja,aa}.py` are vendored from [`sdr-grader`](https://github.com/brian-a-au/sdr-grader) per SPEC §11/§15. They are **not** byte-identical copies, and shouldn't be assumed to be — but the *defensive coercion* of untrusted snapshot fields is a shared class that must stay in sync. When you touch it, mirror the change to the sibling in the same cycle.
+
+**Shared, behavior-identical (keep in sync):**
+
+- `_parse_tag_list` / `_parse_ref_list` — parse `tags` and reference fields that `cja_auto_sdr` ships as JSON-encoded list strings (`'["a"]'`), tolerating native lists and dropping anything unparseable to `[]`.
+- `_optional_list` (AA) — an absent/null optional section is `[]`, but a present non-list value raises `InvalidSnapshotError` (a malformed export, not an empty one). CJA gets the same guarantee through `_section_records`.
+
+**Grader-only (do not port — evaluative, not descriptive):** the grader carries logic that exists only to serve its grading rules — governance signals (`_governance_approved`, `_governance_shared_to_count`, `_normalize_owner`, `_aa_governance_signals`) and inline-echo de-duplication (`_echoes_derived_field`, which drops a metric/dimension that merely re-declares a derived field so rule SCH-001 doesn't false-fire on the duplicate name). The visualizer describes rather than grades: it keeps such echoes and instead warns on duplicate component ids (last-writer-wins for anatomy), so it never adopts these helpers.
+
+**Visualizer-only numeric coercion — intentional divergence, do NOT reconcile to the grader:** `_as_float` / `_as_int` are the visualizer's variant of the grader's tolerant `_safe_float` / `_safe_int`. Two deltas, both driven by visualizer-only features:
+
+1. A present-but-unconvertible numeric **raises** `InvalidSnapshotError` (the grader defaults). Trend mode relies on the raise to *skip* a malformed snapshot rather than chart a fabricated value; a single snapshot exits 3.
+2. `NaN` / `Infinity` **pass through** to the renderer's `allow_nan=False` guard, which rejects the whole report (audit H2). The grader coerces them to a default. A visualizer report that embeds `NaN` cannot boot in a browser, so rejecting loudly beats substituting `0.0`.
+
+These deltas are pinned by `test_nan_snapshot_exits_3`, `test_nan_in_snapshot_raises_invalid_snapshot_error`, and the trend bad-scalar skip test — a sync that "fixes" the divergence will fail them.
