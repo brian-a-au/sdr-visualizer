@@ -80,7 +80,7 @@ def _check_one(path: Path, *, check_budgets: bool) -> tuple[str | None, str]:
     if match is None:
         return "embedded payload block not found in rendered HTML", ""
     try:
-        json.loads(match.group("json").replace("\\u003c", "<"))
+        json.loads(match.group("json"))
     except json.JSONDecodeError as exc:
         return f"embedded payload does not parse: {exc}", ""
     size_mb = len(html.encode("utf-8")) / (1024 * 1024)

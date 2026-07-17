@@ -47,6 +47,22 @@ def test_recursive_discovery_and_failure_reporting(tmp_path, capsys):
     assert "2 failed" in out
 
 
+def test_literal_u003c_text_in_snapshot_sweeps_ok(tmp_path):
+    # A field whose text literally contains a backslash-u003c sequence (six
+    # characters) is embedded in the payload with the backslash doubled. The
+    # sweep must parse the embedded payload exactly as the browser does —
+    # naively un-escaping the u003c escape via string replacement corrupts
+    # the doubled form into an invalid backslash-then-open-angle escape and
+    # reports a valid snapshot as a false FAIL.
+    corpus = tmp_path / "corpus"
+    corpus.mkdir()
+    snap = json.loads((FIXTURES / "cja_snapshot_clean.json").read_text(encoding="utf-8"))
+    snap["metrics"][0]["description"] = "renders a literal \\u003c escape"
+    (corpus / "u003c.json").write_text(json.dumps(snap), encoding="utf-8")
+    rc = corpus_check.sweep(corpus, check_budgets=False)
+    assert rc == 0
+
+
 def test_budget_flag_reports_tier(tmp_path, capsys):
     corpus = _build_corpus(tmp_path)
     rc = corpus_check.sweep(corpus, check_budgets=True)
