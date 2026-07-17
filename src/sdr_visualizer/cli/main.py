@@ -34,6 +34,11 @@ from sdr_visualizer.input.series import list_snapshot_series
 from sdr_visualizer.input.shell_out import shell_aa, shell_cja
 from sdr_visualizer.render.renderer import build_payload_with_options, render_payload
 
+# Q4 (1.0.0): above this the report is still valid but visibly degraded
+# (simplified rendering; the graph view already needs --max-graph-nodes
+# opt-in past 1,000 nodes). Warn — never refuse — on valid input.
+EXTREME_SIZE_WARNING = 5000
+
 
 class _ArgumentParser(argparse.ArgumentParser):
     """argparse exits 2 on usage errors; SPEC §7 reserves the 0/1/3 contract
@@ -91,6 +96,14 @@ def main(argv: list[str] | None = None) -> int:
             payload["meta"]["compared_to"] = payload["changes"]["baseline"]
         if trend is not None:
             payload["trend"] = trend
+        count = payload["meta"]["component_count"]
+        if count >= EXTREME_SIZE_WARNING:
+            print(
+                f"sdr-visualizer: warning: {count:,} components — the report is "
+                "valid but degrades at this size; the graph view stays behind its "
+                "opt-in (--max-graph-nodes)",
+                file=sys.stderr,
+            )
         html = render_payload(payload, title=args.title)
     except (InvalidSnapshotError, UnknownPlatformError) as exc:
         print(f"sdr-visualizer: {exc}", file=sys.stderr)
