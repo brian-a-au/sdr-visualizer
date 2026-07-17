@@ -111,3 +111,17 @@ def test_option_driven_payload_validates(tmp_path):
     assert payload["meta"]["exclude_orphans_default"] is True
     _assert_valid(payload)
     assert payload == extract_payload(out.read_text(encoding="utf-8"))
+
+
+def test_component_polarity_validates():
+    """A metric/dimension can declare polarity (e.g. bounce rate = negative);
+    data_payload.py's _component_node writes it straight through when set.
+    Mutates the loaded snapshot dict in-test — the fixture file itself is
+    untouched."""
+    snapshot = json.loads((FIXTURES / "cja_snapshot_clean.json").read_text(encoding="utf-8"))
+    snapshot["metrics"][0]["polarity"] = "negative"
+    impl = build_implementation(snapshot, source="cja_snapshot_clean.json")
+    payload = build_payload_with_options(impl)
+    component = next(c for c in payload["components"] if c["id"] == snapshot["metrics"][0]["id"])
+    assert component["polarity"] == "negative"
+    _assert_valid(payload)

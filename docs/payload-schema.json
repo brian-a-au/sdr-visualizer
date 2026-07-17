@@ -22,7 +22,7 @@
         "generated_at": {"type": "string"},
         "component_count": {"type": "integer", "minimum": 0},
         "exclude_orphans_default": {"type": "boolean"},
-        "max_graph_nodes": {"type": "integer"},
+        "max_graph_nodes": {"type": "integer", "minimum": 0},
         "compared_to": {"$ref": "#/$defs/baselineRef"}
       }
     },
@@ -51,6 +51,7 @@
         "name": {"type": "string"},
         "description": {"type": "string"},
         "data_type": {"type": "string"},
+        "polarity": {"enum": ["positive", "negative", "neutral"]},
         "tags": {"type": "array", "items": {"type": "string"}},
         "owner": {"type": "string"},
         "created_at": {"type": "string"},
@@ -110,7 +111,7 @@
       "properties": {
         "source": {"type": "string"},
         "target": {"type": "string"},
-        "kind": {"enum": ["references"]}
+        "kind": {"const": "references"}
       }
     },
     "treeNode": {
