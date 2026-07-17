@@ -31,6 +31,10 @@ All notable changes to `sdr-visualizer` will be documented here. The format foll
 - README install instructions point at PyPI again (0.6.0 is the first
   published release); installing from the repo remains the development
   path.
+- CI pins `astral-sh/setup-uv` by commit SHA at v8.3.2 (previously the
+  mutable `v3` tag) and sets `prune-cache: false`, so cached pre-built
+  wheels are no longer stripped and re-downloaded from PyPI on every
+  run. The release build job now uses the cache too.
 
 ### Fixed
 
