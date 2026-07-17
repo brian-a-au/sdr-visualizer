@@ -22,6 +22,8 @@ All notable changes to `sdr-visualizer` will be documented here. The format foll
 - The example reports can be published via GitHub Pages (`pages.yml`;
   deploys are manual until Pages is enabled for the repo), and the README
   gains a catalog screenshot and live example links.
+- Dependabot keeps the SHA-pinned GitHub Actions and the Python
+  dependencies current (weekly, grouped into one PR per ecosystem).
 
 ### Changed
 

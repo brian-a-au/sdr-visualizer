@@ -1,0 +1,25 @@
+# Weekly, grouped into one PR per ecosystem — this repo is small enough
+# that per-dependency PRs would be pure noise. Actions are pinned by
+# commit SHA (see the workflows); dependabot bumps the SHA and its
+# trailing version comment together.
+version: 2
+updates:
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    commit-message:
+      prefix: "ci"
+    groups:
+      actions:
+        patterns: ["*"]
+
+  - package-ecosystem: "uv"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    commit-message:
+      prefix: "chore"
+    groups:
+      python:
+        patterns: ["*"]
