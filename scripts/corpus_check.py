@@ -7,6 +7,7 @@ in-process. Per snapshot it asserts:
   - the adapter accepts it (platform auto-detected),
   - the payload survives json.dumps(allow_nan=False),
   - the rendered HTML's embedded payload extracts and parses back,
+  - the embedded payload validates against docs/payload-schema.json,
   - with --check-budgets: the HTML size fits the SPEC §6 tier for the
     snapshot's component count (no budget above the 2,000 tier — output
     there is valid but degraded by design).
@@ -33,6 +34,18 @@ sys.path.insert(0, str(REPO / "src"))
 from sdr_visualizer.core.exceptions import InvalidSnapshotError, UnknownPlatformError  # noqa: E402
 from sdr_visualizer.core.visualizer import build_implementation  # noqa: E402
 from sdr_visualizer.render.renderer import build_payload_with_options, render_payload  # noqa: E402
+
+try:
+    from jsonschema import Draft202012Validator
+except ImportError:  # dev-only dependency; the sweep still runs without it
+    Draft202012Validator = None
+
+_SCHEMA_PATH = REPO / "docs" / "payload-schema.json"
+_VALIDATOR = (
+    Draft202012Validator(json.loads(_SCHEMA_PATH.read_text(encoding="utf-8")))
+    if Draft202012Validator is not None
+    else None
+)
 
 _SDR_DATA_RE = re.compile(
     r'<script id="sdr-data" type="application/json">(?P<json>.*?)</script>',
@@ -80,9 +93,16 @@ def _check_one(path: Path, *, check_budgets: bool) -> tuple[str | None, str]:
     if match is None:
         return "embedded payload block not found in rendered HTML", ""
     try:
-        json.loads(match.group("json"))
+        embedded = json.loads(match.group("json"))
     except json.JSONDecodeError as exc:
         return f"embedded payload does not parse: {exc}", ""
+    if _VALIDATOR is not None:
+        error = next(iter(_VALIDATOR.iter_errors(embedded)), None)
+        if error is not None:
+            return (
+                f"payload violates docs/payload-schema.json at {error.json_path}: {error.message}",
+                "",
+            )
     size_mb = len(html.encode("utf-8")) / (1024 * 1024)
     count = payload["meta"]["component_count"]
     if check_budgets:

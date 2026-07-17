@@ -1,0 +1,237 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/brian-a-au/sdr-visualizer/main/docs/payload-schema.json",
+  "title": "sdr-visualizer data payload",
+  "description": "The JSON embedded in every report (script#sdr-data) and emitted by --json. Covered by the 1.0.0 stability contract: removing or retyping a field is a major version bump; adding optional fields is minor. segment_trees/formula_trees node internals are render structures and are deliberately loosely specified (only 'kind' is pinned).",
+  "type": "object",
+  "required": ["meta", "components", "segments", "calculated_metrics", "graph", "segment_trees", "formula_trees"],
+  "additionalProperties": false,
+  "properties": {
+    "meta": {
+      "type": "object",
+      "required": ["instance_id", "instance_name", "platform", "snapshot_taken_at", "snapshot_source", "adapter_version", "visualizer_version", "generated_at", "component_count", "exclude_orphans_default"],
+      "additionalProperties": false,
+      "properties": {
+        "instance_id": {"type": "string"},
+        "instance_name": {"type": "string"},
+        "platform": {"enum": ["cja", "aa"]},
+        "snapshot_taken_at": {"type": ["string", "null"]},
+        "snapshot_source": {"type": "string"},
+        "adapter_version": {"type": "string"},
+        "visualizer_version": {"type": "string"},
+        "generated_at": {"type": "string"},
+        "component_count": {"type": "integer", "minimum": 0},
+        "exclude_orphans_default": {"type": "boolean"},
+        "compared_to": {"$ref": "#/$defs/baselineRef"}
+      }
+    },
+    "components": {"type": "array", "items": {"$ref": "#/$defs/component"}},
+    "segments": {"type": "array", "items": {"$ref": "#/$defs/segment"}},
+    "calculated_metrics": {"type": "array", "items": {"$ref": "#/$defs/calculatedMetric"}},
+    "graph": {
+      "type": "object",
+      "required": ["edges"],
+      "additionalProperties": false,
+      "properties": {"edges": {"type": "array", "items": {"$ref": "#/$defs/edge"}}}
+    },
+    "segment_trees": {"type": "object", "additionalProperties": {"$ref": "#/$defs/treeNode"}},
+    "formula_trees": {"type": "object", "additionalProperties": {"$ref": "#/$defs/treeNode"}},
+    "changes": {"$ref": "#/$defs/changes"},
+    "trend": {"$ref": "#/$defs/trend"}
+  },
+  "$defs": {
+    "component": {
+      "type": "object",
+      "required": ["id", "type", "name", "data_type", "in_degree", "out_degree"],
+      "additionalProperties": false,
+      "properties": {
+        "id": {"type": "string"},
+        "type": {"enum": ["metric", "dimension", "derived_field"]},
+        "name": {"type": "string"},
+        "description": {"type": "string"},
+        "data_type": {"type": "string"},
+        "tags": {"type": "array", "items": {"type": "string"}},
+        "owner": {"type": "string"},
+        "created_at": {"type": "string"},
+        "modified_at": {"type": "string"},
+        "modified_ts": {"type": "integer"},
+        "derived_kind": {"enum": ["dimension", "metric"]},
+        "in_degree": {"type": "integer", "minimum": 0},
+        "out_degree": {"type": "integer", "minimum": 0}
+      }
+    },
+    "segment": {
+      "type": "object",
+      "required": ["id", "type", "name", "nesting_depth", "container_types", "owner", "in_degree", "out_degree"],
+      "additionalProperties": false,
+      "properties": {
+        "id": {"type": "string"},
+        "type": {"const": "segment"},
+        "name": {"type": "string"},
+        "description": {"type": "string"},
+        "nesting_depth": {"type": "integer", "minimum": 0},
+        "container_types": {"type": "array", "items": {"type": "string"}},
+        "references": {"type": "array", "items": {"type": "string"}},
+        "owner": {"type": "string"},
+        "created_at": {"type": "string"},
+        "modified_at": {"type": "string"},
+        "modified_ts": {"type": "integer"},
+        "in_degree": {"type": "integer", "minimum": 0},
+        "out_degree": {"type": "integer", "minimum": 0}
+      }
+    },
+    "calculatedMetric": {
+      "type": "object",
+      "required": ["id", "type", "name", "formula_text", "complexity_score", "owner", "in_degree", "out_degree"],
+      "additionalProperties": false,
+      "properties": {
+        "id": {"type": "string"},
+        "type": {"const": "calculated_metric"},
+        "name": {"type": "string"},
+        "description": {"type": "string"},
+        "formula_text": {"type": "string"},
+        "complexity_score": {"type": "number"},
+        "attribution_model": {"type": "string"},
+        "allocation": {"type": "string"},
+        "references": {"type": "array", "items": {"type": "string"}},
+        "owner": {"type": "string"},
+        "created_at": {"type": "string"},
+        "modified_at": {"type": "string"},
+        "modified_ts": {"type": "integer"},
+        "in_degree": {"type": "integer", "minimum": 0},
+        "out_degree": {"type": "integer", "minimum": 0}
+      }
+    },
+    "edge": {
+      "type": "object",
+      "required": ["source", "target", "kind"],
+      "additionalProperties": false,
+      "properties": {
+        "source": {"type": "string"},
+        "target": {"type": "string"},
+        "kind": {"enum": ["references"]}
+      }
+    },
+    "treeNode": {
+      "type": "object",
+      "required": ["kind"],
+      "properties": {"kind": {"type": "string"}}
+    },
+    "baselineRef": {
+      "type": "object",
+      "required": ["source", "taken_at", "instance_id"],
+      "additionalProperties": false,
+      "properties": {
+        "source": {"type": "string"},
+        "taken_at": {"type": "string"},
+        "instance_id": {"type": "string"}
+      }
+    },
+    "changeEntry": {
+      "type": "object",
+      "required": ["id", "type", "name"],
+      "additionalProperties": false,
+      "properties": {
+        "id": {"type": "string"},
+        "type": {"enum": ["metric", "dimension", "derived_field", "segment", "calculated_metric"]},
+        "name": {"type": "string"}
+      }
+    },
+    "fieldChange": {
+      "oneOf": [
+        {
+          "type": "object",
+          "required": ["field", "old", "new"],
+          "additionalProperties": false,
+          "properties": {
+            "field": {"type": "string"},
+            "old": {"type": ["string", "number", "boolean", "null"]},
+            "new": {"type": ["string", "number", "boolean", "null"]}
+          }
+        },
+        {
+          "type": "object",
+          "required": ["field", "added", "removed"],
+          "additionalProperties": false,
+          "properties": {
+            "field": {"type": "string"},
+            "added": {"type": "array", "items": {"type": "string"}},
+            "removed": {"type": "array", "items": {"type": "string"}}
+          }
+        }
+      ]
+    },
+    "modifiedEntry": {
+      "type": "object",
+      "required": ["id", "type", "name", "fields"],
+      "additionalProperties": false,
+      "properties": {
+        "id": {"type": "string"},
+        "type": {"enum": ["metric", "dimension", "derived_field", "segment", "calculated_metric"]},
+        "name": {"type": "string"},
+        "fields": {"type": "array", "items": {"$ref": "#/$defs/fieldChange"}}
+      }
+    },
+    "changes": {
+      "type": "object",
+      "required": ["baseline", "added", "removed", "modified"],
+      "additionalProperties": false,
+      "properties": {
+        "baseline": {"$ref": "#/$defs/baselineRef"},
+        "added": {"type": "array", "items": {"$ref": "#/$defs/changeEntry"}},
+        "removed": {"type": "array", "items": {"$ref": "#/$defs/changeEntry"}},
+        "modified": {"type": "array", "items": {"$ref": "#/$defs/modifiedEntry"}}
+      }
+    },
+    "aggregates": {
+      "type": "object",
+      "required": ["total", "metrics", "dimensions", "derived_fields", "segments", "calculated_metrics", "orphans", "no_description", "edges"],
+      "additionalProperties": false,
+      "properties": {
+        "total": {"type": "integer", "minimum": 0},
+        "metrics": {"type": "integer", "minimum": 0},
+        "dimensions": {"type": "integer", "minimum": 0},
+        "derived_fields": {"type": "integer", "minimum": 0},
+        "segments": {"type": "integer", "minimum": 0},
+        "calculated_metrics": {"type": "integer", "minimum": 0},
+        "orphans": {"type": "integer", "minimum": 0},
+        "no_description": {"type": "integer", "minimum": 0},
+        "edges": {"type": "integer", "minimum": 0}
+      }
+    },
+    "trendSnapshot": {
+      "type": "object",
+      "required": ["source", "taken_at", "aggregates"],
+      "additionalProperties": false,
+      "properties": {
+        "source": {"type": "string"},
+        "taken_at": {"type": "string"},
+        "aggregates": {"$ref": "#/$defs/aggregates"}
+      }
+    },
+    "trendInterval": {
+      "type": "object",
+      "required": ["from", "to", "from_source", "to_source", "added", "removed", "modified"],
+      "additionalProperties": false,
+      "properties": {
+        "from": {"type": "string"},
+        "to": {"type": "string"},
+        "from_source": {"type": "string"},
+        "to_source": {"type": "string"},
+        "added": {"type": "array", "items": {"type": "string"}},
+        "removed": {"type": "array", "items": {"type": "string"}},
+        "modified": {"type": "array", "items": {"type": "string"}}
+      }
+    },
+    "trend": {
+      "type": "object",
+      "required": ["capped", "snapshots", "intervals"],
+      "additionalProperties": false,
+      "properties": {
+        "capped": {"type": "boolean"},
+        "snapshots": {"type": "array", "items": {"$ref": "#/$defs/trendSnapshot"}, "minItems": 2},
+        "intervals": {"type": "array", "items": {"$ref": "#/$defs/trendInterval"}}
+      }
+    }
+  }
+}

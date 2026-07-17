@@ -25,6 +25,7 @@ dev = [
     "pytest>=8.0",
     "ruff>=0.4",
     "hypothesis>=6.100",
+    "jsonschema>=4.21",
 ]
 browser = [
     "playwright>=1.43",
