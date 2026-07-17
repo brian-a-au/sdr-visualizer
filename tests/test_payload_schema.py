@@ -84,3 +84,30 @@ def test_json_sidecar_validates_and_matches_embedded(tmp_path):
     payload = json.loads(sidecar.read_text(encoding="utf-8"))
     _assert_valid(payload)
     assert payload == extract_payload(out.read_text(encoding="utf-8"))
+
+
+def test_option_driven_payload_validates(tmp_path):
+    """--max-graph-nodes (and --exclude-orphans) mutate payload["meta"];
+    no flag-driven payload shape should be able to drift from the schema
+    unnoticed."""
+    out = tmp_path / "report.html"
+    sidecar = tmp_path / "payload.json"
+    rc = main(
+        [
+            str(FIXTURES / "cja_snapshot_clean.json"),
+            "--output",
+            str(out),
+            "--json",
+            str(sidecar),
+            "--max-graph-nodes",
+            "500",
+            "--exclude-orphans",
+            "--quiet",
+        ]
+    )
+    assert rc == 0
+    payload = json.loads(sidecar.read_text(encoding="utf-8"))
+    assert payload["meta"]["max_graph_nodes"] == 500
+    assert payload["meta"]["exclude_orphans_default"] is True
+    _assert_valid(payload)
+    assert payload == extract_payload(out.read_text(encoding="utf-8"))
