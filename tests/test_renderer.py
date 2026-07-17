@@ -189,3 +189,19 @@ def test_trend_nav_and_charts_render_only_with_trend_payload():
     assert 'data-view="trend"' in with_trend
     assert 'id="trend-view"' in with_trend
     assert "<polyline" in with_trend
+
+
+def test_report_without_derived_fields_has_no_derived_chip():
+    """Derived fields are a CJA-only concept; a report with none (every AA
+    report, and CJA views without them) must not offer the Derived-field
+    type chip in the catalog or graph filters. Same principle as the
+    zero-count meta strip."""
+    snap = json.loads((FIXTURES / "aa_snapshot_messy.json").read_text(encoding="utf-8"))
+    html = render(aa_adapt(snap))
+    assert 'value="derived_field"' not in html
+
+
+def test_report_with_derived_fields_keeps_the_chip():
+    snap = json.loads((FIXTURES / "cja_snapshot_clean.json").read_text(encoding="utf-8"))
+    html = render(cja_adapt(snap))
+    assert html.count('value="derived_field"') == 2  # catalog chip + graph chip

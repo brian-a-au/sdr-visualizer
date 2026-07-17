@@ -17,7 +17,7 @@
         <div class="chip-group" id="graph-type-filter">
           <label class="chip"><input type="checkbox" value="metric" checked /><span class="dot dot-metric"></span>Metric</label>
           <label class="chip"><input type="checkbox" value="dimension" checked /><span class="dot dot-dimension"></span>Dimension</label>
-          <label class="chip"><input type="checkbox" value="derived_field" checked /><span class="dot dot-derived_field"></span>Derived</label>
+          {% if derived_field_count %}<label class="chip"><input type="checkbox" value="derived_field" checked /><span class="dot dot-derived_field"></span>Derived</label>{% endif %}
           <label class="chip"><input type="checkbox" value="segment" checked /><span class="dot dot-segment"></span>Segment</label>
           <label class="chip"><input type="checkbox" value="calculated_metric" checked /><span class="dot dot-calculated_metric"></span>Calc metric</label>
         </div>
