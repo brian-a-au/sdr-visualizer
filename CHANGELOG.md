@@ -16,12 +16,16 @@ All notable changes to `sdr-visualizer` will be documented here. The format foll
 - `scripts/corpus_check.py`: sweep a private directory tree of real
   snapshots through the full build, asserting adapter acceptance, payload
   serializability, embedded-payload parseability, and (optionally) the
-  §6 size budget per tier. A clean corpus sweep becomes the 1.0.0 gate.
+  §6 size budget per tier. A clean corpus sweep becomes the 1.0.0 gate;
+  swept clean ahead of this release over the local real corpus
+  (108 snapshots, budget checks included).
 - Contributor hygiene: `CONTRIBUTING.md`, PR and issue templates, and
   `SECURITY.md` with private reporting via GitHub security advisories.
 - The example reports can be published via GitHub Pages (`pages.yml`;
-  deploys are manual until Pages is enabled for the repo), and the README
-  gains a catalog screenshot and live example links.
+  deploys are manual until Pages is enabled for the repo). The README's
+  catalog screenshot and live-example links are held back until the site
+  is live — the README is also the PyPI page, where they cannot resolve
+  yet; `docs/screenshot-catalog.png` ships in the repo meanwhile.
 - Dependabot keeps the SHA-pinned GitHub Actions and the Python
   dependencies current (weekly, grouped into one PR per ecosystem).
 
