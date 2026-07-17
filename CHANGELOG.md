@@ -19,7 +19,8 @@ All notable changes to `sdr-visualizer` will be documented here. The format foll
   §6 size budget per tier. A clean corpus sweep becomes the 1.0.0 gate.
 - Contributor hygiene: `CONTRIBUTING.md`, PR and issue templates, and
   `SECURITY.md` with private reporting via GitHub security advisories.
-- The example reports are published via GitHub Pages, and the README
+- The example reports can be published via GitHub Pages (`pages.yml`;
+  deploys are manual until Pages is enabled for the repo), and the README
   gains a catalog screenshot and live example links.
 
 ### Changed
@@ -273,7 +274,7 @@ The following are explicitly internal and may change without notice:
 
 - Not yet validated against real customer `cja_auto_sdr` / `aa_auto_sdr` output beyond the vendored grader fixtures. *(Since resolved: validated against real cja_auto_sdr / aa_auto_sdr output.)*
 - No browser-side performance gate yet (Python build time + HTML size are gated; client-side render and filter latency aren't). *(Resolved in 0.2.0 by scripts/perf_browser_check.py.)*
-- The PyPI publish step in `release.yml` is `continue-on-error: true` until trusted-publisher is configured at pypi.org.
+- The PyPI publish step in `release.yml` is `continue-on-error: true` until trusted-publisher is configured at pypi.org. *(Resolved in 0.6.0: publishing moved to a hard, gated publish job — a failure fails the release.)*
 
 ### Deferred to later releases (per SPEC §13)
 
@@ -282,6 +283,8 @@ The following are explicitly internal and may change without notice:
 - Workspace project visualization (v0.4)
 - Schema map view (v0.5)
 
+[Unreleased]: https://github.com/brian-a-au/sdr-visualizer/compare/v0.5.0...HEAD
+[0.5.0]: https://github.com/brian-a-au/sdr-visualizer/releases/tag/v0.5.0
 [0.4.0]: https://github.com/brian-a-au/sdr-visualizer/releases/tag/v0.4.0
 [0.3.0]: https://github.com/brian-a-au/sdr-visualizer/releases/tag/v0.3.0
 [0.2.0]: https://github.com/brian-a-au/sdr-visualizer/releases/tag/v0.2.0
