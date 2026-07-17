@@ -125,6 +125,27 @@ def test_entries_omit_null_and_empty_fields(messy_payload):
             assert value != "", f"{entry['id']}: empty string {key!r} not stripped"
 
 
+def test_declared_derived_kind_lands_in_payload(messy_payload):
+    """Real cja_auto_sdr derived-field records declare their functional kind
+    (component_type: Dimension|Metric). The payload carries it, normalized,
+    as derived_kind — declared only, never inferred."""
+    derived = [c for c in messy_payload["components"] if c["type"] == "derived_field"]
+    kinds = {c["id"]: c.get("derived_kind") for c in derived}
+    assert "dimension" in kinds.values()
+    assert "metric" in kinds.values()
+    # legacy/undeclared records carry NO derived_kind key at all (payload
+    # convention: absent fields are omitted, never null)
+    undeclared = [c for c in derived if "derived_kind" not in c]
+    assert undeclared
+    assert all("derived_kind" not in c for c in undeclared)
+
+
+def test_underived_components_never_carry_derived_kind(messy_payload):
+    assert all(
+        "derived_kind" not in c for c in messy_payload["components"] if c["type"] != "derived_field"
+    )
+
+
 def test_duplicate_component_ids_warn_on_stderr(capsys):
     snapshot = {
         "metadata": {"Data View ID": "dv_dup", "Data View Name": "Dup"},
