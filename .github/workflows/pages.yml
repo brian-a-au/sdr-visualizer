@@ -1,12 +1,8 @@
 name: pages
 
-# Manual-only until the owner enables GitHub Pages for the repo:
-# deploy-pages fails while Pages is unconfigured, so a push trigger would
-# put a failing run on every merge to main. When Pages is enabled, restore
-#
-#   push:
-#     branches: [main]
 on:
+  push:
+    branches: [main]
   workflow_dispatch:
 
 permissions:

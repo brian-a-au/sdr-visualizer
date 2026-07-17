@@ -2,6 +2,16 @@
 
 All notable changes to `sdr-visualizer` will be documented here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Changed
+
+- The repository is public as of 2026-07-17, and the examples site is
+  live on GitHub Pages. `pages.yml` deploys on pushes to main again, and
+  the README's catalog screenshot and live-example links (held back for
+  the 0.6.0 PyPI cut) are restored — the screenshot as an absolute URL,
+  so it renders on the PyPI page too.
+
 ## [0.6.0] - 2026-07-17
 
 ### Added
@@ -293,6 +303,7 @@ The following are explicitly internal and may change without notice:
 - Workspace project visualization (v0.4)
 - Schema map view (v0.5)
 
+[Unreleased]: https://github.com/brian-a-au/sdr-visualizer/compare/v0.6.0...HEAD
 [0.6.0]: https://github.com/brian-a-au/sdr-visualizer/releases/tag/v0.6.0
 [0.5.0]: https://github.com/brian-a-au/sdr-visualizer/releases/tag/v0.5.0
 [0.4.0]: https://github.com/brian-a-au/sdr-visualizer/releases/tag/v0.4.0
