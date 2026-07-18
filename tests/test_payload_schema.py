@@ -170,6 +170,77 @@ def test_component_polarity_validates():
     _assert_valid(payload)
 
 
+def test_owner_as_integer_validates():
+    """The CJA adapter passes owner straight through (`owner=record.get("owner")`,
+    no str() coercion — unlike the AA adapter's owner_id path) for components,
+    segments, and calculated metrics alike. A raw snapshot with a numeric owner
+    (e.g. an Adobe user/group id instead of an email) is adapter-accepted and
+    rendered; the fuzz render-path property (tests/test_adapter_fuzz.py) found
+    this shape via its replace_int mutation at $.components[*].owner and
+    $.segments[*].owner. Widened owner to ["string", "integer"] in the schema
+    rather than coercing the payload — the adapter's passthrough behavior is
+    intentional (docs/ADAPTER_GUIDE.md: the visualizer doesn't adopt the
+    grader-only `_normalize_owner` governance helper)."""
+    snapshot = json.loads((FIXTURES / "cja_snapshot_clean.json").read_text(encoding="utf-8"))
+    snapshot["metrics"][0]["owner"] = 12345
+    snapshot["segments"]["segments"][0]["owner"] = 67890
+    snapshot["calculated_metrics"]["metrics"][0]["owner"] = 24680
+    impl = build_implementation(snapshot, source="cja_snapshot_clean.json")
+    payload = build_payload_with_options(impl)
+    component = next(c for c in payload["components"] if c["id"] == snapshot["metrics"][0]["id"])
+    assert component["owner"] == 12345
+    segment = next(
+        s
+        for s in payload["segments"]
+        if s["id"] == snapshot["segments"]["segments"][0]["segment_id"]
+    )
+    assert segment["owner"] == 67890
+    calc = next(
+        c
+        for c in payload["calculated_metrics"]
+        if c["id"] == snapshot["calculated_metrics"]["metrics"][0]["metric_id"]
+    )
+    assert calc["owner"] == 24680
+    _assert_valid(payload)
+
+
+def test_created_modified_at_as_integer_validates():
+    """created_at/modified_at follow the same unguarded passthrough as owner
+    (`record.get("created") or record.get("created_at")`, no str()). A
+    snapshot carrying epoch-integer timestamps in these fields is
+    adapter-accepted; the fuzz render-path property found this shape at
+    $.components[*].modified_at via its replace_truthy_int mutation."""
+    snapshot = json.loads((FIXTURES / "cja_snapshot_clean.json").read_text(encoding="utf-8"))
+    snapshot["metrics"][0]["created"] = 1735689600
+    snapshot["metrics"][0]["modified"] = 1735776000
+    impl = build_implementation(snapshot, source="cja_snapshot_clean.json")
+    payload = build_payload_with_options(impl)
+    component = next(c for c in payload["components"] if c["id"] == snapshot["metrics"][0]["id"])
+    assert component["created_at"] == 1735689600
+    assert component["modified_at"] == 1735776000
+    _assert_valid(payload)
+
+
+def test_derived_field_output_type_as_integer_validates():
+    """Derived fields resolve data_type via
+    `record.get("output_type") or record.get("inferred_output_type")` with no
+    str() coercion at all (unlike the metric/dimension path, which does
+    `str(data_type) if data_type else None`). When output_type is absent,
+    Python's `or` returns inferred_output_type verbatim — including a
+    non-string value. The fuzz render-path property found this at
+    $.components[*].data_type via its replace_int/replace_truthy_int
+    mutations landing on inferred_output_type."""
+    snapshot = json.loads((FIXTURES / "cja_snapshot_clean.json").read_text(encoding="utf-8"))
+    field = snapshot["derived_fields"]["fields"][0]
+    field.pop("output_type", None)
+    field["inferred_output_type"] = 0
+    impl = build_implementation(snapshot, source="cja_snapshot_clean.json")
+    payload = build_payload_with_options(impl)
+    component = next(c for c in payload["components"] if c["id"] == field["component_id"])
+    assert component["data_type"] == 0
+    _assert_valid(payload)
+
+
 def test_trend_from_timestampless_snapshots_validates():
     """build_trend emits taken_at=None when a snapshot has no timestamp —
     shipped 1.0.0 behavior the schema wrongly rejected (required string)."""

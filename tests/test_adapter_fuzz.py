@@ -26,6 +26,7 @@ import pytest
 from conftest import extract_payload_text
 from hypothesis import HealthCheck, given, settings
 from hypothesis import strategies as st
+from jsonschema import Draft202012Validator
 
 from sdr_visualizer.adapters import aa as aa_adapter
 from sdr_visualizer.adapters import cja as cja_adapter
@@ -36,6 +37,12 @@ from sdr_visualizer.render.renderer import render
 FIXTURES = Path(__file__).parent / "fixtures"
 
 ALLOWED_EXCEPTIONS = (InvalidSnapshotError,)
+
+_SCHEMA_VALIDATOR = Draft202012Validator(
+    json.loads(
+        (Path(__file__).parent.parent / "docs" / "payload-schema.json").read_text(encoding="utf-8")
+    )
+)
 
 
 def _scalars() -> st.SearchStrategy[Any]:
@@ -239,4 +246,10 @@ def test_render_path_survives_mutated_fixture(fixture_name, adapter, seed, mutat
 
     # The embedded payload must be parseable — a report that renders but
     # cannot boot in the browser is the audit-H2 failure class.
-    json.loads(extract_payload_text(html))
+    payload = json.loads(extract_payload_text(html))
+    # ...and must satisfy the published contract schema: a report whose
+    # payload violates docs/payload-schema.json is a contract bug even
+    # when it renders (the class behind the 1.0.0 polarity/option-field/
+    # trend-taken_at findings).
+    error = next(iter(_SCHEMA_VALIDATOR.iter_errors(payload)), None)
+    assert error is None, f"payload violates schema at {error.json_path}: {error.message}"
