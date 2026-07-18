@@ -550,6 +550,7 @@ def test_changes_search_filters_rows(browser_page, tmp_path):
     browser_page.wait_for_selector("#catalog-body tr", state="attached", timeout=10_000)
     browser_page.click('.view-button[data-view="changes"]')
     browser_page.fill("#changes-search", "metric two")
+    browser_page.wait_for_timeout(300)  # debounce (120ms) + slack
     visible = browser_page.evaluate(
         "Array.from(document.querySelectorAll('#changes-body .change-row'))"
         ".filter(function (r) { return !r.hidden; }).length"

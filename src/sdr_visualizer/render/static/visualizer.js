@@ -1203,11 +1203,15 @@
       openDetail(btn.getAttribute("data-id"));
     });
 
+    var changesSearchDebounceTimer = null;
     document.getElementById("changes-search").addEventListener("input", function (event) {
-      var query = event.target.value.trim().toLowerCase();
-      $changesView.querySelectorAll("#changes-body .change-row").forEach(function (row) {
-        row.hidden = !!query && (row.getAttribute("data-search") || "").indexOf(query) === -1;
-      });
+      clearTimeout(changesSearchDebounceTimer);
+      changesSearchDebounceTimer = setTimeout(function () {
+        var query = event.target.value.trim().toLowerCase();
+        $changesView.querySelectorAll("#changes-body .change-row").forEach(function (row) {
+          row.hidden = !!query && (row.getAttribute("data-search") || "").indexOf(query) === -1;
+        });
+      }, SEARCH_DEBOUNCE_MS);
     });
   }
   renderChanges();
