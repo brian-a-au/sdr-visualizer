@@ -1,6 +1,6 @@
 [project]
 name = "sdr-visualizer"
-version = "0.6.0"
+version = "1.0.0"
 description = "Static-output visual catalog generator for Adobe Customer Journey Analytics and Adobe Analytics implementations."
 readme = "README.md"
 license = "MIT"
