@@ -35,6 +35,10 @@ budgets and payload-schema validation included).
 
 ### Changed
 
+- The repository went public on 2026-07-17: the examples site is live on
+  GitHub Pages, `pages.yml` deploys on pushes to main again, and the
+  README regained its catalog screenshot (as an absolute URL, so it
+  renders on the PyPI page too) and live-example links.
 - The README states the stability contract: covered CLI argument set,
   exit codes 0/1/3, the payload schema, and the performance-budget
   guarantee. Template structure, CSS selectors, and module internals stay
