@@ -41,7 +41,11 @@ def build_payload(impl: Implementation) -> dict[str, Any]:
     for c in impl.dimensions:
         components.append(_component_node(c, "dimension", in_degree, out_degree))
     for c in impl.derived_fields:
-        components.append(_component_node(c, "derived_field", in_degree, out_degree))
+        node = _component_node(c, "derived_field", in_degree, out_degree)
+        kind = _derived_kind(c.platform_specific)
+        if kind:
+            node["derived_kind"] = kind
+        components.append(node)
 
     segments = [_segment_node(s, in_degree, out_degree) for s in impl.segments]
     calc_metrics = [_calc_metric_node(c, in_degree, out_degree) for c in impl.calculated_metrics]
@@ -133,6 +137,16 @@ def _component_node(
             "out_degree": out_degree.get(c.id, 0),
         }
     )
+
+
+def _derived_kind(platform_specific: dict | None) -> str | None:
+    """A CJA derived field surfaces in the data view as a dimension or a
+    metric, and real cja_auto_sdr records declare which via component_type
+    ("Dimension" | "Metric"). Normalize the declared value; anything else
+    (legacy "derived_field", absent) yields no kind — declared only,
+    never inferred."""
+    declared = str((platform_specific or {}).get("component_type") or "").strip().lower()
+    return declared if declared in ("dimension", "metric") else None
 
 
 def _segment_node(

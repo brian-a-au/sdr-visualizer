@@ -181,11 +181,14 @@
       .replace(/'/g, "&#39;");
   }
 
-  function formatTypeLabel(type) {
+  function formatTypeLabel(type, derivedKind) {
     switch (type) {
       case "metric": return "Metric";
       case "dimension": return "Dimension";
-      case "derived_field": return "Derived field";
+      case "derived_field":
+        if (derivedKind === "dimension") return "Derived dimension";
+        if (derivedKind === "metric") return "Derived metric";
+        return "Derived field";
       case "segment": return "Segment";
       case "calculated_metric": return "Calc metric";
       default: return type;
@@ -235,7 +238,8 @@
     var nowMs = Date.now();
 
     var filtered = sortedCatalog.filter(function (entry) {
-      if (!typeSet[entry.type]) return false;
+      var typeMatches = typeSet[entry.type] || (entry.derived_kind && typeSet[entry.derived_kind]);
+      if (!typeMatches) return false;
 
       if (query && entry._search.indexOf(query) === -1) return false;
 
@@ -342,7 +346,7 @@
           "</div>" +
           '<span class="row-id mono">' + escapeHtml(entry.id) + "</span>" +
         "</td>" +
-        '<td class="col-type"><span class="dot dot-' + escapeHtml(entry.type) + '"></span>' + escapeHtml(formatTypeLabel(entry.type)) + "</td>" +
+        '<td class="col-type"><span class="dot dot-' + escapeHtml(entry.type) + '"></span>' + escapeHtml(formatTypeLabel(entry.type, entry.derived_kind)) + "</td>" +
         '<td class="' + descClass + '">' + descHtml + "</td>" +
         '<td class="col-tags">' + tags + "</td>" +
         '<td class="col-refs num' + (refs === 0 ? " zero" : "") + '">' + refs + "</td>" +
@@ -390,7 +394,7 @@
   function detailHtml(entry) {
     var typeColor = '<span class="dot dot-' + escapeHtml(entry.type) + '"></span>';
     var pieces = [
-      '<div class="detail-eyebrow">' + typeColor + escapeHtml(formatTypeLabel(entry.type)) + "</div>",
+      '<div class="detail-eyebrow">' + typeColor + escapeHtml(formatTypeLabel(entry.type, entry.derived_kind)) + "</div>",
       '<h2 class="detail-name">' + escapeHtml(entry.name) + "</h2>",
       '<div class="detail-id mono">' + escapeHtml(entry.id) + "</div>",
     ];
@@ -430,7 +434,7 @@
       }
     } else {
       var compMeta = '<dl class="detail-grid">';
-      compMeta += "<dt>Type</dt><dd>" + escapeHtml(formatTypeLabel(entry.type)) + "</dd>";
+      compMeta += "<dt>Type</dt><dd>" + escapeHtml(formatTypeLabel(entry.type, entry.derived_kind)) + "</dd>";
       compMeta += "<dt>Data type</dt><dd>" + escapeHtml(entry.data_type || "—") + "</dd>";
       if (entry.polarity) compMeta += "<dt>Polarity</dt><dd>" + escapeHtml(entry.polarity) + "</dd>";
       compMeta += "</dl>";
@@ -725,6 +729,7 @@
       return {
         id: n.id,
         type: n.type,
+        derived_kind: n.derived_kind,
         label: n.name,
         in_degree: n.in_degree || 0,
         // Lowercased once for the graph search — recomputeGraphFilter must
@@ -989,7 +994,7 @@
     graphState.query = $graphSearch.value.trim().toLowerCase();
     var query = graphState.query;
     graphState.nodes.forEach(function (n) {
-      var typeOk = !!graphState.selectedTypes[n.type];
+      var typeOk = !!(graphState.selectedTypes[n.type] || (n.derived_kind && graphState.selectedTypes[n.derived_kind]));
       var orphanOk = true;
       if (graphState.orphanMode === "connected") {
         orphanOk = n._neighborCount > 0;

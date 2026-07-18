@@ -1,0 +1,30 @@
+name: version-sync
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Verify pyproject, __init__, and uv.lock agree
+        run: |
+          python3 - <<'EOF'
+          import re, sys, tomllib
+
+          py = tomllib.load(open("pyproject.toml", "rb"))["project"]["version"]
+          init = re.search(
+              r'__version__ = "([^"]+)"',
+              open("src/sdr_visualizer/__init__.py").read(),
+          ).group(1)
+          lock = re.search(
+              r'name = "sdr-visualizer"\nversion = "([^"]+)"',
+              open("uv.lock").read(),
+          ).group(1)
+          print(f"pyproject={py} __init__={init} uv.lock={lock}")
+          sys.exit(0 if py == init == lock else 1)
+          EOF

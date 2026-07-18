@@ -148,6 +148,24 @@ def test_url_hash_ignores_bogus_params(browser_page, tmp_path):
     assert browser_page.evaluate("document.getElementById('modified-filter').value") == "all"
 
 
+def test_dimension_chip_matches_derived_dimensions(browser_page, tmp_path):
+    """A derived field declared as a Dimension must appear when only the
+    Dimension type chip is active (union semantics), labelled
+    'Derived dimension'."""
+    out = _render_to(tmp_path, "cja_snapshot_messy.json", "derived_kind.html")
+    browser_page.goto(out.as_uri())
+    browser_page.wait_for_selector("#catalog-body tr", state="attached", timeout=10_000)
+    # deactivate every type chip except Dimension (checkbox inputs are
+    # visually hidden — `.chip input { display: none; }` — so toggle via
+    # the visible label, which is native HTML's own checkbox-toggle target).
+    for value in ["metric", "derived_field", "segment", "calculated_metric"]:
+        browser_page.click(f'#type-filter label.chip:has(input[value="{value}"])')
+    browser_page.wait_for_timeout(100)
+    rows = browser_page.locator("#catalog-body tr")
+    assert rows.count() > 0
+    assert browser_page.locator("text=Derived dimension").count() >= 1
+
+
 def _tiny_snapshot() -> dict:
     """8 components with edges — under the 20-node radial threshold."""
     return {

@@ -4906,7 +4906,7 @@
       {
         "component_id": "derived/df_field_001",
         "component_name": "Derived Field 001",
-        "component_type": "derived_field",
+        "component_type": "Dimension",
         "description": "Auto-generated derived field 001.",
         "complexity_score": 11.0,
         "functions_used": [
@@ -4933,7 +4933,7 @@
       {
         "component_id": "derived/df_field_002",
         "component_name": "Derived Field 002",
-        "component_type": "derived_field",
+        "component_type": "Metric",
         "description": "Auto-generated derived field 002.",
         "complexity_score": 12.0,
         "functions_used": [

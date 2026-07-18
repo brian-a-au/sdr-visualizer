@@ -495,3 +495,60 @@ def test_trend_snapshot_with_bad_scalar_skipped_not_aborted(tmp_path, capsys):
     assert "snapshot_2026-03-01T00-00-00.json" in err
     payload = extract_payload(out.read_text(encoding="utf-8"))
     assert len(payload["trend"]["snapshots"]) == 2
+
+
+def _extreme_snapshot() -> dict:
+    """A valid CJA snapshot inflated past the Q4 threshold (5,000+ components)."""
+    snap = json.loads((FIXTURES / "cja_snapshot_clean.json").read_text(encoding="utf-8"))
+    base = snap["metrics"][0]
+    snap["metrics"] = [
+        {**base, "id": f"metrics/gen_{i:05d}", "name": f"Generated Metric {i}"} for i in range(5001)
+    ]
+    return snap
+
+
+def test_extreme_size_warns_but_builds(tmp_path, capsys):
+    src = tmp_path / "extreme.json"
+    src.write_text(json.dumps(_extreme_snapshot()), encoding="utf-8")
+    out = tmp_path / "report.html"
+    rc = main([str(src), "--output", str(out), "--quiet"])
+    assert rc == 0
+    assert out.exists()
+    err = capsys.readouterr().err
+    # The warning states the size and that the graph view needs opt-in —
+    # and --quiet must NOT suppress it (warnings are never quiet-gated).
+    assert "warning:" in err
+    assert "components" in err
+    assert "--max-graph-nodes" in err
+
+
+def test_normal_size_does_not_warn(tmp_path, capsys):
+    out = tmp_path / "report.html"
+    rc = main([str(FIXTURES / "cja_snapshot_clean.json"), "--output", str(out), "--quiet"])
+    assert rc == 0
+    assert "components" not in capsys.readouterr().err
+
+
+def test_newer_generator_version_prints_compat_warning(tmp_path, capsys):
+    snap = json.loads((FIXTURES / "cja_snapshot_clean.json").read_text(encoding="utf-8"))
+    snap["metadata"]["Tool Version"] = "99.0.0"
+    src = tmp_path / "newer.json"
+    src.write_text(json.dumps(snap), encoding="utf-8")
+    rc = main([str(src), "--output", str(tmp_path / "r.html"), "--quiet"])
+    assert rc == 0
+    err = capsys.readouterr().err
+    assert "warning:" in err
+    assert "99.0.0" in err
+
+
+def test_tested_generator_version_does_not_warn(tmp_path, capsys):
+    rc = main(
+        [
+            str(FIXTURES / "cja_snapshot_clean.json"),
+            "--output",
+            str(tmp_path / "r.html"),
+            "--quiet",
+        ]
+    )
+    assert rc == 0
+    assert "generator version" not in capsys.readouterr().err

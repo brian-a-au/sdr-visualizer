@@ -16,6 +16,8 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 from sdr_visualizer import __version__
+from sdr_visualizer.adapters import aa as aa_adapter
+from sdr_visualizer.adapters import cja as cja_adapter
 from sdr_visualizer.analysis.diff import diff_implementations
 from sdr_visualizer.analysis.trend import build_trend
 from sdr_visualizer.cli.exit_codes import (
@@ -33,6 +35,11 @@ from sdr_visualizer.input.loader import STDIN_TOKEN, load_snapshot
 from sdr_visualizer.input.series import list_snapshot_series
 from sdr_visualizer.input.shell_out import shell_aa, shell_cja
 from sdr_visualizer.render.renderer import build_payload_with_options, render_payload
+
+# Q4 (1.0.0): above this the report is still valid but visibly degraded
+# (simplified rendering; the graph view already needs --max-graph-nodes
+# opt-in past 1,000 nodes). Warn — never refuse — on valid input.
+EXTREME_SIZE_WARNING = 5000
 
 
 class _ArgumentParser(argparse.ArgumentParser):
@@ -81,6 +88,10 @@ def main(argv: list[str] | None = None) -> int:
                 platform=args.platform,
             )
             baseline = _load_baseline(args, impl) if args.compare_to else None
+        adapter = cja_adapter if impl.platform == "cja" else aa_adapter
+        compat = adapter.generator_version_warning(impl.adapter_version)
+        if compat:
+            print(f"sdr-visualizer: warning: {compat}", file=sys.stderr)
         payload = build_payload_with_options(
             impl,
             exclude_orphans=args.exclude_orphans,
@@ -91,6 +102,14 @@ def main(argv: list[str] | None = None) -> int:
             payload["meta"]["compared_to"] = payload["changes"]["baseline"]
         if trend is not None:
             payload["trend"] = trend
+        count = payload["meta"]["component_count"]
+        if count >= EXTREME_SIZE_WARNING:
+            print(
+                f"sdr-visualizer: warning: {count:,} components — the report is "
+                "valid but degrades at this size; the graph view stays behind its "
+                "opt-in (--max-graph-nodes)",
+                file=sys.stderr,
+            )
         html = render_payload(payload, title=args.title)
     except (InvalidSnapshotError, UnknownPlatformError) as exc:
         print(f"sdr-visualizer: {exc}", file=sys.stderr)

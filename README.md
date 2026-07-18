@@ -1,7 +1,12 @@
 # sdr-visualizer
 
+[![PyPI](https://img.shields.io/pypi/v/sdr-visualizer)](https://pypi.org/project/sdr-visualizer/)
 [![Tests](https://github.com/brian-a-au/sdr-visualizer/actions/workflows/test.yml/badge.svg)](https://github.com/brian-a-au/sdr-visualizer/actions/workflows/test.yml)
+[![Lint](https://github.com/brian-a-au/sdr-visualizer/actions/workflows/lint.yml/badge.svg)](https://github.com/brian-a-au/sdr-visualizer/actions/workflows/lint.yml)
+[![Version Sync](https://github.com/brian-a-au/sdr-visualizer/actions/workflows/version-sync.yml/badge.svg)](https://github.com/brian-a-au/sdr-visualizer/actions/workflows/version-sync.yml)
 [![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-blue.svg)](https://www.python.org/downloads/)
+[![Coverage](https://img.shields.io/badge/coverage-92%25-brightgreen.svg)](tests/)
+[![Tests](https://img.shields.io/badge/tests-288-brightgreen.svg)](tests/)
 [![Ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json)](https://github.com/astral-sh/ruff)
 [![uv](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/uv/main/assets/badge/v0.json)](https://github.com/astral-sh/uv)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
@@ -117,6 +122,20 @@ Build time and HTML size are enforced at every §6 tier (100 / 500 / 1,000 / 2,0
 components). Browser-measured budgets are enforced at the 1,000-component tier
 (initial render < 1s, filter/search < 150ms) and the 2,000-component tier
 (< 2s, < 300ms), plus a 700ms cap on the graph view's main-thread block.
+
+## Stability
+
+From 1.0.0, [semantic versioning](https://semver.org) covers the surface below. Anything not listed is internal and may change in any release.
+
+**CLI.** The argument set: the positional `path` (snapshot file, snapshot directory, or `-` for stdin), `--dataview`, `--rsid`, `--platform`, `--at`, `--compare-to`, `--trend`, `--allow-instance-mismatch`, `--output`, `--title`, `--exclude-orphans`, `--max-graph-nodes`, `--json`, `--quiet`, `--version`. Removing or repurposing any of these is a major bump; adding flags is a minor one.
+
+**Exit codes.** `0` success, `1` runtime error, `3` invalid input. `2` is never used.
+
+**The data payload.** The JSON embedded in every report and the `--json` sidecar share one schema, published at [docs/payload-schema.json](https://github.com/brian-a-au/sdr-visualizer/blob/main/docs/payload-schema.json) (JSON Schema 2020-12), validated in CI against every payload shape the bundled fixtures produce, and against a real corpus of 108 production snapshots before each release. Removing or retyping a field is major; adding optional fields is minor. The `segment_trees` / `formula_trees` node internals are documented in the schema as loosely specified.
+
+**Performance budgets.** The tier table above is a guarantee, not a goal: loosening a budget is a breaking change; tightening one is minor.
+
+Warnings (snapshot generator newer than the tested version; 5,000+ component reports) are informational and never make a valid snapshot fail.
 
 ## Develop
 
