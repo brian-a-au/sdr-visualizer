@@ -2,6 +2,39 @@
 
 All notable changes to `sdr-visualizer` will be documented here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.1] - 2026-07-18
+
+### Fixed
+
+- The CJA adapter now reads the timestamp key real `cja_auto_sdr`
+  exports actually carry (`Generated Date & timestamp and timezone`) —
+  previously ~93% of real CJA reports rendered with no snapshot
+  timestamp. Verified against the private corpus: 100/100 real CJA
+  snapshots now carry one.
+- A calculated metric whose formula `args` is a scalar no longer
+  crashes report rendering with a bare `TypeError` (fuzz-found; the
+  formula tree degrades to an operation with no arguments, matching its
+  never-raise design).
+- Wrong-typed optional scalars (`owner`, `created_at` / `modified_at`,
+  a derived field's output type) are coerced at the adapter layer —
+  stringified, or dropped when a timestamp is not a string — instead of
+  flowing into the payload as non-strings the published schema rejects
+  and the client renders wrongly. All adapter fixes in this release are
+  mirrored to sdr-grader in the same cycle
+  (https://github.com/brian-a-au/sdr-grader/pull/20).
+- The payload schema wrongly required `trend.snapshots[].taken_at` to
+  be a string; shipped 1.0.0 behavior emits null for a timestamp-less
+  snapshot. Widened to nullable — a correction to match reality, not a
+  contract change.
+
+### Added
+
+- The fuzz suite's render-path property now validates every accepted
+  payload against `docs/payload-schema.json`, catching schema-vs-reality
+  drift as a class instead of one review finding at a time. It earned
+  its keep immediately: the formula-tree crash and the wrong-typed
+  scalar passthroughs above were all surfaced by this gate.
+
 ## [1.0.0] - 2026-07-17
 
 1.0.0 is a promise more than a feature release: the CLI surface, exit
@@ -349,6 +382,7 @@ The following are explicitly internal and may change without notice:
 - Workspace project visualization (v0.4)
 - Schema map view (v0.5)
 
+[1.0.1]: https://github.com/brian-a-au/sdr-visualizer/releases/tag/v1.0.1
 [1.0.0]: https://github.com/brian-a-au/sdr-visualizer/releases/tag/v1.0.0
 [0.6.0]: https://github.com/brian-a-au/sdr-visualizer/releases/tag/v0.6.0
 [0.5.0]: https://github.com/brian-a-au/sdr-visualizer/releases/tag/v0.5.0

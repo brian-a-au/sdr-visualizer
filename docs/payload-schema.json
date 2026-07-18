@@ -207,7 +207,7 @@
       "additionalProperties": false,
       "properties": {
         "source": {"type": "string"},
-        "taken_at": {"type": "string"},
+        "taken_at": {"type": ["string", "null"]},
         "aggregates": {"$ref": "#/$defs/aggregates"}
       }
     },

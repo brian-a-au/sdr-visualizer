@@ -10,6 +10,7 @@ import pytest
 from sdr_visualizer.adapters.aa import adapt
 from sdr_visualizer.core.exceptions import InvalidSnapshotError
 from sdr_visualizer.input.detect import detect_platform
+from sdr_visualizer.render.renderer import render
 
 FIXTURES = Path(__file__).parent / "fixtures"
 
@@ -219,6 +220,16 @@ def test_non_numeric_complexity_score_rejected_as_invalid_not_bare_error():
     snap["calculated_metrics"][0]["complexity_score"] = "high"  # not float()-able
     with pytest.raises(InvalidSnapshotError):
         adapt(snap)
+
+
+def test_scalar_formula_args_render_without_crashing():
+    # Fuzz-found (1.0.1): a calc metric whose definition.formula.args is a
+    # truthy scalar (e.g. 7) must not crash formula-tree building during
+    # render — render-or-InvalidSnapshotError, never a bare TypeError.
+    snap = json.loads((FIXTURES / "aa_snapshot_clean.json").read_text(encoding="utf-8"))
+    snap["calculated_metrics"][0]["definition"] = {"formula": {"func": "add", "args": 7}}
+    html = render(adapt(snap))
+    assert "<html" in html.lower()
 
 
 # ---------------------------------------------------------------------------
