@@ -1,6 +1,10 @@
 # Local PM/planning artifacts (Superpowers brainstorms, plans, spikes)
 .superpowers/
 
+# Local Compound Engineering specifications and plans
+/docs/plans/
+/docs/specs/
+
 # Reference artifacts (kept in working directory, not tracked).
 # These are the spec inputs and the grader's render artifacts copied here
 # as references. The visualizer has its own templates under
@@ -43,6 +47,7 @@ env/
 .coverage
 .coverage.*
 htmlcov/
+/coverage.json
 coverage.xml
 .tox/
 

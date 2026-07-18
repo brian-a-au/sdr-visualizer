@@ -61,6 +61,15 @@ testpaths = ["tests"]
 pythonpath = ["tests"]
 addopts = "-ra"
 
+[tool.coverage.run]
+branch = true
+source = ["sdr_visualizer"]
+
+[tool.coverage.report]
+show_missing = true
+precision = 2
+fail_under = 99.00
+
 [tool.ruff]
 line-length = 100
 target-version = "py311"
