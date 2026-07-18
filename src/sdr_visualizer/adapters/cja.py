@@ -377,7 +377,7 @@ def _version_tuple(value: str) -> tuple[int, ...] | None:
     parts = str(value).strip().split(".")
     try:
         return tuple(int(p) for p in parts)
-    except (TypeError, ValueError):
+    except ValueError:
         return None
 
 
@@ -385,9 +385,9 @@ def _optional_str(value: Any) -> str | None:
     """Coerce an optional scalar (owner, data_type) to a string, or None.
 
     cja_auto_sdr's owner/dataType/output_type fields are declared str|None
-    in the internal model but the raw export can carry a numeric Adobe user
-    id or an int dataType; a bare passthrough leaks that shape straight into
-    the payload (fuzz-surfaced: $.components[*].owner,
+    in the internal model but the raw export can carry a truthy non-string
+    scalar; a bare passthrough leaks that shape straight into the payload
+    (fuzz-surfaced: $.components[*].owner,
     $.components[*].data_type). Falsy input (including 0) stays None rather
     than becoming the string "0" — matching the pre-existing
     `str(x) if x else None` pattern this helper replaces."""

@@ -9,6 +9,8 @@ import pytest
 from conftest import extract_payload
 
 from sdr_visualizer.cli.main import main
+from sdr_visualizer.core.visualizer import build_implementation
+from sdr_visualizer.render.renderer import build_payload_with_options
 
 FIXTURES = Path(__file__).parent / "fixtures"
 
@@ -497,14 +499,22 @@ def test_trend_snapshot_with_bad_scalar_skipped_not_aborted(tmp_path, capsys):
     assert len(payload["trend"]["snapshots"]) == 2
 
 
-def _extreme_snapshot() -> dict:
-    """A valid CJA snapshot inflated past the Q4 threshold (5,000+ components)."""
+def _snapshot_with_component_count(target: int) -> dict:
+    """A valid CJA snapshot whose final payload component_count is target."""
     snap = json.loads((FIXTURES / "cja_snapshot_clean.json").read_text(encoding="utf-8"))
+    base_payload = build_payload_with_options(build_implementation(snap, source="x"))
+    non_metric = base_payload["meta"]["component_count"] - len(snap["metrics"])
     base = snap["metrics"][0]
     snap["metrics"] = [
-        {**base, "id": f"metrics/gen_{i:05d}", "name": f"Generated Metric {i}"} for i in range(5001)
+        {**base, "id": f"metrics/gen_{i:05d}", "name": f"Generated Metric {i}"}
+        for i in range(target - non_metric)
     ]
     return snap
+
+
+def _extreme_snapshot() -> dict:
+    """A valid CJA snapshot inflated past the Q4 threshold (5,000+ components)."""
+    return _snapshot_with_component_count(5001)
 
 
 def test_extreme_size_warns_but_builds(tmp_path, capsys):
@@ -527,6 +537,62 @@ def test_normal_size_does_not_warn(tmp_path, capsys):
     rc = main([str(FIXTURES / "cja_snapshot_clean.json"), "--output", str(out), "--quiet"])
     assert rc == 0
     assert "components" not in capsys.readouterr().err
+
+
+def test_q4_warns_at_exactly_5000(tmp_path, capsys):
+    src = tmp_path / "s.json"
+    src.write_text(json.dumps(_snapshot_with_component_count(5000)), encoding="utf-8")
+    rc = main([str(src), "--output", str(tmp_path / "o.html"), "--quiet"])
+    assert rc == 0
+    err = capsys.readouterr().err
+    assert "5,000 components" in err
+    assert "--max-graph-nodes" in err
+
+
+def test_q4_silent_at_4999(tmp_path, capsys):
+    src = tmp_path / "s.json"
+    src.write_text(json.dumps(_snapshot_with_component_count(4999)), encoding="utf-8")
+    rc = main([str(src), "--output", str(tmp_path / "o.html"), "--quiet"])
+    assert rc == 0
+    assert "--max-graph-nodes" not in capsys.readouterr().err
+
+
+def test_q4_fires_once_under_compare_to(tmp_path, capsys):
+    primary = tmp_path / "primary.json"
+    primary.write_text(json.dumps(_snapshot_with_component_count(5000)), encoding="utf-8")
+    baseline = tmp_path / "baseline.json"
+    baseline.write_text(
+        (FIXTURES / "cja_snapshot_clean.json").read_text(encoding="utf-8"),
+        encoding="utf-8",
+    )
+    rc = main(
+        [
+            str(primary),
+            "--compare-to",
+            str(baseline),
+            "--output",
+            str(tmp_path / "o.html"),
+            "--quiet",
+        ]
+    )
+    assert rc == 0
+    err = capsys.readouterr().err
+    assert err.count("--max-graph-nodes") == 1
+    assert "5,000 components" in err
+
+
+def test_q4_fires_once_under_trend(tmp_path, capsys):
+    d = tmp_path / "series"
+    d.mkdir()
+    older = json.loads((FIXTURES / "cja_snapshot_clean.json").read_text(encoding="utf-8"))
+    newer = _snapshot_with_component_count(5000)
+    _write_json(d / "snapshot_2026-01-01T00-00-00.json", older)
+    _write_json(d / "snapshot_2026-02-01T00-00-00.json", newer)
+    rc = main([str(d), "--trend", "--output", str(tmp_path / "o.html"), "--quiet"])
+    assert rc == 0
+    err = capsys.readouterr().err
+    assert err.count("--max-graph-nodes") == 1
+    assert "5,000 components" in err
 
 
 def test_newer_generator_version_prints_compat_warning(tmp_path, capsys):

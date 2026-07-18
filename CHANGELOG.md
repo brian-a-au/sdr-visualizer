@@ -2,6 +2,31 @@
 
 All notable changes to `sdr-visualizer` will be documented here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.2] - 2026-07-18
+
+### Added
+
+- Boundary tests pin the contract warnings: Q4's exact 5,000-component
+  edge and its once-per-run firing under `--compare-to` / `--trend`, plus
+  Q5's tuple-length version comparisons.
+- Browser tests pin the derived-metric filter path and the client-rendered
+  no-description chip, catalog marker, and detail-panel state.
+
+### Changed
+
+- The changes view's filter input is debounced by 120 ms, matching the
+  catalog search; it previously rerendered on every keystroke.
+- `version-sync` CI failures now name the extraction or version-drift
+  problem instead of ending with a raw regex traceback.
+
+### Fixed
+
+- `_version_tuple`'s unreachable `TypeError` handler was removed in both
+  adapters and mirrored to sdr-grader with the deferred parity documentation
+  follow-ups ([sdr-grader PR #21](https://github.com/brian-a-au/sdr-grader/pull/21)).
+- Speculative rationales were removed from scalar-coercion docstrings while
+  preserving their defensive behavior.
+
 ## [1.0.1] - 2026-07-18
 
 ### Fixed
@@ -382,6 +407,7 @@ The following are explicitly internal and may change without notice:
 - Workspace project visualization (v0.4)
 - Schema map view (v0.5)
 
+[1.0.2]: https://github.com/brian-a-au/sdr-visualizer/releases/tag/v1.0.2
 [1.0.1]: https://github.com/brian-a-au/sdr-visualizer/releases/tag/v1.0.1
 [1.0.0]: https://github.com/brian-a-au/sdr-visualizer/releases/tag/v1.0.0
 [0.6.0]: https://github.com/brian-a-au/sdr-visualizer/releases/tag/v0.6.0

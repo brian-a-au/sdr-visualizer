@@ -14,6 +14,7 @@ from pathlib import Path
 from urllib.parse import quote
 
 import pytest
+from conftest import extract_payload
 
 playwright_sync = pytest.importorskip("playwright.sync_api")
 
@@ -164,6 +165,21 @@ def test_dimension_chip_matches_derived_dimensions(browser_page, tmp_path):
     rows = browser_page.locator("#catalog-body tr")
     assert rows.count() > 0
     assert browser_page.locator("text=Derived dimension").count() >= 1
+
+
+def test_metric_chip_matches_derived_metrics(browser_page, tmp_path):
+    """A derived field declared as a Metric appears with only Metric active."""
+    out = _render_to(tmp_path, "cja_snapshot_messy.json", "derived_metric.html")
+    browser_page.goto(out.as_uri())
+    browser_page.wait_for_selector("#catalog-body tr", state="attached", timeout=10_000)
+    for value in ["dimension", "derived_field", "segment", "calculated_metric"]:
+        browser_page.click(f'#type-filter label.chip:has(input[value="{value}"])')
+    browser_page.wait_for_timeout(100)
+    rows = browser_page.locator("#catalog-body tr")
+    assert rows.count() > 0
+    assert (
+        browser_page.locator("#catalog-body").get_by_text("Derived metric", exact=True).count() >= 1
+    )
 
 
 def _tiny_snapshot() -> dict:
@@ -450,6 +466,54 @@ def test_changes_view_renders_counts_and_field_detail(browser_page, tmp_path):
     )
 
 
+def test_changes_view_shows_no_description_chip(browser_page, tmp_path):
+    old = json.loads((FIXTURES / "cja_snapshot_clean.json").read_text(encoding="utf-8"))
+    new = json.loads((FIXTURES / "cja_snapshot_messy.json").read_text(encoding="utf-8"))
+    out = _render_compare(tmp_path, "compare_no_desc.html", old, new)
+    payload = extract_payload(out.read_text(encoding="utf-8"))
+    catalog_by_id = {
+        entry["id"]: entry
+        for key in ("components", "segments", "calculated_metrics")
+        for entry in payload[key]
+    }
+    added_without_description = next(
+        entry
+        for entry in payload["changes"]["added"]
+        if not catalog_by_id[entry["id"]].get("description")
+    )
+
+    browser_page.goto(out.as_uri())
+    browser_page.wait_for_selector("#catalog-body tr", state="attached", timeout=10_000)
+    browser_page.click('.view-button[data-view="changes"]')
+    added_id = added_without_description["id"]
+    chip = browser_page.locator(
+        f'.change-added:has(button.ref-link[data-id="{added_id}"]) .change-no-desc'
+    )
+    assert chip.count() == 1
+    assert chip.is_visible()
+
+
+def test_detail_panel_marks_missing_description(browser_page, tmp_path):
+    out = _render_to(tmp_path, "cja_snapshot_messy.json", "detail_no_desc.html")
+    payload = extract_payload(out.read_text(encoding="utf-8"))
+    component = next(
+        entry
+        for entry in payload["components"]
+        if not entry.get("description") and not entry.get("formula_text")
+    )
+
+    browser_page.goto(out.as_uri())
+    browser_page.wait_for_selector("#catalog-body tr", state="attached", timeout=10_000)
+    browser_page.fill("#search-input", component["name"])
+    browser_page.wait_for_timeout(300)
+    row = browser_page.locator(f'#catalog-body tr[data-id="{component["id"]}"]')
+    assert row.locator(".is-missing-marker").inner_text() == "(no description)"
+    row.click()
+    browser_page.wait_for_selector("#detail-panel.is-open", state="attached", timeout=2_000)
+    missing = browser_page.locator("#detail-panel .detail-description.is-missing")
+    assert missing.inner_text() == "No description."
+
+
 def test_changes_added_entry_links_to_detail_panel(browser_page, tmp_path):
     old, new = _compare_pair()
     out = _render_compare(tmp_path, "compare_link.html", old, new)
@@ -486,6 +550,7 @@ def test_changes_search_filters_rows(browser_page, tmp_path):
     browser_page.wait_for_selector("#catalog-body tr", state="attached", timeout=10_000)
     browser_page.click('.view-button[data-view="changes"]')
     browser_page.fill("#changes-search", "metric two")
+    browser_page.wait_for_timeout(300)  # debounce (120ms) + slack
     visible = browser_page.evaluate(
         "Array.from(document.querySelectorAll('#changes-body .change-row'))"
         ".filter(function (r) { return !r.hidden; }).length"

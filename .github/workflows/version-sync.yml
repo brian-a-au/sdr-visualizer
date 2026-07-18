@@ -16,15 +16,33 @@ jobs:
           python3 - <<'EOF'
           import re, sys, tomllib
 
-          py = tomllib.load(open("pyproject.toml", "rb"))["project"]["version"]
-          init = re.search(
+          def fail(msg):
+              print(f"version-sync: {msg}")
+              sys.exit(1)
+
+          try:
+              py = tomllib.load(open("pyproject.toml", "rb"))["project"]["version"]
+          except (OSError, KeyError, tomllib.TOMLDecodeError):
+              fail("could not read [project].version from pyproject.toml")
+
+          m = re.search(
               r'__version__ = "([^"]+)"',
               open("src/sdr_visualizer/__init__.py").read(),
-          ).group(1)
-          lock = re.search(
+          )
+          if not m:
+              fail("could not locate __version__ in src/sdr_visualizer/__init__.py — update the pattern in .github/workflows/version-sync.yml")
+          init = m.group(1)
+
+          m = re.search(
               r'name = "sdr-visualizer"\nversion = "([^"]+)"',
               open("uv.lock").read(),
-          ).group(1)
+          )
+          if not m:
+              fail("could not locate sdr-visualizer's version in uv.lock — update the pattern in .github/workflows/version-sync.yml")
+          lock = m.group(1)
+
           print(f"pyproject={py} __init__={init} uv.lock={lock}")
-          sys.exit(0 if py == init == lock else 1)
+          if not (py == init == lock):
+              fail(f"version drift: pyproject={py} __init__={init} uv.lock={lock}")
+          print("versions in sync")
           EOF

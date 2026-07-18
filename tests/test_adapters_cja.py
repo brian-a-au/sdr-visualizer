@@ -410,6 +410,15 @@ def test_equal_older_or_unparseable_versions_do_not_warn():
     assert generator_version_warning("3.5.x") is None
 
 
+def test_tuple_length_mismatch_versions_compare_correctly():
+    # (3, 6) > (3, 5, 17), while the shorter (3, 5) sorts below the
+    # longer tested tuple. This pins Python tuple ordering as the contract.
+    from sdr_visualizer.adapters.cja import generator_version_warning
+
+    assert generator_version_warning("3.6") is not None
+    assert generator_version_warning("3.5") is None
+
+
 # ---------------------------------------------------------------------------
 # Real cja_auto_sdr snapshots carry the generation timestamp only under
 # "Generated Date & timestamp and timezone" (corpus, 2026-07-17). Mirrored
