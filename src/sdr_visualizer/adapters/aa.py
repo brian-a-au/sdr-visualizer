@@ -314,7 +314,7 @@ def _version_tuple(value: str) -> tuple[int, ...] | None:
     parts = str(value).strip().split(".")
     try:
         return tuple(int(p) for p in parts)
-    except (TypeError, ValueError):
+    except ValueError:
         return None
 
 

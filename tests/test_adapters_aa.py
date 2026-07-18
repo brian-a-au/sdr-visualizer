@@ -285,3 +285,10 @@ def test_equal_older_or_unparseable_versions_do_not_warn():
     assert generator_version_warning("unknown") is None
     assert generator_version_warning("") is None
     assert generator_version_warning("3.5.x") is None
+
+
+def test_tuple_length_mismatch_versions_compare_correctly():
+    from sdr_visualizer.adapters.aa import generator_version_warning
+
+    assert generator_version_warning("1.19") is not None
+    assert generator_version_warning("1.18") is None

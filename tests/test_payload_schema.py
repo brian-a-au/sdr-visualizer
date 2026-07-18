@@ -174,11 +174,11 @@ def test_owner_as_integer_validates():
     """The CJA adapter now guards owner with `_optional_str` (`str(x) if x
     else None`) at all four record builders — the same established pattern
     the component/dimension `data_type` path already used. A raw snapshot
-    with a numeric owner (e.g. an Adobe user/group id instead of an email) is
-    adapter-accepted, but the coercion stringifies it before it reaches the
-    payload; the fuzz render-path property (tests/test_adapter_fuzz.py) found
-    the uncoerced shape via its replace_int mutation at $.components[*].owner
-    and $.segments[*].owner, prior to the guard landing."""
+    with a numeric owner is adapter-accepted, but the defensive coercion
+    stringifies it before it reaches the payload; the fuzz render-path property
+    (tests/test_adapter_fuzz.py) found the uncoerced shape via its replace_int
+    mutation at $.components[*].owner and $.segments[*].owner, prior to the
+    guard landing."""
     snapshot = json.loads((FIXTURES / "cja_snapshot_clean.json").read_text(encoding="utf-8"))
     snapshot["metrics"][0]["owner"] = 12345
     snapshot["segments"]["segments"][0]["owner"] = 67890
