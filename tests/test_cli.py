@@ -527,3 +527,28 @@ def test_normal_size_does_not_warn(tmp_path, capsys):
     rc = main([str(FIXTURES / "cja_snapshot_clean.json"), "--output", str(out), "--quiet"])
     assert rc == 0
     assert "components" not in capsys.readouterr().err
+
+
+def test_newer_generator_version_prints_compat_warning(tmp_path, capsys):
+    snap = json.loads((FIXTURES / "cja_snapshot_clean.json").read_text(encoding="utf-8"))
+    snap["metadata"]["Tool Version"] = "99.0.0"
+    src = tmp_path / "newer.json"
+    src.write_text(json.dumps(snap), encoding="utf-8")
+    rc = main([str(src), "--output", str(tmp_path / "r.html"), "--quiet"])
+    assert rc == 0
+    err = capsys.readouterr().err
+    assert "warning:" in err
+    assert "99.0.0" in err
+
+
+def test_tested_generator_version_does_not_warn(tmp_path, capsys):
+    rc = main(
+        [
+            str(FIXTURES / "cja_snapshot_clean.json"),
+            "--output",
+            str(tmp_path / "r.html"),
+            "--quiet",
+        ]
+    )
+    assert rc == 0
+    assert "generator version" not in capsys.readouterr().err

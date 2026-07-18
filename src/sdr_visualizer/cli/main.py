@@ -16,6 +16,8 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 from sdr_visualizer import __version__
+from sdr_visualizer.adapters import aa as aa_adapter
+from sdr_visualizer.adapters import cja as cja_adapter
 from sdr_visualizer.analysis.diff import diff_implementations
 from sdr_visualizer.analysis.trend import build_trend
 from sdr_visualizer.cli.exit_codes import (
@@ -86,6 +88,10 @@ def main(argv: list[str] | None = None) -> int:
                 platform=args.platform,
             )
             baseline = _load_baseline(args, impl) if args.compare_to else None
+        adapter = cja_adapter if impl.platform == "cja" else aa_adapter
+        compat = adapter.generator_version_warning(impl.adapter_version)
+        if compat:
+            print(f"sdr-visualizer: warning: {compat}", file=sys.stderr)
         payload = build_payload_with_options(
             impl,
             exclude_orphans=args.exclude_orphans,
