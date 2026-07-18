@@ -4,13 +4,55 @@ All notable changes to `sdr-visualizer` will be documented here. The format foll
 
 ## [Unreleased]
 
+1.0.0 is a promise more than a feature release: the CLI surface, exit
+codes, data payload, and performance budgets are now covered by semantic
+versioning, and the release was validated against a real corpus of 108
+production `cja_auto_sdr` / `aa_auto_sdr` snapshots (0 failures, size
+budgets and payload-schema validation included).
+
+### Added
+
+- `docs/payload-schema.json` (JSON Schema 2020-12): the schema shared by
+  the embedded payload and the `--json` sidecar. Validated in CI against
+  every payload shape the fixtures can produce, and by
+  `scripts/corpus_check.py` against real snapshots, so it cannot drift
+  from reality.
+- Derived fields now carry their declared functional kind: real
+  `cja_auto_sdr` records mark each derived field as a Dimension or
+  Metric, and the payload's optional `derived_kind` surfaces it. The
+  catalog's Dimension / Metric filters also match derived fields of that
+  kind, and the type column reads "Derived dimension" / "Derived
+  metric". Declared only — never inferred.
+- Build warning at 5,000+ components (SPEC §14 Q4): the report still
+  builds; the warning states the size and that the graph view stays
+  behind its `--max-graph-nodes` opt-in.
+- Generator-version compatibility warning (SPEC §14 Q5): warns — never
+  refuses — when a snapshot's generator is newer than the newest version
+  this release was tested against (CJA 3.5.17, AA 1.18.0; per-adapter
+  constants in the vendored layer, mirrored to sdr-grader).
+- Standalone `lint` and `version-sync` workflows (backing the new README
+  badge row, which now mirrors the cja_auto_sdr / aa_auto_sdr set).
+
 ### Changed
 
-- The repository is public as of 2026-07-17, and the examples site is
-  live on GitHub Pages. `pages.yml` deploys on pushes to main again, and
-  the README's catalog screenshot and live-example links (held back for
-  the 0.6.0 PyPI cut) are restored — the screenshot as an absolute URL,
-  so it renders on the PyPI page too.
+- The README states the stability contract: covered CLI argument set,
+  exit codes 0/1/3, the payload schema, and the performance-budget
+  guarantee. Template structure, CSS selectors, and module internals stay
+  explicitly uncovered.
+
+### Fixed
+
+- Reports without derived fields (every AA report, and CJA views that
+  have none) no longer offer a "Derived field" type filter chip in the
+  catalog and graph views.
+
+### Notes
+
+- SPEC §14 fully resolved: Q1/Q2 shipped in 0.3.0; Q3 (Adobe UI links)
+  and Q6 (Open Graph metadata) rejected; Q4 and Q5 shipped here as
+  warnings.
+- The accessibility pass is deliberately the first 1.x item, not a 1.0.0
+  blocker.
 
 ## [0.6.0] - 2026-07-17
 
