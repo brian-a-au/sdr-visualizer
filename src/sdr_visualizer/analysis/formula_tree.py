@@ -73,7 +73,11 @@ def _walk(node: Any) -> dict[str, Any]:
     return _unknown(node)
 
 
-def _operation(op: str, args: list[Any]) -> dict[str, Any]:
+def _operation(op: str, args: Any) -> dict[str, Any]:
+    if not isinstance(args, list):
+        # A malformed formula can carry a scalar here; degrade rather than
+        # crash — _walk never raises on unknown shapes.
+        args = []
     return {
         "kind": "operation",
         "op": op,

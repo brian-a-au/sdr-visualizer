@@ -125,3 +125,18 @@ def test_every_real_calc_metric_parses(cja_messy, aa_messy):
             "constant",
             "unknown",
         }
+
+
+# ---------------------------------------------------------------------------
+# Fuzz-found regressions: malformed formula shapes must degrade gracefully,
+# never raise a bare TypeError (see tests/test_adapter_fuzz.py).
+# ---------------------------------------------------------------------------
+
+
+def test_scalar_formula_args_degrade_to_empty_operation():
+    # Fuzz-found (1.0.1): a formula node whose "args" is a scalar must not
+    # crash tree building — degrade to an operation with no args, matching
+    # _walk's never-raise design.
+    tree = parse_formula_tree(_make_metric({"func": "add", "args": 7}))
+    assert tree["kind"] == "operation"
+    assert tree["args"] == []
