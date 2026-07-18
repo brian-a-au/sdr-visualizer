@@ -123,11 +123,11 @@ def _component_from_record(record: dict[str, Any], component_type: str) -> Compo
         name=str(name),
         description=description,
         component_type=component_type,  # type: ignore[arg-type]
-        data_type=str(data_type) if data_type else None,
+        data_type=_optional_str(data_type),
         polarity=polarity,
-        created_at=record.get("created") or record.get("created_at"),
-        modified_at=record.get("modified") or record.get("modified_at"),
-        owner=record.get("owner"),
+        created_at=_optional_timestamp(record.get("created") or record.get("created_at")),
+        modified_at=_optional_timestamp(record.get("modified") or record.get("modified_at")),
+        owner=_optional_str(record.get("owner")),
         tags=_parse_tag_list(record.get("tags")),
         platform_specific=platform_specific,
     )
@@ -176,11 +176,11 @@ def _derived_field_from_record(record: dict[str, Any]) -> Component:
         name=str(name),
         description=description,
         component_type="derived_field",
-        data_type=record.get("output_type") or record.get("inferred_output_type"),
+        data_type=_optional_str(record.get("output_type") or record.get("inferred_output_type")),
         polarity=None,
-        created_at=record.get("created") or record.get("created_at"),
-        modified_at=record.get("modified") or record.get("modified_at"),
-        owner=record.get("owner"),
+        created_at=_optional_timestamp(record.get("created") or record.get("created_at")),
+        modified_at=_optional_timestamp(record.get("modified") or record.get("modified_at")),
+        owner=_optional_str(record.get("owner")),
         tags=_parse_tag_list(record.get("tags")),
         platform_specific=platform_specific,
     )
@@ -233,9 +233,9 @@ def _calc_metric_from_record(record: dict[str, Any]) -> CalculatedMetric:
         allocation=allocation,
         complexity_score=complexity,
         references=references,
-        created_at=record.get("created") or record.get("created_at"),
-        modified_at=record.get("modified") or record.get("modified_at"),
-        owner=record.get("owner"),
+        created_at=_optional_timestamp(record.get("created") or record.get("created_at")),
+        modified_at=_optional_timestamp(record.get("modified") or record.get("modified_at")),
+        owner=_optional_str(record.get("owner")),
     )
 
 
@@ -307,9 +307,9 @@ def _segment_from_record(record: dict[str, Any]) -> Segment:
         nesting_depth=nesting_depth,
         container_types=container_types,
         references=references,
-        created_at=record.get("created") or record.get("created_at"),
-        modified_at=record.get("modified") or record.get("modified_at"),
-        owner=record.get("owner"),
+        created_at=_optional_timestamp(record.get("created") or record.get("created_at")),
+        modified_at=_optional_timestamp(record.get("modified") or record.get("modified_at")),
+        owner=_optional_str(record.get("owner")),
     )
 
 
@@ -379,6 +379,31 @@ def _version_tuple(value: str) -> tuple[int, ...] | None:
         return tuple(int(p) for p in parts)
     except (TypeError, ValueError):
         return None
+
+
+def _optional_str(value: Any) -> str | None:
+    """Coerce an optional scalar (owner, data_type) to a string, or None.
+
+    cja_auto_sdr's owner/dataType/output_type fields are declared str|None
+    in the internal model but the raw export can carry a numeric Adobe user
+    id or an int dataType; a bare passthrough leaks that shape straight into
+    the payload (fuzz-surfaced: $.components[*].owner,
+    $.components[*].data_type). Falsy input (including 0) stays None rather
+    than becoming the string "0" — matching the pre-existing
+    `str(x) if x else None` pattern this helper replaces."""
+    return str(value) if value else None
+
+
+def _optional_timestamp(value: Any) -> str | None:
+    """Keep created_at/modified_at only if they're already a non-empty string.
+
+    A non-string timestamp (e.g. an epoch int) is treated as *missing*
+    rather than coerced to a numeric string: `_compact` then drops the key,
+    and the client renders the em-dash it already shows for a genuinely
+    absent timestamp — which beats both a stringified epoch and the
+    1970-date bug a raw int would cause downstream (fuzz-surfaced:
+    $.components[*].modified_at)."""
+    return value if isinstance(value, str) and value else None
 
 
 def _parse_tag_list(value: Any) -> list[str]:
