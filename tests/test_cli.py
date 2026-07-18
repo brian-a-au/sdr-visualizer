@@ -109,6 +109,27 @@ def test_unwritable_output_exits_1_with_clean_message(tmp_path, capsys):
     assert "Traceback" not in err
 
 
+def test_unexpected_collaborator_error_exits_1_with_clean_message(tmp_path, monkeypatch, capsys):
+    def fail_to_load(_args):
+        raise RuntimeError("renderer backend failed")
+
+    monkeypatch.setattr("sdr_visualizer.cli.main._load", fail_to_load)
+
+    rc = main(
+        [
+            str(FIXTURES / "cja_snapshot_clean.json"),
+            "--output",
+            str(tmp_path / "out.html"),
+        ]
+    )
+
+    assert rc == 1
+    assert not (tmp_path / "out.html").exists()
+    err = capsys.readouterr().err
+    assert err == "sdr-visualizer: unexpected error: renderer backend failed\n"
+    assert "Traceback" not in err
+
+
 def _cja_compare_snapshot(metric_name="Metric One", extra_metric=False, dv_id="dv_cmp"):
     metrics = [{"id": "metrics/m1", "name": metric_name, "description": "d"}]
     if extra_metric:
@@ -363,6 +384,20 @@ def test_trend_fewer_than_two_snapshots_exits_3(tmp_path, capsys):
     rc = main([str(d), "--trend", "--output", str(tmp_path / "o.html"), "--quiet"])
     assert rc == 3
     assert "at least 2" in capsys.readouterr().err
+
+
+def test_trend_with_no_usable_snapshots_exits_3(tmp_path, capsys):
+    d = tmp_path / "series"
+    d.mkdir()
+    _write_json(d / "snapshot_2026-01-01T00-00-00.json", {"not": "a snapshot"})
+    _write_json(d / "snapshot_2026-02-01T00-00-00.json", {"still": "not a snapshot"})
+
+    rc = main([str(d), "--trend", "--output", str(tmp_path / "o.html"), "--quiet"])
+
+    assert rc == 3
+    err = capsys.readouterr().err
+    assert err.count("warning: skipping") == 2
+    assert "at least 2 usable snapshots" in err
 
 
 _AA_SNAP = {"report_suite": {"rsid": "test"}, "dimensions": [], "metrics": []}

@@ -121,6 +121,11 @@ def test_fewer_than_two_parseable_raises(tmp_path):
         list_snapshot_series(str(tmp_path))
 
 
+def test_empty_directory_raises(tmp_path):
+    with pytest.raises(InvalidSnapshotError, match=r"no \.json snapshots found"):
+        list_snapshot_series(str(tmp_path))
+
+
 def test_non_directory_and_stdin_raise(tmp_path):
     f = _write(tmp_path, "snap.json", {"n": 1})
     with pytest.raises(InvalidSnapshotError, match="directory"):

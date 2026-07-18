@@ -114,7 +114,7 @@ def main(argv: list[str] | None = None) -> int:
     except (InvalidSnapshotError, UnknownPlatformError) as exc:
         print(f"sdr-visualizer: {exc}", file=sys.stderr)
         return INPUT_VALIDATION_ERROR
-    except Exception as exc:  # pragma: no cover — unexpected runtime failure
+    except Exception as exc:
         print(f"sdr-visualizer: unexpected error: {exc}", file=sys.stderr)
         return RUNTIME_ERROR
 
