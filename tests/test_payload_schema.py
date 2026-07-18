@@ -168,3 +168,22 @@ def test_component_polarity_validates():
     component = next(c for c in payload["components"] if c["id"] == snapshot["metrics"][0]["id"])
     assert component["polarity"] == "negative"
     _assert_valid(payload)
+
+
+def test_trend_from_timestampless_snapshots_validates():
+    """build_trend emits taken_at=None when a snapshot has no timestamp —
+    shipped 1.0.0 behavior the schema wrongly rejected (required string)."""
+
+    def _stripped(name):
+        snapshot = json.loads((FIXTURES / name).read_text(encoding="utf-8"))
+        for key in list(snapshot.get("metadata", {})):
+            if "timestamp" in key.lower() or "generated" in key.lower():
+                snapshot["metadata"].pop(key)
+        return build_implementation(snapshot, source=name)
+
+    impls = [_stripped("cja_snapshot_clean.json"), _stripped("cja_snapshot_messy.json")]
+    assert impls[0].snapshot_taken_at is None  # guard against vacuity
+    payload = build_payload_with_options(impls[-1])
+    payload["trend"] = build_trend(impls, capped=False)
+    assert payload["trend"]["snapshots"][0]["taken_at"] is None
+    _assert_valid(payload)
