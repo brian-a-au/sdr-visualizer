@@ -94,6 +94,84 @@ def test_empty_definition_returns_unknown():
     assert tree["kind"] == "unknown"
 
 
+def test_non_mapping_definition_returns_unknown():
+    tree = parse_segment_tree(_make_segment(["unexpected", "shape"]))
+
+    assert tree == {"kind": "unknown", "func": None, "raw_keys": []}
+
+
+def test_container_without_predicate_preserves_unspecified_scope():
+    tree = parse_segment_tree(_make_segment({"func": "container"}))
+
+    assert tree["kind"] == "container"
+    assert tree["context"] == "unspecified"
+    assert tree["child"] == {"kind": "unknown", "func": None, "raw_keys": []}
+
+
+def test_context_wrapper_preserves_scope_around_criterion():
+    tree = parse_segment_tree(
+        _make_segment(
+            {
+                "context": "visits",
+                "pred": {"func": "eq", "val": "returning"},
+            }
+        )
+    )
+
+    assert tree["kind"] == "container"
+    assert tree["context"] == "visits"
+    assert tree["child"]["summary"] == "value equals 'returning'"
+
+
+def test_logical_scalar_and_predicate_shapes_become_children():
+    scalar = parse_segment_tree(_make_segment({"func": "and", "args": "unexpected"}))
+    negated = parse_segment_tree(
+        _make_segment({"func": "not", "pred": {"func": "exists", "val": "value"}})
+    )
+
+    assert scalar["children"] == [{"kind": "unknown", "func": None, "raw_keys": []}]
+    assert negated["op"] == "not"
+    assert negated["children"][0]["summary"] == "value exists 'value'"
+
+
+def test_metric_criterion_with_numeric_value_reports_reference():
+    tree = parse_segment_tree(
+        _make_segment(
+            {
+                "func": "gt",
+                "val": {"func": "metric", "name": "metrics/orders"},
+                "num": 5,
+            }
+        )
+    )
+
+    assert tree["target_id"] == "metrics/orders"
+    assert tree["target_label"] == "metrics/orders"
+    assert tree["value"] == 5
+    assert tree["refs"] == ["metrics/orders"]
+    assert tree["summary"] == "metrics/orders > 5"
+
+
+def test_criterion_without_literal_has_value_free_summary():
+    tree = parse_segment_tree(
+        _make_segment({"func": "exists", "val": {"func": "attr", "name": "variables/evar1"}})
+    )
+
+    assert tree["value"] is None
+    assert tree["summary"] == "variables/evar1 exists"
+
+
+def test_unknown_criterion_target_degrades_to_value_label():
+    tree = parse_segment_tree(
+        _make_segment({"func": "exists", "val": {"func": "literal", "value": "x"}})
+    )
+
+    assert tree["target_id"] is None
+    assert tree["target_label"] == "value"
+    assert tree["refs"] == []
+    assert tree["summary"] == "value exists"
+
+
 # ---------------------------------------------------------------------------
 # Real fixtures
 # ---------------------------------------------------------------------------

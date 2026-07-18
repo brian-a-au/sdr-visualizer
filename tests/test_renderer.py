@@ -60,6 +60,14 @@ def test_public_visualize_rejects_unknown_platform_override():
         visualize({}, platform="wat")
 
 
+def test_render_embeds_max_graph_nodes_option():
+    snap = json.loads((FIXTURES / "cja_snapshot_clean.json").read_text(encoding="utf-8"))
+
+    html = render(cja_adapt(snap), max_graph_nodes=17)
+
+    assert extract_payload(html)["meta"]["max_graph_nodes"] == 17
+
+
 def test_html_contains_catalog_view_section(messy_html):
     assert 'id="catalog-view"' in messy_html
 

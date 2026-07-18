@@ -5,6 +5,10 @@ from __future__ import annotations
 from sdr_visualizer.render.trend_charts import build_trend_charts, sparkline_svg
 
 
+def test_empty_sparkline_has_no_markup():
+    assert sparkline_svg([]) == ""
+
+
 def test_sparkline_is_selfcontained_svg_polyline():
     svg = sparkline_svg([1, 5, 3])
     assert svg.startswith("<svg")
