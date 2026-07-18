@@ -131,7 +131,7 @@ From 1.0.0, [semantic versioning](https://semver.org) covers the surface below. 
 
 **Exit codes.** `0` success, `1` runtime error, `3` invalid input. `2` is never used.
 
-**The data payload.** The JSON embedded in every report and the `--json` sidecar share one schema, published at [`docs/payload-schema.json`](docs/payload-schema.json) (JSON Schema 2020-12) and validated in CI against every payload the pipeline can produce. Removing or retyping a field is major; adding optional fields is minor. The `segment_trees` / `formula_trees` node internals are documented in the schema as loosely specified.
+**The data payload.** The JSON embedded in every report and the `--json` sidecar share one schema, published at [docs/payload-schema.json](https://github.com/brian-a-au/sdr-visualizer/blob/main/docs/payload-schema.json) (JSON Schema 2020-12), validated in CI against every payload shape the bundled fixtures produce, and against a real corpus of 108 production snapshots before each release. Removing or retyping a field is major; adding optional fields is minor. The `segment_trees` / `formula_trees` node internals are documented in the schema as loosely specified.
 
 **Performance budgets.** The tier table above is a guarantee, not a goal: loosening a budget is a breaking change; tightening one is minor.
 

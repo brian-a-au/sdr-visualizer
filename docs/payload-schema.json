@@ -43,7 +43,7 @@
   "$defs": {
     "component": {
       "type": "object",
-      "required": ["id", "type", "name", "data_type", "in_degree", "out_degree"],
+      "required": ["id", "type", "name", "in_degree", "out_degree"],
       "additionalProperties": false,
       "properties": {
         "id": {"type": "string"},
@@ -64,7 +64,7 @@
     },
     "segment": {
       "type": "object",
-      "required": ["id", "type", "name", "nesting_depth", "container_types", "owner", "in_degree", "out_degree"],
+      "required": ["id", "type", "name", "nesting_depth", "in_degree", "out_degree"],
       "additionalProperties": false,
       "properties": {
         "id": {"type": "string"},
@@ -84,7 +84,7 @@
     },
     "calculatedMetric": {
       "type": "object",
-      "required": ["id", "type", "name", "formula_text", "complexity_score", "owner", "in_degree", "out_degree"],
+      "required": ["id", "type", "name", "complexity_score", "in_degree", "out_degree"],
       "additionalProperties": false,
       "properties": {
         "id": {"type": "string"},

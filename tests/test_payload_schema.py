@@ -113,6 +113,49 @@ def test_option_driven_payload_validates(tmp_path):
     assert payload == extract_payload(out.read_text(encoding="utf-8"))
 
 
+def test_bare_records_payload_validates():
+    """A legal, adapter-accepted snapshot can omit component data_type,
+    segment owner/container_types, and calculated-metric owner/formula_text
+    entirely: cja_auto_sdr does this for a metric with no declared dataType,
+    a segment with an empty definition and no declared container, and a bare
+    calculated metric with no owner or formula summary. _compact drops these
+    keys from the payload rather than emitting null/empty placeholders, so
+    the schema must not require them (they stay optional in properties)."""
+    snapshot = json.loads((FIXTURES / "cja_snapshot_clean.json").read_text(encoding="utf-8"))
+
+    bare_metric = snapshot["metrics"][0]
+    bare_metric_id = bare_metric["id"]
+    del bare_metric["dataType"]
+    del bare_metric["type"]  # adapter falls back to "type" for data_type
+
+    bare_segment = snapshot["segments"]["segments"][0]
+    bare_segment_id = bare_segment["segment_id"]
+    bare_segment["definition_json"] = "{}"
+    del bare_segment["container_type"]  # adapter falls back to this too
+    del bare_segment["owner"]
+
+    bare_calc = snapshot["calculated_metrics"]["metrics"][0]
+    bare_calc_id = bare_calc["metric_id"]
+    del bare_calc["formula_summary"]
+    del bare_calc["owner"]
+
+    impl = build_implementation(snapshot, source="bare-records")
+    payload = build_payload_with_options(impl)
+
+    component = next(c for c in payload["components"] if c["id"] == bare_metric_id)
+    assert "data_type" not in component
+
+    segment = next(s for s in payload["segments"] if s["id"] == bare_segment_id)
+    assert "owner" not in segment
+    assert "container_types" not in segment
+
+    calc = next(c for c in payload["calculated_metrics"] if c["id"] == bare_calc_id)
+    assert "owner" not in calc
+    assert "formula_text" not in calc
+
+    _assert_valid(payload)
+
+
 def test_component_polarity_validates():
     """A metric/dimension can declare polarity (e.g. bounce rate = negative);
     data_payload.py's _component_node writes it straight through when set.
