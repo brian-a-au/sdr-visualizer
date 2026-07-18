@@ -2,7 +2,7 @@
 
 All notable changes to `sdr-visualizer` will be documented here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [1.0.2] - 2026-07-18
 
 ### Added
 
@@ -407,6 +407,7 @@ The following are explicitly internal and may change without notice:
 - Workspace project visualization (v0.4)
 - Schema map view (v0.5)
 
+[1.0.2]: https://github.com/brian-a-au/sdr-visualizer/releases/tag/v1.0.2
 [1.0.1]: https://github.com/brian-a-au/sdr-visualizer/releases/tag/v1.0.1
 [1.0.0]: https://github.com/brian-a-au/sdr-visualizer/releases/tag/v1.0.0
 [0.6.0]: https://github.com/brian-a-au/sdr-visualizer/releases/tag/v0.6.0
