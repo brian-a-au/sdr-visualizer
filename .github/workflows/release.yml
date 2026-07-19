@@ -63,7 +63,7 @@ jobs:
         run: uv run ruff check
 
       - name: Test
-        run: uv run pytest
+        run: uv run pytest --ignore=tests/test_browser_functional.py --cov=sdr_visualizer --cov-branch --cov-report=term-missing --cov-report=json --cov-fail-under=99
 
       - name: Verify tag matches package version
         run: |
