@@ -2,6 +2,25 @@
 
 All notable changes to `sdr-visualizer` will be documented here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.3] - 2026-07-19
+
+### Added
+
+- Behavior-focused tests now cover module entry, CLI and input failures,
+  formula and segment trees, render options, trend charts, and malformed AA/CJA
+  adapter records.
+
+### Changed
+
+- The complete non-browser Python suite now enforces at least 99% aggregate
+  line-and-branch coverage on Python 3.11 and 3.12 and repeats the same gate
+  before a release build. Browser and performance gates remain independent.
+
+### Fixed
+
+- Malformed non-string AA/CJA capture timestamps are now treated as missing
+  instead of leaking invalid values into the rendered payload schema.
+
 ## [1.0.2] - 2026-07-18
 
 ### Added
@@ -407,6 +426,7 @@ The following are explicitly internal and may change without notice:
 - Workspace project visualization (v0.4)
 - Schema map view (v0.5)
 
+[1.0.3]: https://github.com/brian-a-au/sdr-visualizer/releases/tag/v1.0.3
 [1.0.2]: https://github.com/brian-a-au/sdr-visualizer/releases/tag/v1.0.2
 [1.0.1]: https://github.com/brian-a-au/sdr-visualizer/releases/tag/v1.0.1
 [1.0.0]: https://github.com/brian-a-au/sdr-visualizer/releases/tag/v1.0.0
