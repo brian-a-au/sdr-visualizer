@@ -25,6 +25,12 @@ def clean_aa():
     return json.loads((FIXTURES / "aa_snapshot_clean.json").read_text(encoding="utf-8"))
 
 
+def _minimal_aa(**updates):
+    snapshot = {"report_suite": {"rsid": "test"}, "dimensions": [], "metrics": []}
+    snapshot.update(updates)
+    return snapshot
+
+
 def test_detect_recognizes_aa_snapshot(messy_aa):
     assert detect_platform(messy_aa) == "aa"
 
@@ -41,6 +47,12 @@ def test_aa_adapter_basic_shape(messy_aa):
     assert impl.instance_name == "Messy Production"
     assert impl.adapter_version == "1.0.0"
     assert impl.derived_fields == []  # CJA-only concept
+
+
+def test_aa_adapter_treats_non_string_snapshot_timestamp_as_missing():
+    impl = adapt(_minimal_aa(captured_at=7))
+
+    assert impl.snapshot_taken_at is None
 
 
 def test_aa_adapter_combines_evars_and_props_into_dimensions(messy_aa):
@@ -91,9 +103,37 @@ def test_aa_adapter_rejects_snapshot_without_report_suite():
         adapt({"dimensions": [], "metrics": []})
 
 
+def test_aa_adapter_rejects_non_object_snapshot():
+    with pytest.raises(InvalidSnapshotError, match="top-level JSON object"):
+        adapt(["not", "an", "object"])
+
+
 def test_aa_adapter_rejects_snapshot_without_rsid():
     with pytest.raises(InvalidSnapshotError, match="rsid"):
         adapt({"report_suite": {}, "dimensions": [], "metrics": []})
+
+
+def test_aa_adapter_accepts_camel_case_report_suite():
+    impl = adapt({"reportSuite": {"RSID": "camel.case"}, "dimensions": [], "metrics": []})
+
+    assert impl.instance_id == "camel.case"
+    assert impl.instance_name == "camel.case"
+
+
+@pytest.mark.parametrize(
+    ("field", "value", "message"),
+    [
+        ("report_suite", [], "must be an object"),
+        ("dimensions", {"not": "a list"}, "dimensions.*must be a list"),
+        ("metrics", {"not": "a list"}, "metrics.*must be a list"),
+    ],
+)
+def test_aa_adapter_rejects_malformed_required_sections(field, value, message):
+    snapshot = _minimal_aa()
+    snapshot[field] = value
+
+    with pytest.raises(InvalidSnapshotError, match=message):
+        adapt(snapshot)
 
 
 def test_aa_clean_has_no_missing_descriptions(clean_aa):
@@ -179,6 +219,88 @@ def test_classification_without_name_or_id_is_skipped():
     assert idx == {"variables/evar1": ["Campaign"]}
 
 
+def test_malformed_and_orphan_classifications_are_ignored():
+    impl = adapt(
+        _minimal_aa(
+            dimensions=[{"id": "variables/evar1"}],
+            classifications=[
+                "not an object",
+                {"name": "No parent"},
+                {"parent": "variables/evar1", "id": "classification/campaign"},
+            ],
+        )
+    )
+
+    assert impl.dimensions[0].tags == ["classification/campaign"]
+
+
+def test_nested_formula_refs_are_unique_and_malformed_nodes_have_readable_text():
+    impl = adapt(
+        _minimal_aa(
+            calculated_metrics=[
+                {
+                    "id": "cm_nested",
+                    "definition": {
+                        "formula": {
+                            "func": "add",
+                            "args": [
+                                {},
+                                {"func": "wrap", "args": ["variables/evar1"]},
+                                "metrics/orders",
+                                "metrics/orders",
+                                [["ignored"]],
+                            ],
+                        }
+                    },
+                }
+            ]
+        )
+    )
+
+    metric = impl.calculated_metrics[0]
+    assert metric.references == ["variables/evar1", "metrics/orders"]
+    assert metric.formula_text.startswith("add(?, wrap(variables/evar1)")
+
+
+def test_segment_context_walk_ignores_missing_and_duplicate_contexts():
+    impl = adapt(
+        _minimal_aa(
+            segments=[
+                {
+                    "id": "segment/context-shapes",
+                    "definition": {
+                        "nodes": [
+                            {"func": "container"},
+                            {"func": "container", "context": "hits"},
+                            {"func": "container", "context": "hits"},
+                        ]
+                    },
+                }
+            ]
+        )
+    )
+
+    segment = impl.segments[0]
+    assert segment.nesting_depth == 1
+    assert segment.container_types == ["hits"]
+
+
+@pytest.mark.parametrize(
+    ("field", "records", "message"),
+    [
+        ("dimensions", [7], "dimension record"),
+        ("dimensions", [{}], "dimension record is missing"),
+        ("calculated_metrics", [7], "calculated metric"),
+        ("calculated_metrics", [{}], "calc metric missing"),
+        ("segments", [7], "segment to be an object"),
+        ("segments", [{}], "segment missing"),
+    ],
+)
+def test_aa_adapter_rejects_malformed_records(field, records, message):
+    with pytest.raises(InvalidSnapshotError, match=message):
+        adapt(_minimal_aa(**{field: records}))
+
+
 # ---------------------------------------------------------------------------
 # Fuzz-found regressions: malformed optional fields must degrade gracefully,
 # never raise a bare TypeError/ValueError (see tests/test_adapter_fuzz.py).
@@ -242,6 +364,25 @@ def test_stringified_tags_are_parsed_not_dropped():
     snap["dimensions"][0]["tags"] = '["x", "y"]'
     impl = adapt(snap)
     assert impl.dimensions[0].tags == ["x", "y"]
+
+
+@pytest.mark.parametrize("tags", ["not json", '{"not": "a list"}'])
+def test_invalid_stringified_tags_are_dropped(tags):
+    impl = adapt(
+        _minimal_aa(dimensions=[{"id": "variables/evar1", "tags": tags, "polarity": "sideways"}])
+    )
+
+    assert impl.dimensions[0].tags == []
+    assert impl.dimensions[0].polarity is None
+
+
+def test_valid_polarity_is_normalized_case_insensitively():
+    impl = adapt(
+        _minimal_aa(metrics=[{"id": "metrics/orders", "polarity": " Positive ", "description": 7}])
+    )
+
+    assert impl.metrics[0].polarity == "positive"
+    assert impl.metrics[0].description is None
 
 
 def test_nan_complexity_score_passes_through_adapter_for_renderer_to_reject():

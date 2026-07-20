@@ -12,6 +12,7 @@ from conftest import extract_payload, extract_payload_text
 from sdr_visualizer.adapters.aa import adapt as aa_adapt
 from sdr_visualizer.adapters.cja import adapt as cja_adapt
 from sdr_visualizer.core.exceptions import InvalidSnapshotError
+from sdr_visualizer.core.visualizer import visualize
 from sdr_visualizer.render.renderer import render
 
 FIXTURES = Path(__file__).parent / "fixtures"
@@ -42,6 +43,29 @@ def clean_html():
 
 def test_html_starts_with_doctype(messy_html):
     assert messy_html.lstrip().startswith("<!doctype html>")
+
+
+def test_public_visualize_adapts_and_renders_snapshot():
+    snap = json.loads((FIXTURES / "cja_snapshot_clean.json").read_text(encoding="utf-8"))
+
+    html = visualize(snap, source="public-api", title="Public API Report")
+
+    assert html.lstrip().startswith("<!doctype html>")
+    assert "Public API Report" in html
+    assert extract_payload(html)["meta"]["snapshot_source"] == "public-api"
+
+
+def test_public_visualize_rejects_unknown_platform_override():
+    with pytest.raises(InvalidSnapshotError, match="unknown platform 'wat'"):
+        visualize({}, platform="wat")
+
+
+def test_render_embeds_max_graph_nodes_option():
+    snap = json.loads((FIXTURES / "cja_snapshot_clean.json").read_text(encoding="utf-8"))
+
+    html = render(cja_adapt(snap), max_graph_nodes=17)
+
+    assert extract_payload(html)["meta"]["max_graph_nodes"] == 17
 
 
 def test_html_contains_catalog_view_section(messy_html):

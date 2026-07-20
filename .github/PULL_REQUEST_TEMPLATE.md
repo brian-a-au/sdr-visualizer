@@ -22,6 +22,7 @@ Non-negotiable per CONTRIBUTING.md. Confirm:
 ## Tests
 
 - [ ] `uv run pytest` passes locally (browser tests running, not skipped)
+- [ ] The non-browser Python suite passes with at least 99% combined line-and-branch coverage
 - [ ] `uv run ruff check` and `uv run ruff format --check` pass
 
 ## Notes for the reviewer

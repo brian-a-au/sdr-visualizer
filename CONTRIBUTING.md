@@ -39,6 +39,7 @@ is being met. `input/series.py` is visualizer-only and exempt.
 uv sync --dev --group browser    # environment
 uv run playwright install chromium webkit
 uv run pytest                    # tests (includes browser tests)
+uv run pytest --ignore=tests/test_browser_functional.py --cov=sdr_visualizer --cov-branch --cov-report=term-missing --cov-report=json --cov-fail-under=99  # Python coverage gate
 uv run ruff check                # lint
 uv run ruff format               # format (the repo is format-clean)
 uv run python scripts/perf_check.py           # build/size budgets
@@ -46,8 +47,9 @@ uv run python scripts/perf_browser_check.py   # browser budgets
 ```
 
 Every PR needs: tests for behavior changes, a green suite, clean
-`ruff check` and `ruff format --check`, and green perf gates when the
-change could plausibly affect them.
+`ruff check` and `ruff format --check`, at least 99% combined line-and-branch
+coverage from the non-browser Python suite, and green browser/perf gates when
+the change could plausibly affect them.
 
 ## Releases (maintainer notes)
 

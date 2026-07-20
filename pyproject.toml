@@ -1,6 +1,6 @@
 [project]
 name = "sdr-visualizer"
-version = "1.0.2"
+version = "1.0.3"
 description = "Static-output visual catalog generator for Adobe Customer Journey Analytics and Adobe Analytics implementations."
 readme = "README.md"
 license = "MIT"
@@ -60,6 +60,15 @@ minversion = "8.0"
 testpaths = ["tests"]
 pythonpath = ["tests"]
 addopts = "-ra"
+
+[tool.coverage.run]
+branch = true
+source = ["sdr_visualizer"]
+
+[tool.coverage.report]
+show_missing = true
+precision = 2
+fail_under = 99.00
 
 [tool.ruff]
 line-length = 100

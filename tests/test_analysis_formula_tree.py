@@ -115,6 +115,71 @@ def test_constants_pass_through():
     assert tree["args"][1] == {"kind": "constant", "value": 100}
 
 
+def test_bare_references_and_string_literals_are_distinguished():
+    ref = parse_formula_tree(_make_metric("variables/evar1"))
+    literal = parse_formula_tree(_make_metric("not a reference"))
+
+    assert ref == {
+        "kind": "metric_ref",
+        "metric_id": "variables/evar1",
+        "label": "variables/evar1",
+    }
+    assert literal == {"kind": "constant", "value": "not a reference"}
+
+
+def test_non_mapping_formula_degrades_to_unknown():
+    tree = parse_formula_tree(_make_metric(["unexpected", "shape"]))
+
+    assert tree == {"kind": "unknown", "func": None, "raw_keys": []}
+
+
+def test_segment_scope_and_nary_formula_collect_unique_nested_refs():
+    tree = parse_formula_tree(
+        _make_metric(
+            {
+                "func": "segment",
+                "name": "segments/qualified",
+                "formula": {
+                    "func": "sum",
+                    "args": ["metrics/orders", "metrics/orders", "metrics/revenue"],
+                },
+            }
+        )
+    )
+
+    assert tree["kind"] == "segment_scope"
+    assert tree["segment_id"] == "segments/qualified"
+    assert tree["child"]["op"] == "sum"
+    assert collect_metric_refs(tree) == ["metrics/orders", "metrics/revenue"]
+
+
+def test_formula_wrapper_unwraps_real_tree():
+    tree = parse_formula_tree(
+        _make_metric({"formula": {"func": "metric", "name": "metrics/visits"}})
+    )
+
+    assert tree["kind"] == "metric_ref"
+    assert tree["metric_id"] == "metrics/visits"
+
+
+def test_reference_collection_ignores_empty_and_non_mapping_children():
+    tree = {
+        "kind": "operation",
+        "args": [
+            None,
+            {"kind": "metric_ref", "metric_id": ""},
+            {"kind": "metric_ref", "metric_id": "metrics/orders"},
+        ],
+    }
+
+    assert collect_metric_refs(tree) == ["metrics/orders"]
+
+
+def test_reference_collection_ignores_unknown_and_empty_segment_nodes():
+    assert collect_metric_refs({"kind": "unknown"}) == []
+    assert collect_metric_refs({"kind": "segment_scope", "child": None}) == []
+
+
 def test_every_real_calc_metric_parses(cja_messy, aa_messy):
     for cm in [*cja_messy.calculated_metrics, *aa_messy.calculated_metrics]:
         tree = parse_formula_tree(cm)

@@ -38,6 +38,12 @@ def clean_snapshot() -> dict:
     return json.loads(CLEAN_PATH.read_text(encoding="utf-8"))
 
 
+def _minimal_cja(**updates):
+    snapshot = {"metadata": {"Data View ID": "dv_test"}, "metrics": [], "dimensions": []}
+    snapshot.update(updates)
+    return snapshot
+
+
 @pytest.fixture(scope="module")
 def messy_impl(messy_snapshot) -> Implementation:
     return adapt(messy_snapshot, source=str(MESSY_PATH))
@@ -61,6 +67,12 @@ def test_messy_implementation_metadata(messy_impl: Implementation) -> None:
     assert messy_impl.snapshot_source.endswith("cja_snapshot_messy.json")
     assert messy_impl.snapshot_taken_at == "2026-04-25 09:14:00"
     assert isinstance(messy_impl.raw, dict) and "metadata" in messy_impl.raw
+
+
+def test_cja_adapter_treats_non_string_snapshot_timestamp_as_missing() -> None:
+    snapshot = _minimal_cja(metadata={"Data View ID": "dv_test", "Generation Timestamp": 7})
+
+    assert adapt(snapshot).snapshot_taken_at is None
 
 
 def test_messy_total_components_is_520(messy_impl: Implementation) -> None:
@@ -275,6 +287,130 @@ def test_adapt_rejects_non_list_metrics() -> None:
         )
 
 
+def test_absent_optional_sections_are_empty():
+    impl = adapt(_minimal_cja(derived_fields=None, calculated_metrics=None, segments=None))
+
+    assert impl.derived_fields == []
+    assert impl.calculated_metrics == []
+    assert impl.segments == []
+
+
+@pytest.mark.parametrize(
+    ("field", "value", "message"),
+    [
+        ("derived_fields", {"fields": {}}, "section 'fields' must be a list"),
+        ("segments", 7, "section must be object or list"),
+    ],
+)
+def test_optional_sections_reject_malformed_shapes(field, value, message):
+    with pytest.raises(InvalidSnapshotError, match=message):
+        adapt(_minimal_cja(**{field: value}))
+
+
+def test_optional_section_without_records_is_empty():
+    impl = adapt(_minimal_cja(calculated_metrics={"summary": {"count": 0}}))
+
+    assert impl.calculated_metrics == []
+
+
+@pytest.mark.parametrize(
+    ("field", "section", "message"),
+    [
+        ("metrics", [7], "metric record"),
+        ("metrics", [{}], "metric record is missing"),
+        ("derived_fields", {"fields": [7]}, "derived field record"),
+        ("derived_fields", {"fields": [{}]}, "derived field record is missing"),
+        ("calculated_metrics", {"metrics": [7]}, "calculated metric record"),
+        ("calculated_metrics", {"metrics": [{}]}, "calculated metric record is missing"),
+        ("segments", {"segments": [7]}, "segment record"),
+        ("segments", {"segments": [{}]}, "segment record is missing"),
+    ],
+)
+def test_cja_adapter_rejects_malformed_records(field, section, message):
+    with pytest.raises(InvalidSnapshotError, match=message):
+        adapt(_minimal_cja(**{field: section}))
+
+
+def test_bare_calc_section_and_nested_attribution_are_normalized():
+    impl = adapt(
+        _minimal_cja(
+            calculated_metrics=[
+                {
+                    "metric_id": "cm_nested",
+                    "definition_json": {"func": {"model": "last_touch", "allocation": "recent"}},
+                    "metric_references": "not json",
+                    "segment_references": '{"not": "a list"}',
+                }
+            ]
+        )
+    )
+
+    metric = impl.calculated_metrics[0]
+    assert metric.attribution_model == "last_touch"
+    assert metric.allocation == "recent"
+    assert metric.references == []
+
+
+def test_segment_definition_walks_list_contexts_and_deduplicates():
+    impl = adapt(
+        _minimal_cja(
+            segments={
+                "segments": [
+                    {
+                        "segment_id": "segments/list-contexts",
+                        "definition_json": {
+                            "nodes": [
+                                {"func": "container", "context": "event"},
+                                {"func": "container", "context": "event"},
+                            ]
+                        },
+                        "container_type": "fallback",
+                    }
+                ]
+            }
+        )
+    )
+
+    assert impl.segments[0].container_types == ["event"]
+
+
+def test_invalid_definition_json_degrades_to_empty_definition():
+    impl = adapt(
+        _minimal_cja(
+            calculated_metrics={
+                "metrics": [{"metric_id": "cm_invalid", "definition_json": "not json"}]
+            }
+        )
+    )
+
+    assert impl.calculated_metrics[0].formula == {}
+
+
+def test_missing_definition_json_defaults_to_empty_definition():
+    impl = adapt(_minimal_cja(calculated_metrics={"metrics": [{"metric_id": "cm_missing"}]}))
+
+    assert impl.calculated_metrics[0].formula == {}
+
+
+def test_scalar_definition_uses_declared_segment_container_fallback():
+    impl = adapt(
+        _minimal_cja(
+            segments={
+                "segments": [
+                    {
+                        "segment_id": "segments/fallback",
+                        "definition_json": 7,
+                        "container_type": "session",
+                    }
+                ]
+            }
+        )
+    )
+
+    assert impl.segments[0].definition == {}
+    assert impl.segments[0].container_types == ["session"]
+
+
 def test_null_reference_keys_parse_as_empty():
     snap = json.loads((FIXTURES / "cja_snapshot_clean.json").read_text(encoding="utf-8"))
     snap["calculated_metrics"]["metrics"][0]["metric_references"] = None
@@ -354,6 +490,29 @@ def test_stringified_tags_are_parsed_not_dropped():
     snap["metrics"][0]["tags"] = '["campaign", "paid"]'
     impl = adapt(snap)
     assert impl.metrics[0].tags == ["campaign", "paid"]
+
+
+def test_invalid_stringified_tags_and_polarity_are_dropped():
+    impl = adapt(
+        _minimal_cja(
+            metrics=[
+                {"id": "metrics/invalid-json", "tags": "not json", "polarity": "sideways"},
+                {"id": "metrics/not-list", "tags": '{"tag": "value"}'},
+            ]
+        )
+    )
+
+    assert [metric.tags for metric in impl.metrics] == [[], []]
+    assert impl.metrics[0].polarity is None
+
+
+def test_valid_polarity_is_normalized_case_insensitively():
+    impl = adapt(
+        _minimal_cja(metrics=[{"id": "metrics/orders", "polarity": " Positive ", "description": 7}])
+    )
+
+    assert impl.metrics[0].polarity == "positive"
+    assert impl.metrics[0].description is None
 
 
 def test_stringified_reference_lists_are_parsed():
