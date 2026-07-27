@@ -26,6 +26,8 @@ The output is one HTML file: no server, no build step on the consumer side, no C
 
 ## Install
 
+Install from PyPI with uv:
+
 ```bash
 uv tool install sdr-visualizer
 ```
@@ -36,7 +38,7 @@ Or with pip:
 pip install sdr-visualizer
 ```
 
-(Requires 0.6.0 or later on PyPI.) For development, run from a clone:
+For development, run from a clone:
 
 ```bash
 git clone https://github.com/brian-a-au/sdr-visualizer
