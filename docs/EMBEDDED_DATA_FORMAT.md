@@ -2,7 +2,10 @@
 
 Every HTML output contains a JSON payload in `<script id="sdr-data" type="application/json">…</script>`. Client-side JS reads it on load to drive every view; downstream tooling can also consume it directly via `--json PATH`.
 
-The payload is a stable contract: external tooling can rely on the keys documented below. Internal, undocumented keys may change without notice.
+The payload is a stable contract: external tooling can rely on the keys
+documented below. Internal, undocumented keys may change without notice. See
+[`PRODUCT_CONTRACT.md`](PRODUCT_CONTRACT.md#stable-public-surfaces) for the
+versioning boundary and confidentiality warning.
 
 ## Top-level shape
 
@@ -14,7 +17,9 @@ The payload is a stable contract: external tooling can rely on the keys document
   "calculated_metrics": [ ... ],
   "graph":             { "edges": [...] },
   "segment_trees":     { "<id>": SegmentTreeNode },
-  "formula_trees":     { "<id>": FormulaTreeNode }
+  "formula_trees":     { "<id>": FormulaTreeNode },
+  "changes":           { ... },     // only with --compare-to
+  "trend":             { ... }      // only with --trend
 }
 ```
 
@@ -135,6 +140,55 @@ and `meta.compared_to.taken_at`:
   "modified": []
 }
 ```
+
+`added` and `removed` entries contain `id`, `type`, and `name`. A `modified`
+entry also contains `fields`, an array of `{field, before, after}` records.
+Only the baseline reference and change summaries are embedded; the full
+baseline snapshot is not.
+
+## `trend`
+
+Present only with `--trend`. Snapshots are ordered oldest to newest and capped
+at the 60 newest usable selected snapshots. `capped` is true only when a 61st
+usable selected snapshot exists.
+
+```jsonc
+{
+  "capped": false,
+  "snapshots": [
+    {
+      "source": "/path/to/snapshot.json",
+      "taken_at": "2026-04-25 09:14:00" | null,
+      "aggregates": {
+        "total": 487,
+        "metrics": 120,
+        "dimensions": 210,
+        "derived_fields": 12,
+        "segments": 80,
+        "calculated_metrics": 65,
+        "orphans": 44,
+        "no_description": 31,
+        "edges": 506
+      }
+    }
+  ],
+  "intervals": [
+    {
+      "from": "2026-04-24 09:14:00",
+      "to": "2026-04-25 09:14:00",
+      "from_source": "snapshot-2026-04-24.json",
+      "to_source": "snapshot-2026-04-25.json",
+      "added": ["metrics/new_metric"],
+      "removed": [],
+      "modified": ["segments/changed_segment"]
+    }
+  ]
+}
+```
+
+Each interval is a diff of adjacent snapshots. Its three change arrays contain
+component IDs only; the browser materializes those IDs lazily when the interval
+is expanded.
 
 ## Search index
 

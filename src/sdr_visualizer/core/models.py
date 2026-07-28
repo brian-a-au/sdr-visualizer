@@ -3,9 +3,9 @@
 The contract every adapter produces. Downstream layers (analysis, render,
 data payload) write generic logic against this model.
 
-See SPEC-VISUALIZER §8. The shapes here are load-bearing and intentionally
-identical to sdr-grader's: adding fields is fine, renaming or removing them
-breaks the data contract shared with the sibling project.
+The shapes here are load-bearing and intentionally aligned with sdr-grader's
+shared boundary: adding fields is fine, while renaming or removing them breaks
+the data contract shared with the sibling project.
 """
 
 from __future__ import annotations

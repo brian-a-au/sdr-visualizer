@@ -1,4 +1,4 @@
-"""Build the JSON payload embedded in the HTML output (SPEC-VISUALIZER §9).
+"""Build the stable JSON payload embedded in the HTML output.
 
 The principle: do work in Python (where seconds are fine), not in JS (where
 we have a millisecond budget). The payload is denormalized — pre-computed

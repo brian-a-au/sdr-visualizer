@@ -1,4 +1,4 @@
-"""End-to-end CLI tests (SPEC-VISUALIZER §10 Phase 3 — Mode 1 only for now)."""
+"""End-to-end public CLI tests."""
 
 from __future__ import annotations
 

@@ -1,4 +1,4 @@
-"""Mode 3: shell out to cja_auto_sdr / aa_auto_sdr (SPEC-VISUALIZER §7).
+"""Live mode: shell out to cja_auto_sdr / aa_auto_sdr.
 
 The visualizer does not call Adobe APIs directly. To run against a live
 data view or report suite, it shells out to the upstream snapshot tool

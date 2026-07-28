@@ -8,7 +8,7 @@ in-process. Per snapshot it asserts:
   - the payload survives json.dumps(allow_nan=False),
   - the rendered HTML's embedded payload extracts and parses back,
   - the embedded payload validates against docs/payload-schema.json,
-  - with --check-budgets: the HTML size fits the SPEC §6 tier for the
+  - with --check-budgets: the HTML size fits the published tier for the
     snapshot's component count (no budget above the 2,000 tier — output
     there is valid but degraded by design).
 
@@ -53,7 +53,7 @@ _SDR_DATA_RE = re.compile(
     re.DOTALL,
 )
 
-# SPEC §6 size budgets by component-count tier (MB). Above 2,000 the output
+# Published size budgets by component-count tier (MB). Above 2,000 the output
 # is valid but degraded by design — no budget is asserted.
 _TIERS = ((100, 0.5), (500, 2.0), (1000, 4.0), (2000, 8.0))
 
@@ -146,7 +146,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument(
         "--check-budgets",
         action="store_true",
-        help="Also assert the SPEC §6 size budget for each snapshot's tier",
+        help="Also assert the published size budget for each snapshot's tier",
     )
     args = parser.parse_args(argv)
     corpus = Path(args.corpus)

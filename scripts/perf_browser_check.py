@@ -1,4 +1,4 @@
-"""Browser-side performance gate (SPEC-VISUALIZER §6).
+"""Browser-side performance gate for the published budgets.
 
 Measures the budgets Python can't: initial render time, cold/warm
 filter/search latency, and the main-thread block when entering the graph

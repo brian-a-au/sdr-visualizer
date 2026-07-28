@@ -1,4 +1,4 @@
-"""Phase 9 perf tests (SPEC-VISUALIZER §6).
+"""Tests for the published Python-side performance gate.
 
 Asserts the budgets that gate CI: build time + HTML size at the 1,000-
 component-class workload. Two large fixtures are exercised — CJA (1,200

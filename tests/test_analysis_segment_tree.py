@@ -1,4 +1,4 @@
-"""Tests for analysis/segment_tree.py (SPEC-VISUALIZER §10 Phase 2)."""
+"""Tests for bounded segment-tree analysis."""
 
 from __future__ import annotations
 

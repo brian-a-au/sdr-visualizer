@@ -1,4 +1,4 @@
-"""Tests for analysis/references.py (SPEC-VISUALIZER §10 Phase 2)."""
+"""Tests for normalized reference-graph analysis."""
 
 from __future__ import annotations
 

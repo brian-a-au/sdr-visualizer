@@ -1,4 +1,4 @@
-"""AA adapter tests (SPEC-VISUALIZER §10 Phase 7)."""
+"""AA adapter contract tests."""
 
 from __future__ import annotations
 
@@ -367,7 +367,7 @@ def test_scalar_formula_args_render_without_crashing():
 
 
 # ---------------------------------------------------------------------------
-# sdr-grader parity: stringified JSON tag lists parse (SPEC §11/§15).
+# sdr-grader parity: stringified JSON tag lists parse.
 # ---------------------------------------------------------------------------
 
 
@@ -411,7 +411,7 @@ def test_nan_complexity_score_passes_through_adapter_for_renderer_to_reject():
 
 # ---------------------------------------------------------------------------
 # Q5 (1.0.0): generator-version compatibility warning helper. Warn-only,
-# never refuse. Mirrored to sdr-grader (SPEC §11/§15).
+# never refuse. Mirrored to sdr-grader.
 # ---------------------------------------------------------------------------
 
 

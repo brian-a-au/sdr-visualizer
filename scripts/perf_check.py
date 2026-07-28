@@ -1,7 +1,7 @@
-"""Performance gate (SPEC-VISUALIZER §6).
+"""Published Python-side performance gate.
 
 Renders fixtures and asserts the build-time + HTML-size budgets across all
-four SPEC §6 tiers. CI runs this after pytest (see .github/workflows/test.yml).
+four documented tiers. CI runs this after pytest (see .github/workflows/test.yml).
 
   - CJA small (100 components, `generate_large_fixture.py --scale 0.083`):
     100-component budgets (build < 1s, size < 0.5MB). Skipped when absent.
@@ -49,7 +49,7 @@ CJA_XL = REPO / "tests" / "fixtures" / "cja_snapshot_xl.json"
 XL_BUILD_BUDGET_S = 12.0
 XL_SIZE_BUDGET_MB = 8.0
 
-# Small tiers (SPEC §6 rows previously unenforced — the fixed CSS+JS+D3
+# Small tiers (the fixed CSS+JS+D3
 # overhead alone is ~340 KB, i.e. ~68% of the 100-component size budget,
 # so static-asset growth is exactly what these tiers watch).
 CJA_SMALL = REPO / "tests" / "fixtures" / "cja_snapshot_small.json"

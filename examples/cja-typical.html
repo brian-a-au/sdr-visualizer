@@ -1919,7 +1919,7 @@ h1 {
         d.fx = null; d.fy = null;
       }));
 
-    // SPEC §14 Q2: force-directed looks weird with very few nodes — below 20,
+    // Force-directed layouts look strange with very few nodes — below 20,
     // skip the simulation and place nodes evenly on a circle. d3.forceLink is
     // still used (when simulating) to resolve edge endpoints; in radial mode
     // we resolve them ourselves before painting.

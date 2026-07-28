@@ -138,3 +138,8 @@ def test_project_metadata_keeps_yaml_dev_only_and_ships_referenced_documents():
         "tests/fixtures/cja_snapshot_xl.json",
         "tests/fixtures/aa_snapshot_large.json",
     } <= excludes
+
+    assert {
+        "docs/PRODUCT_CONTRACT.md",
+        "docs/RELEASING.md",
+    } <= package_smoke_check.REQUIRED_SDIST_PATHS

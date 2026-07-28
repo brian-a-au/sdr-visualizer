@@ -1,4 +1,4 @@
-"""Top-level renderer (SPEC-VISUALIZER §5).
+"""Top-level self-contained HTML renderer.
 
 Takes an Implementation, builds the embedded payload, and emits a single
 self-contained HTML string. CSS and JS are inlined; the JSON payload sits

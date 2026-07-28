@@ -30,3 +30,6 @@ jobs:
 
       - name: Ruff format
         run: uv run ruff format --check
+
+      - name: Markdown links
+        run: uv run python scripts/check_markdown_links.py

@@ -1,4 +1,4 @@
-"""Input loading for all four CLI modes (SPEC-VISUALIZER §7).
+"""Input loading for the file, directory, stdin, and live CLI modes.
 
 - Mode 1: file path -> read JSON.
 - Mode 2: directory path -> pick the latest snapshot in it, or `--at` to

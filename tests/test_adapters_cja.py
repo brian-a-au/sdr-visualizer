@@ -1,6 +1,6 @@
 """CJA adapter tests.
 
-Per SPEC-VISUALIZER §10 Phase 1: round-trip every field, segment depth and
+Round-trip every field, segment depth and
 calc metric complexity computed correctly, references extracted. The messy
 fixture encodes specific known counts (487 components, 89 missing
 descriptions, 4 deep segments, 7 near-duplicate revenue calc metrics) — those
@@ -526,7 +526,7 @@ def test_cja_definition_json_recursion_error_is_invalid_snapshot(monkeypatch):
 
 # ---------------------------------------------------------------------------
 # sdr-grader parity: cja_auto_sdr ships tags/refs as JSON-encoded list strings.
-# Match the grader's _parse_tag_list / _parse_ref_list behavior (SPEC §11/§15).
+# Match the grader's _parse_tag_list / _parse_ref_list behavior.
 # ---------------------------------------------------------------------------
 
 
@@ -617,7 +617,7 @@ def test_nan_complexity_score_passes_through_adapter_for_renderer_to_reject():
 
 # ---------------------------------------------------------------------------
 # Q5 (1.0.0): generator-version compatibility warning helper. Warn-only,
-# never refuse. Mirrored to sdr-grader (SPEC §11/§15).
+# never refuse. Mirrored to sdr-grader.
 # ---------------------------------------------------------------------------
 
 
@@ -658,7 +658,7 @@ def test_tuple_length_mismatch_versions_compare_correctly():
 # ---------------------------------------------------------------------------
 # Real cja_auto_sdr snapshots carry the generation timestamp only under
 # "Generated Date & timestamp and timezone" (corpus, 2026-07-17). Mirrored
-# to sdr-grader (SPEC §11/§15).
+# to sdr-grader.
 # ---------------------------------------------------------------------------
 
 

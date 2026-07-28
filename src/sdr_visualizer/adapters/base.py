@@ -1,1 +1,1 @@
-"""Adapter protocol (SPEC-VISUALIZER §5)."""
+"""Adapter protocol for the normalized implementation boundary."""

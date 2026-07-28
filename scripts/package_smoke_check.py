@@ -41,6 +41,8 @@ REQUIRED_SDIST_PATHS = {
     "docs/ARCHITECTURE.md",
     "docs/EMBEDDED_DATA_FORMAT.md",
     "docs/PERFORMANCE.md",
+    "docs/PRODUCT_CONTRACT.md",
+    "docs/RELEASING.md",
     "docs/payload-schema.json",
 }
 FORBIDDEN_SDIST_COMPONENTS = {"__pycache__", ".pytest_cache", ".git"}

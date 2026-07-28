@@ -1,4 +1,4 @@
-"""CLI entry point (SPEC-VISUALIZER §7).
+"""CLI entry point.
 
 Wires all four input modes:
   Mode 1: file path
@@ -72,8 +72,7 @@ _UNSAFE_FILENAME_RUN = re.compile(r"[^A-Za-z0-9._-]+")
 
 
 class _ArgumentParser(argparse.ArgumentParser):
-    """argparse exits 2 on usage errors; SPEC §7 reserves the 0/1/3 contract
-    and explicitly forbids 2, so remap usage problems to input-validation."""
+    """Remap argparse's exit 2 to the public 0/1/3 CLI contract."""
 
     def error(self, message: str) -> None:  # type: ignore[override]
         self.print_usage(sys.stderr)

@@ -6,7 +6,8 @@ review round-trip.
 
 ## The rules of the road
 
-These are settled decisions (see the spec history), not open questions:
+These are settled decisions in the
+[`product contract`](docs/PRODUCT_CONTRACT.md), not open questions:
 
 - **Static output, dynamic interaction.** The tool emits one self-contained
   HTML file: embedded JSON, embedded CSS, embedded JS. No fetches, no CDNs,
@@ -42,6 +43,7 @@ uv run pytest                    # tests (includes browser tests)
 uv run pytest --ignore=tests/test_browser_functional.py --cov=sdr_visualizer --cov-branch --cov-report=term-missing --cov-report=json --cov-fail-under=99  # Python coverage gate
 uv run ruff check                # lint
 uv run ruff format               # format (the repo is format-clean)
+uv run python scripts/check_markdown_links.py
 uv run python scripts/perf_check.py           # build/size budgets
 uv run python scripts/perf_browser_check.py   # browser budgets
 uv run python scripts/check_workflow_policy.py
@@ -68,6 +70,9 @@ never pushes directly to `main`, so branch protection has no automation
 bypass.
 
 ## Releases (maintainer notes)
+
+Use the full candidate and publication checklist in
+[`docs/RELEASING.md`](docs/RELEASING.md).
 
 The release commit bumps `pyproject.toml`, `src/sdr_visualizer/__init__.py`,
 and `uv.lock` together, dates the CHANGELOG's Unreleased section, and adds
