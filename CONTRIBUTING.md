@@ -44,12 +44,21 @@ uv run ruff check                # lint
 uv run ruff format               # format (the repo is format-clean)
 uv run python scripts/perf_check.py           # build/size budgets
 uv run python scripts/perf_browser_check.py   # browser budgets
+uv build
+uv run python scripts/package_smoke_check.py dist/  # isolated wheel + sdist installs
 ```
 
 Every PR needs: tests for behavior changes, a green suite, clean
 `ruff check` and `ruff format --check`, at least 99% combined line-and-branch
 coverage from the non-browser Python suite, and green browser/perf gates when
 the change could plausibly affect them.
+
+Release artifacts are not considered usable merely because `uv build`
+succeeds. The package smoke check installs the wheel and source distribution
+independently into temporary environments outside the checkout, then verifies
+import/version metadata, the console entry point, `--help`, and an offline
+render. Keep runtime dependencies limited to imports used by shipped package
+code; tooling-only dependencies belong in the `dev` group.
 
 ## Releases (maintainer notes)
 

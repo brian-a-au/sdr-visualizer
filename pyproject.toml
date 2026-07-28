@@ -9,8 +9,6 @@ authors = [{ name = "Brian Au" }]
 requires-python = ">=3.11"
 dependencies = [
     "jinja2>=3.1",
-    "pyyaml>=6.0",
-    "pydantic>=2.6",
 ]
 
 [project.scripts]
@@ -27,6 +25,7 @@ dev = [
     "hypothesis>=6.100",
     "jsonschema>=4.21",
     "pytest-cov>=5.0",
+    "pyyaml>=6.0",
 ]
 browser = [
     "playwright>=1.43",
@@ -50,9 +49,17 @@ include = [
     "tests",
     "scripts",
     "docs/*.md",
+    "docs/payload-schema.json",
     "CHANGELOG.md",
     "CONTRIBUTING.md",
     "SECURITY.md",
+]
+exclude = [
+    "tests/fixtures/cja_snapshot_small.json",
+    "tests/fixtures/cja_snapshot_medium.json",
+    "tests/fixtures/cja_snapshot_large.json",
+    "tests/fixtures/cja_snapshot_xl.json",
+    "tests/fixtures/aa_snapshot_large.json",
 ]
 
 [tool.pytest.ini_options]
