@@ -811,6 +811,24 @@ h1 {
 .changes-empty { color: #6b6b66; }
 .changes-search-row { display: flex; align-items: center; gap: 10px; margin-top: 12px; }
 #changes-search { flex: 1; max-width: 420px; }
+.changes-status {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 16px 12px;
+  color: #6b6b66;
+  font-size: 12px;
+}
+.progressive-button {
+  border: 1px solid #c8c4b8;
+  background: #fff;
+  color: #2a2a2a;
+  padding: 5px 10px;
+  font: inherit;
+  cursor: pointer;
+}
+.progressive-button:hover { background: #f2f0e9; }
 
 /* ---------- Trend view ---------- */
 .trend-charts {
@@ -833,4 +851,5 @@ h1 {
 .trend-ids { margin: 8px 0 4px 20px; font-size: 13px; line-height: 1.9; }
 .trend-ids-label { font-weight: 600; margin-right: 8px; }
 .trend-id { background: #f2f0e9; padding: 1px 6px; margin-right: 4px; }
+.trend-show-next { margin-left: 6px; }
 .trend-capped { color: #6b6b66; margin-top: 12px; }

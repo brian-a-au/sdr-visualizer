@@ -1,14 +1,10 @@
 """Browser-side performance gate (SPEC-VISUALIZER §6).
 
-Measures the budgets Python can't: initial render time, filter/search
-latency, and the main-thread block when entering the graph view, in real
-Chromium via Playwright. Asserts per tier: the bundled CJA (1,200) and AA
-(~900) fixtures against the §6 1,000-component row (render < 1s, filter <
-150ms), and the XL fixture against the 2,000-component row (render < 2s,
-filter < 300ms), plus the graph-init block budget for every available
-fixture. The CJA fixtures exceed the 1,000-node graph threshold, so their
-graph timing takes the worst-case "Render anyway" path; the AA fixture sits
-under it and must render without the gate.
+Measures the budgets Python can't: initial render time, cold/warm
+filter/search latency, and the main-thread block when entering the graph
+view, in real Chromium via Playwright. In addition to the ordinary and XL
+tiers, the gate exercises a disjoint-ID comparison, a 60-snapshot
+high-churn trend, and a ~1,000-node/~5,000-edge graph.
 
 Setup + run:
 
@@ -50,9 +46,10 @@ FIXTURES = [
 # the failure mode it guards (unbounded synchronous warm-up) measured
 # 800ms+ at 2k nodes locally.
 GRAPH_INIT_BUDGET_MS = 700.0
-# Matches the synthetic fixtures' "Dimension 00xx" names (~99 rows) via the lowercased search blob.
-FILTER_QUERY = "dimension 00"
-FILTER_RUNS = 5
+# Alternate queries so every sample changes the result set and invalidates
+# the rendered rows. The first sample is reported separately as cold work.
+FILTER_QUERIES = ("dimension 00", "metric 00")
+FILTER_WARM_RUNS = 5
 
 
 def _check(
@@ -62,6 +59,7 @@ def _check(
     render_budget_ms: float,
     filter_budget_ms: float,
     expect_opt_in: bool,
+    minimum_graph_edges: int = 0,
 ) -> list[str]:
     start = time.perf_counter()
     page.goto(html_path.as_uri())
@@ -71,11 +69,17 @@ def _check(
     if not page.evaluate("typeof window.__sdrPerf !== 'undefined'"):
         return [f"[{label}] __sdrPerf missing - client JS failed to initialize"]
 
-    samples = [
-        page.evaluate(f"window.__sdrPerf.timeFilter({json.dumps(FILTER_QUERY)})")
-        for _ in range(FILTER_RUNS)
+    cold_filter_ms = page.evaluate(
+        "(query) => window.__sdrPerf.timeFilter(query)", FILTER_QUERIES[0]
+    )
+    warm_samples = [
+        page.evaluate(
+            "(query) => window.__sdrPerf.timeFilter(query)",
+            FILTER_QUERIES[(index + 1) % len(FILTER_QUERIES)],
+        )
+        for index in range(FILTER_WARM_RUNS)
     ]
-    filter_ms = statistics.median(samples)
+    warm_filter_ms = statistics.median(warm_samples)
 
     graph = page.evaluate(
         """() => {
@@ -96,21 +100,28 @@ def _check(
     )
     graph_init_ms = graph["ms"]
     nodes_drawn = page.evaluate("document.querySelectorAll('#graph-canvas g.graph-node').length")
+    edges_drawn = page.evaluate("document.querySelectorAll('#graph-canvas line.graph-edge').length")
 
     print(f"[{label}] initial render: {render_ms:.0f}ms  (budget {render_budget_ms:.0f}ms)")
     print(
-        f"[{label}] filter latency: {filter_ms:.1f}ms "
-        f"(budget {filter_budget_ms:.0f}ms, median of {FILTER_RUNS})"
+        f"[{label}] cold/warm filter: {cold_filter_ms:.1f}ms / {warm_filter_ms:.1f}ms "
+        f"(budget {filter_budget_ms:.0f}ms, warm median of {FILTER_WARM_RUNS})"
     )
     print(
         f"[{label}] graph init block: {graph_init_ms:.0f}ms "
-        f"(budget {GRAPH_INIT_BUDGET_MS:.0f}ms, {nodes_drawn} nodes)"
+        f"(budget {GRAPH_INIT_BUDGET_MS:.0f}ms, {nodes_drawn} nodes, {edges_drawn} edges)"
     )
     failures = []
     if render_ms > render_budget_ms:
         failures.append(f"[{label}] initial render {render_ms:.0f}ms > {render_budget_ms:.0f}ms")
-    if filter_ms > filter_budget_ms:
-        failures.append(f"[{label}] filter latency {filter_ms:.1f}ms > {filter_budget_ms:.0f}ms")
+    if cold_filter_ms > filter_budget_ms:
+        failures.append(
+            f"[{label}] cold filter latency {cold_filter_ms:.1f}ms > {filter_budget_ms:.0f}ms"
+        )
+    if warm_filter_ms > filter_budget_ms:
+        failures.append(
+            f"[{label}] warm filter latency {warm_filter_ms:.1f}ms > {filter_budget_ms:.0f}ms"
+        )
     if graph_init_ms > GRAPH_INIT_BUDGET_MS:
         failures.append(
             f"[{label}] graph init block {graph_init_ms:.0f}ms > {GRAPH_INIT_BUDGET_MS:.0f}ms"
@@ -128,47 +139,83 @@ def _check(
             )
     if nodes_drawn == 0:
         failures.append(f"[{label}] graph view drew 0 nodes - graph init failed")
+    if edges_drawn < minimum_graph_edges:
+        failures.append(
+            f"[{label}] graph drew {edges_drawn} edges; expected at least {minimum_graph_edges}"
+        )
     return failures
 
 
 def _check_compare(page, html_path: Path) -> list[str]:
     """Comparative report: initial render within the 1,000-component budget,
-    plus the Changes view must actually carry rows (it renders at load, so
-    its cost is inside the initial-render number)."""
+    while the high-churn Changes DOM stays lazy and batch-bounded."""
     start = time.perf_counter()
     page.goto(html_path.as_uri())
     page.wait_for_selector("#catalog-body tr", state="attached", timeout=10_000)
     render_ms = (time.perf_counter() - start) * 1000
-    rows = page.evaluate("document.querySelectorAll('#changes-body .change-row').length")
-    print(f"[cja-compare] initial render: {render_ms:.0f}ms  (budget 1000ms, {rows} change rows)")
+    eager_rows = page.evaluate("document.querySelectorAll('#changes-body .change-row').length")
+    page.click('.view-button[data-view="changes"]')
+    page.evaluate("document.getElementById('changes-body').getBoundingClientRect()")
+    first_rows = page.evaluate("document.querySelectorAll('#changes-body .change-row').length")
+    if page.locator("#changes-show-next").count():
+        page.click("#changes-show-next")
+    second_rows = page.evaluate("document.querySelectorAll('#changes-body .change-row').length")
+    print(
+        f"[cja-compare] initial render: {render_ms:.0f}ms  "
+        f"(budget 1000ms, eager/first/second rows {eager_rows}/{first_rows}/{second_rows})"
+    )
     failures = []
     if render_ms > 1000.0:
         failures.append(f"[cja-compare] initial render {render_ms:.0f}ms > 1000ms")
-    if rows == 0:
-        failures.append("[cja-compare] Changes view rendered 0 rows - the comparative path is dead")
+    if eager_rows != 0:
+        failures.append(f"[cja-compare] eagerly rendered {eager_rows} Changes rows")
+    if not 0 < first_rows <= 250:
+        failures.append(f"[cja-compare] first Changes batch has {first_rows} rows; expected 1..250")
+    if not first_rows <= second_rows <= 500:
+        failures.append(
+            f"[cja-compare] second Changes batch has {second_rows} rows; expected <=500"
+        )
     return failures
 
 
 def _check_trend(page, html_path: Path) -> list[str]:
     """Trend report: initial render within the 1,000-component budget, with
-    charts and the interval log present (both render at load)."""
+    lazy interval summaries and batched IDs after expansion."""
     start = time.perf_counter()
     page.goto(html_path.as_uri())
     page.wait_for_selector("#catalog-body tr", state="attached", timeout=10_000)
     render_ms = (time.perf_counter() - start) * 1000
     charts = page.evaluate("document.querySelectorAll('#trend-view svg.sparkline').length")
+    eager_rows = page.evaluate(
+        "document.querySelectorAll('#trend-log details.trend-interval').length"
+    )
+    page.click('.view-button[data-view="trend"]')
     rows = page.evaluate("document.querySelectorAll('#trend-log details.trend-interval').length")
+    eager_ids = page.evaluate("document.querySelectorAll('#trend-log .trend-id').length")
+    page.click("#trend-log details.trend-interval:first-child summary")
+    first_ids = page.evaluate(
+        "document.querySelectorAll('#trend-log details.trend-interval:first-child .trend-id').length"
+    )
     print(
         f"[cja-trend] initial render: {render_ms:.0f}ms  "
-        f"(budget 1000ms, {charts} charts, {rows} intervals)"
+        f"(budget 1000ms, {charts} charts, {eager_rows}/{rows} eager/lazy intervals, "
+        f"{first_ids} first-expansion IDs)"
     )
     failures = []
     if render_ms > 1000.0:
         failures.append(f"[cja-trend] initial render {render_ms:.0f}ms > 1000ms")
     if charts == 0:
         failures.append("[cja-trend] no sparkline charts rendered - trend path is dead")
-    if rows == 0:
-        failures.append("[cja-trend] interval log rendered 0 rows - trend path is dead")
+    if eager_rows != 0:
+        failures.append(f"[cja-trend] eagerly rendered {eager_rows} interval rows")
+    if rows != 59:
+        failures.append(f"[cja-trend] rendered {rows} interval summaries; expected 59")
+    if eager_ids != 0:
+        failures.append(f"[cja-trend] eagerly rendered {eager_ids} identifier chips")
+    if not 0 < first_ids <= 300:
+        failures.append(
+            f"[cja-trend] first expansion rendered {first_ids} IDs; expected a bounded batch"
+        )
     return failures
 
 
@@ -196,7 +243,14 @@ def main() -> int:
     )
     mutate_module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(mutate_module)
-    mutate = mutate_module.mutate
+    disjoint_ids = mutate_module.disjoint_ids
+    high_churn_series = mutate_module.high_churn_series
+
+    generator_spec = importlib.util.spec_from_file_location(
+        "generate_large_fixture", REPO / "scripts" / "generate_large_fixture.py"
+    )
+    generator_module = importlib.util.module_from_spec(generator_spec)
+    generator_spec.loader.exec_module(generator_module)
 
     adapters = {"cja": cja_adapt, "aa": aa_adapt}
 
@@ -219,10 +273,12 @@ def main() -> int:
                 checked += 1
 
             large = REPO / "tests" / "fixtures" / "cja_snapshot_large.json"
-            if large.exists():
-                snap = json.loads(large.read_text(encoding="utf-8"))
-                old_impl = adapters["cja"](mutate(snap))
-                new_impl = adapters["cja"](snap)
+            xl = REPO / "tests" / "fixtures" / "cja_snapshot_xl.json"
+            compare_fixture = xl if xl.exists() else large
+            if compare_fixture.exists():
+                compare_snap = json.loads(compare_fixture.read_text(encoding="utf-8"))
+                old_impl = adapters["cja"](disjoint_ids(compare_snap, namespace="compare-old"))
+                new_impl = adapters["cja"](compare_snap)
                 payload = build_payload_with_options(new_impl)
                 payload["changes"] = diff_implementations(old_impl, new_impl)
                 payload["meta"]["compared_to"] = payload["changes"]["baseline"]
@@ -232,16 +288,35 @@ def main() -> int:
                 checked += 1
 
             if large.exists():
-                series = [snap]
-                for _ in range(5):
-                    series.append(mutate(series[-1]))
-                impls = [adapters["cja"](s) for s in series]
+                large_snap = json.loads(large.read_text(encoding="utf-8"))
+                series = high_churn_series(large_snap, count=60)
+                impls = [
+                    adapters["cja"](snapshot, source=f"high_churn_{index:02d}.json")
+                    for index, snapshot in enumerate(series)
+                ]
                 trend_payload = build_payload_with_options(impls[-1])
                 trend_payload["trend"] = build_trend(impls, capped=False)
                 trend_path = Path(tmp) / "cja_trend.html"
                 trend_path.write_text(render_payload(trend_payload), encoding="utf-8")
                 failures += _check_trend(page, trend_path)
                 checked += 1
+
+            dense_snap = generator_module.build_snapshot(
+                scale=5 / 6,
+                dense_graph_edges=5_000,
+            )
+            dense_path = Path(tmp) / "cja_dense_graph.html"
+            dense_path.write_text(render(adapters["cja"](dense_snap)), encoding="utf-8")
+            failures += _check(
+                page,
+                dense_path,
+                "cja-dense-graph",
+                1000.0,
+                150.0,
+                False,
+                minimum_graph_edges=5_000,
+            )
+            checked += 1
         browser.close()
 
     if checked == 0:

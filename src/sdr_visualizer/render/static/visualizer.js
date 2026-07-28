@@ -632,9 +632,18 @@
     timeFilter: function (query) {
       clearTimeout(searchDebounceTimer);
       $search.value = query;
-      var t0 = performance.now();
-      applyFilters();
-      return performance.now() - t0;
+      return new Promise(function (resolve) {
+        requestAnimationFrame(function () {
+          var t0 = performance.now();
+          applyFilters();
+          // Include style/layout work caused by the new rows, then wait for
+          // the following frame so callers measure completed browser work.
+          $body.getBoundingClientRect();
+          requestAnimationFrame(function () {
+            resolve(performance.now() - t0);
+          });
+        });
+      });
     },
     // Includes the truncation indicator row when the result set is capped.
     rowCount: function () { return $body.children.length; },
@@ -690,6 +699,8 @@
     if (name === "graph" && !graphState.initialized) {
       maybeInitGraph();
     }
+    if (name === "changes") initChanges();
+    if (name === "trend") initTrend();
     updateHash();
   }
 
@@ -1134,8 +1145,100 @@
     return " (" + escapeHtml(parts.join(", ")) + ")";
   }
 
-  function renderChanges() {
-    if (!$changesView || !payload.changes) return;
+  var CHANGES_BATCH_SIZE = 250;
+  var CHANGES_RENDER_CAP = 1000;
+  var changesState = {
+    initialized: false,
+    entries: [],
+    filtered: [],
+    revealed: CHANGES_BATCH_SIZE,
+  };
+
+  function renderChangeRow(item) {
+    var entry = item.entry;
+    if (item.kind === "added") {
+      var catalogEntry = byId[entry.id];
+      var noDesc = catalogEntry && !catalogEntry.description
+        ? '<span class="change-no-desc ui">no description</span>'
+        : "";
+      return (
+        '<div class="change-row change-added"' + changeRowSearchAttr(entry) + ">" +
+          changeEntryLabel(entry, true) + noDesc + "</div>"
+      );
+    }
+    if (item.kind === "removed") {
+      // Removed components no longer exist in the primary snapshot: no link.
+      return (
+        '<div class="change-row change-removed"' + changeRowSearchAttr(entry) + ">" +
+          changeEntryLabel(entry, false) + "</div>"
+      );
+    }
+    var fields = entry.fields || [];
+    return (
+      '<details class="change-row change-modified"' + changeRowSearchAttr(entry) + "><summary>" +
+        changeEntryLabel(entry, true) +
+        '<span class="change-field-count ui">' + fields.length + " field" +
+          (fields.length === 1 ? "" : "s") + "</span>" +
+      "</summary>" +
+      '<ul class="change-fields">' + fields.map(changeFieldHtml).join("") + "</ul>" +
+      "</details>"
+    );
+  }
+
+  function renderChangesBatch() {
+    var $changesBody = document.getElementById("changes-body");
+    var available = Math.min(changesState.filtered.length, CHANGES_RENDER_CAP);
+    var visible = changesState.filtered.slice(0, Math.min(changesState.revealed, available));
+    var parts = [];
+    if (!visible.length) {
+      var emptyMessage = changesState.entries.length
+        ? "No changes match this filter."
+        : "No changes between these snapshots.";
+      parts.push('<p class="changes-empty">' + emptyMessage + "</p>");
+    }
+    [
+      ["added", "Added"],
+      ["removed", "Removed"],
+      ["modified", "Modified"],
+    ].forEach(function (group) {
+      var rows = visible.filter(function (item) { return item.kind === group[0]; });
+      if (!rows.length) return;
+      parts.push(
+        '<h2 class="change-group-title ui">' + group[1] + " (" + rows.length + ")</h2>"
+      );
+      rows.forEach(function (item) { parts.push(renderChangeRow(item)); });
+    });
+
+    var shown = visible.length;
+    var total = changesState.filtered.length;
+    var status = "Showing " + shown + " of " + total + " matching changes.";
+    if (total > CHANGES_RENDER_CAP && shown >= CHANGES_RENDER_CAP) {
+      status += " Refine the filter to see changes outside the 1,000-result limit.";
+    }
+    parts.push('<div id="changes-status" class="changes-status ui" aria-live="polite">');
+    parts.push("<span>" + escapeHtml(status) + "</span>");
+    if (shown < available) {
+      parts.push(
+        '<button type="button" id="changes-show-next" class="progressive-button">' +
+        "Show next " + Math.min(CHANGES_BATCH_SIZE, available - shown) + "</button>"
+      );
+    }
+    parts.push("</div>");
+    $changesBody.innerHTML = parts.join("");
+  }
+
+  function filterChanges() {
+    var query = document.getElementById("changes-search").value.trim().toLowerCase();
+    changesState.filtered = changesState.entries.filter(function (item) {
+      return !query || item.search.indexOf(query) !== -1;
+    });
+    changesState.revealed = CHANGES_BATCH_SIZE;
+    renderChangesBatch();
+  }
+
+  function initChanges() {
+    if (changesState.initialized || !$changesView || !payload.changes) return;
+    changesState.initialized = true;
     var ch = payload.changes;
     var baselineLabel = ch.baseline
       ? ch.baseline.taken_at || ch.baseline.source || "baseline"
@@ -1151,50 +1254,31 @@
         changeTypeBreakdown(ch.modified) + "</span>" +
       '<span class="changes-baseline">against ' + escapeHtml(baselineLabel) + "</span>";
 
-    var parts = [];
-    if (!ch.added.length && !ch.removed.length && !ch.modified.length) {
-      parts.push('<p class="changes-empty">No changes between these snapshots.</p>');
-    }
-    if (ch.added.length) {
-      parts.push('<h2 class="change-group-title ui">Added (' + ch.added.length + ")</h2>");
-      ch.added.forEach(function (entry) {
-        var catalogEntry = byId[entry.id];
-        var noDesc = catalogEntry && !catalogEntry.description
-          ? '<span class="change-no-desc ui">no description</span>'
-          : "";
-        parts.push(
-          '<div class="change-row change-added"' + changeRowSearchAttr(entry) + ">" +
-            changeEntryLabel(entry, true) + noDesc + "</div>"
-        );
+    [
+      ["added", ch.added],
+      ["removed", ch.removed],
+      ["modified", ch.modified],
+    ].forEach(function (group) {
+      group[1].forEach(function (entry) {
+        changesState.entries.push({
+          kind: group[0],
+          entry: entry,
+          search: ((entry.name || "") + " " + (entry.id || "")).toLowerCase(),
+        });
       });
-    }
-    if (ch.removed.length) {
-      parts.push('<h2 class="change-group-title ui">Removed (' + ch.removed.length + ")</h2>");
-      ch.removed.forEach(function (entry) {
-        // Removed components no longer exist in the primary snapshot: no link.
-        parts.push(
-          '<div class="change-row change-removed"' + changeRowSearchAttr(entry) + ">" +
-            changeEntryLabel(entry, false) + "</div>"
-        );
-      });
-    }
-    if (ch.modified.length) {
-      parts.push('<h2 class="change-group-title ui">Modified (' + ch.modified.length + ")</h2>");
-      ch.modified.forEach(function (entry) {
-        var count = entry.fields.length;
-        parts.push(
-          '<details class="change-row change-modified"' + changeRowSearchAttr(entry) + "><summary>" +
-            changeEntryLabel(entry, true) +
-            '<span class="change-field-count ui">' + count + " field" + (count === 1 ? "" : "s") + "</span>" +
-          "</summary>" +
-          '<ul class="change-fields">' + entry.fields.map(changeFieldHtml).join("") + "</ul>" +
-          "</details>"
-        );
-      });
-    }
-    document.getElementById("changes-body").innerHTML = parts.join("");
+    });
+    changesState.filtered = changesState.entries.slice();
+    renderChangesBatch();
 
     $changesView.addEventListener("click", function (event) {
+      if (event.target.closest("#changes-show-next")) {
+        changesState.revealed = Math.min(
+          changesState.revealed + CHANGES_BATCH_SIZE,
+          CHANGES_RENDER_CAP
+        );
+        renderChangesBatch();
+        return;
+      }
       var btn = event.target.closest("button.ref-link");
       if (!btn) return;
       // A link inside <summary> must open the detail panel, not toggle the
@@ -1207,35 +1291,58 @@
     document.getElementById("changes-search").addEventListener("input", function (event) {
       clearTimeout(changesSearchDebounceTimer);
       changesSearchDebounceTimer = setTimeout(function () {
-        var query = event.target.value.trim().toLowerCase();
-        $changesView.querySelectorAll("#changes-body .change-row").forEach(function (row) {
-          row.hidden = !!query && (row.getAttribute("data-search") || "").indexOf(query) === -1;
-        });
+        filterChanges();
       }, SEARCH_DEBOUNCE_MS);
     });
   }
-  renderChanges();
 
   /* ===========================================================
    * Trend view (interval log; charts are server-rendered SVG)
    * =========================================================== */
 
-  function trendIdList(label, ids, cls) {
+  var TREND_ID_BATCH_SIZE = 100;
+  var TREND_INTERVAL_CAP = 59;
+  var trendState = {
+    initialized: false,
+    intervals: [],
+    revealed: [],
+  };
+
+  function trendIdList(label, ids, cls, intervalIndex, kind) {
     if (!ids.length) return "";
+    var shown = Math.min(trendState.revealed[intervalIndex][kind], ids.length);
+    var button = "";
+    if (shown < ids.length) {
+      button =
+        '<button type="button" class="trend-show-next progressive-button" data-interval="' +
+        intervalIndex + '" data-kind="' + kind + '">Show next ' +
+        Math.min(TREND_ID_BATCH_SIZE, ids.length - shown) + "</button>";
+    }
     return (
       '<div class="trend-ids"><span class="trend-ids-label ' + cls + '">' +
         label + " (" + ids.length + ")</span> " +
-      ids.map(function (id) {
+      ids.slice(0, shown).map(function (id) {
         return '<span class="mono trend-id">' + escapeHtml(id) + "</span>";
-      }).join(" ") +
+      }).join(" ") + button +
       "</div>"
     );
   }
 
+  function renderTrendInterval(intervalIndex) {
+    var iv = trendState.intervals[intervalIndex];
+    var $body = $trendView.querySelector(
+      '.trend-interval-body[data-interval="' + intervalIndex + '"]'
+    );
+    if (!$body) return;
+    $body.innerHTML =
+      trendIdList("Added", iv.added, "change-count-added", intervalIndex, "added") +
+      trendIdList("Removed", iv.removed, "change-count-removed", intervalIndex, "removed") +
+      trendIdList("Modified", iv.modified, "change-count-modified", intervalIndex, "modified");
+  }
+
   function renderTrendLog() {
-    if (!$trendView || !payload.trend) return;
     var parts = [];
-    payload.trend.intervals.forEach(function (iv) {
+    trendState.intervals.forEach(function (iv, intervalIndex) {
       var fromLabel = formatDate(iv.from);
       var toLabel = formatDate(iv.to);
       if (fromLabel === toLabel) {
@@ -1243,7 +1350,7 @@
         toLabel = iv.to_source || toLabel;
       }
       parts.push(
-        '<details class="trend-interval"><summary>' +
+        '<details class="trend-interval" data-interval="' + intervalIndex + '"><summary>' +
           '<span class="trend-range">' +
             escapeHtml(fromLabel) + " → " + escapeHtml(toLabel) +
           "</span>" +
@@ -1251,9 +1358,7 @@
           '<span class="change-count change-count-removed">−' + iv.removed.length + "</span>" +
           '<span class="change-count change-count-modified">~' + iv.modified.length + "</span>" +
         "</summary>" +
-        trendIdList("Added", iv.added, "change-count-added") +
-        trendIdList("Removed", iv.removed, "change-count-removed") +
-        trendIdList("Modified", iv.modified, "change-count-modified") +
+        '<div class="trend-interval-body" data-interval="' + intervalIndex + '"></div>' +
         "</details>"
       );
     });
@@ -1265,7 +1370,37 @@
     }
     document.getElementById("trend-log").innerHTML = parts.join("");
   }
-  renderTrendLog();
+
+  function initTrend() {
+    if (trendState.initialized || !$trendView || !payload.trend) return;
+    trendState.initialized = true;
+    trendState.intervals = payload.trend.intervals.slice(0, TREND_INTERVAL_CAP);
+    trendState.revealed = trendState.intervals.map(function () {
+      return {added: TREND_ID_BATCH_SIZE, removed: TREND_ID_BATCH_SIZE, modified: TREND_ID_BATCH_SIZE};
+    });
+    renderTrendLog();
+
+    // toggle does not bubble, so listen during capture. One delegated
+    // listener covers every lazily created interval.
+    $trendView.addEventListener("toggle", function (event) {
+      var details = event.target.closest("details.trend-interval");
+      if (!details || !details.open) return;
+      renderTrendInterval(Number(details.getAttribute("data-interval")));
+    }, true);
+    $trendView.addEventListener("click", function (event) {
+      var summary = event.target.closest("summary");
+      if (summary) {
+        var interval = summary.closest("details.trend-interval");
+        if (interval) renderTrendInterval(Number(interval.getAttribute("data-interval")));
+      }
+      var button = event.target.closest("button.trend-show-next");
+      if (!button) return;
+      var intervalIndex = Number(button.getAttribute("data-interval"));
+      var kind = button.getAttribute("data-kind");
+      trendState.revealed[intervalIndex][kind] += TREND_ID_BATCH_SIZE;
+      renderTrendInterval(intervalIndex);
+    });
+  }
 
   // Deferred URL-state restore: showView/openDetail need the graph section's
   // definitions, so view/detail restore runs after everything is wired. The
