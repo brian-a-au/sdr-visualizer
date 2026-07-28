@@ -44,9 +44,11 @@ def browser_page(request):
             browser = getattr(pw, request.param).launch(headless=True)
         except Exception as exc:  # engine not installed in this environment
             pytest.skip(f"{request.param} not available: {exc}")
-        page = browser.new_page()
-        yield page
-        browser.close()
+        else:
+            try:
+                yield browser.new_page()
+            finally:
+                browser.close()
 
 
 def _render_to(tmp_path: Path, fixture_name: str, name: str = "out.html") -> Path:
@@ -81,6 +83,24 @@ def test_hostile_snapshot_does_not_execute(browser_page, tmp_path):
     assert browser_page.evaluate("document.querySelectorAll('img[src=x]').length") == 0
     body_text = browser_page.evaluate("document.body.innerText")
     assert "window.__xssEscape=true" in body_text  # description shown as text
+
+
+def test_report_loads_without_subresource_requests(browser_page, tmp_path):
+    """The self-contained report must not load any resource beyond itself."""
+    out = _render_to(tmp_path, "cja_snapshot_clean.json", "offline.html")
+    requested_urls = []
+
+    def _request_handler(request):
+        requested_urls.append(request.url)
+
+    browser_page.on("request", _request_handler)
+    try:
+        browser_page.goto(out.as_uri())
+        browser_page.wait_for_selector("#catalog-body tr", state="attached", timeout=10_000)
+    finally:
+        browser_page.remove_listener("request", _request_handler)
+
+    assert requested_urls == [out.as_uri()]
 
 
 def test_url_hash_restores_catalog_state(browser_page, tmp_path):

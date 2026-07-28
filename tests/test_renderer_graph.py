@@ -27,7 +27,7 @@ def test_graph_view_section_present(messy_html):
 
 def test_d3_inlined(messy_html):
     """D3 should be embedded so the file works offline."""
-    assert "https://d3js.org" in messy_html  # the d3 banner comment
+    assert "Copyright 2010-2023 Mike Bostock" in messy_html
     assert "d3.forceSimulation" in messy_html or "forceSimulation" in messy_html
 
 

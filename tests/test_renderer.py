@@ -4,7 +4,9 @@ from __future__ import annotations
 
 import json
 import re
+from html.parser import HTMLParser
 from pathlib import Path
+from urllib.parse import urlsplit
 
 import pytest
 from conftest import extract_payload, extract_payload_text
@@ -16,6 +18,53 @@ from sdr_visualizer.core.visualizer import visualize
 from sdr_visualizer.render.renderer import render
 
 FIXTURES = Path(__file__).parent / "fixtures"
+
+_RESOURCE_URL_ATTRIBUTES = {
+    "audio": ("src",),
+    "embed": ("src",),
+    "iframe": ("src",),
+    "image": ("href", "xlink:href"),
+    "img": ("src",),
+    "input": ("src",),
+    "link": ("href",),
+    "object": ("data",),
+    "script": ("src",),
+    "source": ("src",),
+    "track": ("src",),
+    "use": ("href", "xlink:href"),
+    "video": ("poster", "src"),
+}
+_SRCSET_TAGS = {"img", "source"}
+
+
+class _ResourceURLParser(HTMLParser):
+    def __init__(self) -> None:
+        super().__init__()
+        self.urls: list[str] = []
+
+    def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
+        resource_attributes = _RESOURCE_URL_ATTRIBUTES.get(tag)
+        if resource_attributes is None:
+            return
+
+        attributes = dict(attrs)
+        self.urls.extend(
+            value for name in resource_attributes if (value := attributes.get(name)) is not None
+        )
+        if tag in _SRCSET_TAGS and (srcset := attributes.get("srcset")) is not None:
+            self.urls.extend(
+                candidate.split()[0] for candidate in srcset.split(",") if candidate.strip()
+            )
+
+
+def _non_embedded_resource_urls(html: str) -> list[str]:
+    parser = _ResourceURLParser()
+    parser.feed(html)
+    return [
+        url
+        for url in parser.urls
+        if not url.lstrip().startswith("#") and urlsplit(url.lstrip()).scheme.lower() != "data"
+    ]
 
 
 @pytest.fixture(scope="module")
@@ -87,8 +136,22 @@ def test_html_inlines_css_and_js(messy_html):
 def test_html_no_external_resources(messy_html):
     """Spec §5: no fetches, no CDNs, no external <img>."""
     assert "<img" not in messy_html
-    assert 'src="http' not in messy_html
-    assert 'href="http' not in messy_html or "github.com" in messy_html  # only the See-also link
+    assert _non_embedded_resource_urls(messy_html) == []
+
+
+def test_resource_detection_rejects_relative_and_all_srcset_candidates():
+    external_url = "https://cdn.invalid/image.png"
+    html = f'<source srcset="/local.png 1x, {external_url} 2x">'
+
+    assert _non_embedded_resource_urls(html) == ["/local.png", external_url]
+
+
+def test_resource_detection_allows_embedded_and_same_document_urls():
+    html = (
+        '<img src="data:image/gif;base64,R0lGODlhAQABAAAAACw="><svg><use href="#mark"></use></svg>'
+    )
+
+    assert _non_embedded_resource_urls(html) == []
 
 
 def test_aa_renders_with_aa_platform_tag(aa_html):
