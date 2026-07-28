@@ -1,6 +1,6 @@
 """CJA adapter tests.
 
-Per SPEC-VISUALIZER §10 Phase 1: round-trip every field, segment depth and
+Round-trip every field, segment depth and
 calc metric complexity computed correctly, references extracted. The messy
 fixture encodes specific known counts (487 components, 89 missing
 descriptions, 4 deep segments, 7 near-duplicate revenue calc metrics) — those
@@ -17,6 +17,7 @@ import pytest
 from sdr_visualizer.adapters.cja import adapt
 from sdr_visualizer.core.exceptions import InvalidSnapshotError
 from sdr_visualizer.core.models import CalculatedMetric, Component, Implementation, Segment
+from sdr_visualizer.core.structure_limits import MAX_DEFINITION_NODES, MAX_STRUCTURE_DEPTH
 
 FIXTURES = Path(__file__).parent / "fixtures"
 MESSY_PATH = FIXTURES / "cja_snapshot_messy.json"
@@ -477,9 +478,55 @@ def test_falsy_numeric_scalars_still_default():
     assert impl.calculated_metrics[0].complexity_score == 0.0
 
 
+def test_cja_adapter_rejects_snapshot_beyond_structure_depth_budget():
+    nested = 0
+    for _ in range(MAX_STRUCTURE_DEPTH):
+        nested = {"child": nested}
+    snapshot = _minimal_cja(hostile=nested)
+
+    with pytest.raises(InvalidSnapshotError, match=r"CJA snapshot.*depth"):
+        adapt(snapshot)
+
+
+def test_cja_decoded_definition_node_budget_boundary():
+    def snapshot_with_args(count):
+        return _minimal_cja(
+            calculated_metrics={
+                "metrics": [
+                    {
+                        "metric_id": "cm/budget",
+                        "definition_json": json.dumps({"func": "sum", "args": [0] * count}),
+                    }
+                ]
+            }
+        )
+
+    # dict + func scalar + args list + scalar items = MAX_DEFINITION_NODES
+    adapt(snapshot_with_args(MAX_DEFINITION_NODES - 3))
+
+    with pytest.raises(InvalidSnapshotError, match=r"calculated metric definition.*10,000 nodes"):
+        adapt(snapshot_with_args(MAX_DEFINITION_NODES - 2))
+
+
+def test_cja_definition_json_recursion_error_is_invalid_snapshot(monkeypatch):
+    snapshot = _minimal_cja(
+        calculated_metrics={
+            "metrics": [{"metric_id": "cm/deep", "definition_json": '{"func":"sum"}'}]
+        }
+    )
+
+    def recurse(_value):
+        raise RecursionError("decoder recursion")
+
+    monkeypatch.setattr("sdr_visualizer.adapters.cja.json.loads", recurse)
+
+    with pytest.raises(InvalidSnapshotError, match=r"definition.*JSON exceeds nesting limits"):
+        adapt(snapshot)
+
+
 # ---------------------------------------------------------------------------
 # sdr-grader parity: cja_auto_sdr ships tags/refs as JSON-encoded list strings.
-# Match the grader's _parse_tag_list / _parse_ref_list behavior (SPEC §11/§15).
+# Match the grader's _parse_tag_list / _parse_ref_list behavior.
 # ---------------------------------------------------------------------------
 
 
@@ -523,6 +570,36 @@ def test_stringified_reference_lists_are_parsed():
     assert impl.calculated_metrics[0].references == ["metrics/x"]
 
 
+@pytest.mark.parametrize(
+    "raw_references",
+    [
+        ["metrics/orders", "variables/channel", "metrics/orders"],
+        '["metrics/orders", "variables/channel", "metrics/orders"]',
+    ],
+)
+def test_derived_field_component_references_are_normalized_and_deduplicated(
+    raw_references,
+):
+    impl = adapt(
+        _minimal_cja(
+            derived_fields={
+                "fields": [
+                    {
+                        "component_id": "variables/derived-channel",
+                        "component_name": "Derived Channel",
+                        "component_references": raw_references,
+                    }
+                ]
+            }
+        )
+    )
+
+    assert impl.derived_fields[0].platform_specific["component_references"] == [
+        "metrics/orders",
+        "variables/channel",
+    ]
+
+
 def test_nan_complexity_score_passes_through_adapter_for_renderer_to_reject():
     # Deliberate divergence from sdr-grader (which coerces NaN to a default):
     # the visualizer passes NaN through so the renderer's allow_nan=False guard
@@ -540,7 +617,7 @@ def test_nan_complexity_score_passes_through_adapter_for_renderer_to_reject():
 
 # ---------------------------------------------------------------------------
 # Q5 (1.0.0): generator-version compatibility warning helper. Warn-only,
-# never refuse. Mirrored to sdr-grader (SPEC §11/§15).
+# never refuse. Mirrored to sdr-grader.
 # ---------------------------------------------------------------------------
 
 
@@ -581,7 +658,7 @@ def test_tuple_length_mismatch_versions_compare_correctly():
 # ---------------------------------------------------------------------------
 # Real cja_auto_sdr snapshots carry the generation timestamp only under
 # "Generated Date & timestamp and timezone" (corpus, 2026-07-17). Mirrored
-# to sdr-grader (SPEC §11/§15).
+# to sdr-grader.
 # ---------------------------------------------------------------------------
 
 

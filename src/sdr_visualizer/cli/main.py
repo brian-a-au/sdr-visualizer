@@ -1,4 +1,4 @@
-"""CLI entry point (SPEC-VISUALIZER §7).
+"""CLI entry point.
 
 Wires all four input modes:
   Mode 1: file path
@@ -10,7 +10,9 @@ Wires all four input modes:
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
+import re
 import sys
 from datetime import UTC, datetime
 from pathlib import Path
@@ -40,11 +42,37 @@ from sdr_visualizer.render.renderer import build_payload_with_options, render_pa
 # (simplified rendering; the graph view already needs --max-graph-nodes
 # opt-in past 1,000 nodes). Warn — never refuse — on valid input.
 EXTREME_SIZE_WARNING = 5000
+_FILENAME_TOKEN_MAX_LENGTH = 80
+_WINDOWS_RESERVED_NAMES = {
+    "aux",
+    "clock$",
+    "com1",
+    "com2",
+    "com3",
+    "com4",
+    "com5",
+    "com6",
+    "com7",
+    "com8",
+    "com9",
+    "con",
+    "lpt1",
+    "lpt2",
+    "lpt3",
+    "lpt4",
+    "lpt5",
+    "lpt6",
+    "lpt7",
+    "lpt8",
+    "lpt9",
+    "nul",
+    "prn",
+}
+_UNSAFE_FILENAME_RUN = re.compile(r"[^A-Za-z0-9._-]+")
 
 
 class _ArgumentParser(argparse.ArgumentParser):
-    """argparse exits 2 on usage errors; SPEC §7 reserves the 0/1/3 contract
-    and explicitly forbids 2, so remap usage problems to input-validation."""
+    """Remap argparse's exit 2 to the public 0/1/3 CLI contract."""
 
     def error(self, message: str) -> None:  # type: ignore[override]
         self.print_usage(sys.stderr)
@@ -185,13 +213,15 @@ def _load_baseline(args: argparse.Namespace, impl: Implementation) -> Implementa
     if baseline.instance_id != impl.instance_id:
         if not args.allow_instance_mismatch:
             raise InvalidSnapshotError(
-                f"--compare-to instance mismatch: baseline is {baseline.instance_id}, "
-                f"primary snapshot is {impl.instance_id}; compare snapshots of the same "
+                "--compare-to instance mismatch: baseline is "
+                f"{_visible_terminal_text(baseline.instance_id)}, primary snapshot is "
+                f"{_visible_terminal_text(impl.instance_id)}; compare snapshots of the same "
                 "data view / report suite (or pass --allow-instance-mismatch)"
             )
         print(
             "sdr-visualizer: warning: comparing different instances "
-            f"({baseline.instance_id} vs {impl.instance_id}); --allow-instance-mismatch set",
+            f"({_visible_terminal_text(baseline.instance_id)} vs "
+            f"{_visible_terminal_text(impl.instance_id)}); --allow-instance-mismatch set",
             file=sys.stderr,
         )
     return baseline
@@ -202,11 +232,13 @@ def _load_trend(args: argparse.Namespace) -> tuple[Implementation, dict]:
 
     Returns (newest usable Implementation, trend payload section). Raised
     InvalidSnapshotError maps to exit 3 in main()'s except clause."""
-    entries, capped = list_snapshot_series(args.path, at=args.at)
-    impls: list[Implementation] = []
-    for snapshot, source in entries:
+
+    def select_implementation(
+        snapshot: dict,
+        source: str,
+    ) -> Implementation | None:
         try:
-            impls.append(build_implementation(snapshot, source=source, platform=args.platform))
+            return build_implementation(snapshot, source=source, platform=args.platform)
         except (InvalidSnapshotError, UnknownPlatformError, ValueError, TypeError) as exc:
             # Broad on purpose: any snapshot the adapter cannot turn into a valid
             # Implementation — a bad platform, or a scalar-coercion failure such
@@ -214,36 +246,39 @@ def _load_trend(args: argparse.Namespace) -> tuple[Implementation, dict]:
             # is a skippable unusable snapshot, not a reason to abort the whole
             # trend. The stderr warning keeps a genuine adapter regression visible.
             print(f"sdr-visualizer: warning: skipping {source}: {exc}", file=sys.stderr)
-    if impls:
-        # A trend must be a single implementation: one platform and one data
-        # view / report suite. Both dimensions are refused when mixed, the same
-        # way --compare-to refuses a mismatch, rather than diffing unrelated
-        # inventories. Platform is declarable, so its message points at
-        # --platform; instance has no flag, so the fix is a cleaner directory.
-        # (With --platform set, non-matching snapshots fail to adapt above and
-        # never reach here.)
-        platforms = sorted({i.platform for i in impls})
-        if len(platforms) > 1:
-            raise InvalidSnapshotError(
-                f"--trend directory mixes platforms ({', '.join(platforms)}); "
-                "pass --platform cja|aa to select one, or use a single-platform directory"
-            )
-        instances = sorted({i.instance_id for i in impls})
-        if len(instances) > 1:
-            if not args.allow_instance_mismatch:
-                raise InvalidSnapshotError(
-                    "--trend directory mixes data views / report suites "
-                    f"({', '.join(instances)}); use snapshots of a single implementation "
-                    "(or pass --allow-instance-mismatch)"
-                )
-            print(
-                "sdr-visualizer: warning: --trend directory mixes data views / report "
-                f"suites ({', '.join(instances)}); --allow-instance-mismatch set",
-                file=sys.stderr,
-            )
-    if len(impls) < 2:
+            return None
+
+    impls, capped = list_snapshot_series(
+        args.path,
+        at=args.at,
+        transform=select_implementation,
+    )
+    # A trend must be a single implementation: one platform and one data
+    # view / report suite. Both dimensions are refused when mixed, the same
+    # way --compare-to refuses a mismatch, rather than diffing unrelated
+    # inventories. Platform is declarable, so its message points at
+    # --platform; instance has no flag, so the fix is a cleaner directory.
+    # (With --platform set, non-matching snapshots fail to adapt above and
+    # never reach here.)
+    platforms = sorted({i.platform for i in impls})
+    if len(platforms) > 1:
         raise InvalidSnapshotError(
-            "--trend needs at least 2 usable snapshots after skipping unusable ones"
+            f"--trend directory mixes platforms ({', '.join(platforms)}); "
+            "pass --platform cja|aa to select one, or use a single-platform directory"
+        )
+    instances = sorted({i.instance_id for i in impls})
+    if len(instances) > 1:
+        visible_instances = ", ".join(_visible_terminal_text(value) for value in instances)
+        if not args.allow_instance_mismatch:
+            raise InvalidSnapshotError(
+                "--trend directory mixes data views / report suites "
+                f"({visible_instances}); use snapshots of a single implementation "
+                "(or pass --allow-instance-mismatch)"
+            )
+        print(
+            "sdr-visualizer: warning: --trend directory mixes data views / report "
+            f"suites ({visible_instances}); --allow-instance-mismatch set",
+            file=sys.stderr,
         )
     return impls[-1], build_trend(impls, capped=capped)
 
@@ -318,7 +353,7 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     p.add_argument(
         "--max-graph-nodes",
-        type=int,
+        type=_non_negative_int,
         help="Override the graph-rendering threshold (default 1000).",
     )
     p.add_argument(
@@ -334,8 +369,51 @@ def _resolve_output_path(explicit: str | None, instance_id: str) -> Path:
     if explicit:
         return Path(explicit)
     timestamp = datetime.now(UTC).strftime("%Y-%m-%dT%H%M%SZ")
-    safe_instance = instance_id.replace("/", "_")
+    safe_instance = _safe_filename_token(instance_id)
     return Path(f"./visualize-{safe_instance}-{timestamp}.html")
+
+
+def _non_negative_int(value: str) -> int:
+    try:
+        parsed = int(value)
+    except ValueError as exc:
+        raise argparse.ArgumentTypeError("must be a non-negative integer") from exc
+    if parsed < 0:
+        raise argparse.ArgumentTypeError("must be a non-negative integer")
+    return parsed
+
+
+def _safe_filename_token(value: str) -> str:
+    """Return a portable, bounded token with a digest when normalization loses data."""
+    original = str(value)
+    normalized = _UNSAFE_FILENAME_RUN.sub("-", original).strip("._-")
+    transformed = normalized != original
+    if not normalized:
+        normalized = "instance"
+        transformed = True
+    if normalized.split(".", 1)[0].lower() in _WINDOWS_RESERVED_NAMES:
+        normalized = f"instance-{normalized}"
+        transformed = True
+
+    digest = hashlib.sha256(original.encode("utf-8")).hexdigest()[:8]
+    if len(normalized) > _FILENAME_TOKEN_MAX_LENGTH:
+        transformed = True
+    if transformed:
+        prefix_length = _FILENAME_TOKEN_MAX_LENGTH - len(digest) - 1
+        normalized = normalized[:prefix_length].rstrip("._-") or "instance"
+        return f"{normalized}-{digest}"
+    return normalized
+
+
+def _visible_terminal_text(value: str) -> str:
+    """Render terminal control bytes visibly so identifiers cannot alter the display."""
+    visible = []
+    for character in str(value):
+        codepoint = ord(character)
+        visible.append(
+            f"\\u{codepoint:04X}" if codepoint < 32 or 127 <= codepoint <= 159 else character
+        )
+    return "".join(visible)
 
 
 __all__ = ["main", "STDIN_TOKEN"]

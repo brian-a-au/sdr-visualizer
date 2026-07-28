@@ -1,84 +1,132 @@
 # Architecture
 
-`sdr-visualizer` follows a one-way data flow:
+`sdr-visualizer` follows a one-way, static-output data flow:
 
-```
-snapshot JSON
-      ↓  input/loader.py  (Mode 1: file, Mode 2: dir, Mode 3: shell-out, Mode 4: stdin)
-parsed dict + source label
-      ↓  input/detect.py  (auto-detect platform from top-level shape)
-platform = "cja" | "aa"
-      ↓  adapters/cja.py | adapters/aa.py
-core/models.py::Implementation       ← the contract that downstream layers consume
-      ↓  analysis/{references,segment_tree,formula_tree}.py
-analysis structures (graph, segment trees, formula trees)
-      ↓  render/data_payload.py
-embedded JSON payload (denormalized, JSON-serializable)
-      ↓  render/renderer.py + Jinja templates
-single self-contained HTML
+```text
+file / directory / stdin / live generator
+      ↓  input/{loader,series,shell_out}.py
+parsed snapshot(s) + source labels
+      ↓  input/detect.py + adapters/{cja,aa}.py
+core/models.py::Implementation
+      ↓  analysis/{references,segment_tree,formula_tree,diff,trend}.py
+denormalized analysis structures
+      ↓  render/data_payload.py + render/trend_charts.py
+schema-valid JSON payload + precomputed SVG chart paths
+      ↓  render/renderer.py + Jinja templates + embedded static assets
+one self-contained HTML report
 ```
 
-No layer reaches across. The renderer never sees an `Implementation`; it only sees the embedded payload. This is enforceable: if you delete the adapters, the renderer still works against fabricated payloads.
+The CLI orchestrates the optional branches:
+
+- ordinary input adapts one snapshot;
+- `--compare-to` adapts a baseline and passes both implementations through
+  `analysis/diff.py`; and
+- `--trend` uses `input/series.py` to select up to 60 usable snapshots before
+  `analysis/trend.py` builds aggregates and interval changes.
+
+No browser view reads a snapshot or Python model directly. The renderer accepts
+the denormalized payload, and the browser reads only the embedded JSON. This
+boundary is enforced by renderer and payload tests.
 
 ## Module map
 
-```
+```text
 src/sdr_visualizer/
-├── cli/                     # argparse entry point + exit codes
+├── cli/
+│   ├── main.py               # arguments, mode orchestration, safe output, exits
+│   └── exit_codes.py         # public 0 / 1 / 3 contract
 ├── core/
-│   ├── models.py            # Implementation, Component, Segment, CalculatedMetric
-│   ├── visualizer.py        # build_implementation orchestrator
+│   ├── models.py             # normalized Implementation and component models
+│   ├── visualizer.py         # detect/adapt and ordinary visualization entry points
+│   ├── structure_limits.py   # iterative hostile-input depth/node budgets
 │   └── exceptions.py
 ├── input/
-│   ├── loader.py            # Modes 1, 2, 4
-│   ├── detect.py            # platform auto-detect
-│   └── shell_out.py         # Mode 3
+│   ├── loader.py             # file, directory, stdin, and cutoff selection
+│   ├── series.py             # usable-snapshot trend selection and 60-window cap
+│   ├── detect.py             # CJA/AA top-level shape detection
+│   └── shell_out.py          # live cja_auto_sdr / aa_auto_sdr execution
 ├── adapters/
-│   ├── base.py              # protocol
-│   ├── cja.py               # cja_auto_sdr JSON → Implementation
-│   └── aa.py                # aa_auto_sdr  JSON → Implementation
+│   ├── base.py               # adapter protocol
+│   ├── cja.py                # CJA snapshot → Implementation
+│   └── aa.py                 # AA snapshot → Implementation
 ├── analysis/
-│   ├── references.py        # build_reference_graph(impl) -> nodes/edges/degrees
-│   ├── segment_tree.py      # parse_segment_tree(seg) -> renderable tree
-│   └── formula_tree.py      # parse_formula_tree(cm)  -> renderable tree
+│   ├── references.py         # graph edges and in/out degrees
+│   ├── segment_tree.py       # bounded segment anatomy tree
+│   ├── formula_tree.py       # bounded calculated-metric formula tree
+│   ├── diff.py               # typed, field-level snapshot comparison
+│   └── trend.py              # aggregate series and interval changes
 └── render/
-    ├── data_payload.py      # build_payload(impl) -> dict (the embedded JSON)
-    ├── renderer.py          # render(impl) -> str (HTML)
+    ├── data_payload.py       # sparse public payload
+    ├── trend_charts.py       # precomputed trend SVG geometry
+    ├── renderer.py           # JSON guard, templates, and self-contained HTML
     ├── templates/
     │   ├── index.html.j2
     │   ├── catalog.html.j2
-    │   └── graph.html.j2
+    │   ├── graph.html.j2
+    │   ├── changes.html.j2
+    │   └── trend.html.j2
     └── static/
-        ├── visualizer.css   # all styling, inlined into output
-        ├── visualizer.js    # all client-side logic, inlined into output
-        └── d3.min.js        # vendored D3 v7 for the graph view, inlined into output
+        ├── visualizer.css
+        ├── visualizer.js     # bounded, lazy browser views and URL state
+        └── d3.min.js         # vendored D3 v7, used only by the graph
 ```
 
 ## Design principles
 
-1. **Static output, dynamic interaction.** Python builds one HTML file with embedded JSON, embedded CSS, embedded JS. The client just reads, filters, and renders — no fetches, no API.
+1. **Static output, dynamic interaction.** Python builds one HTML file with
+   embedded JSON, CSS, and JavaScript. The report makes no fetches and needs no
+   application server.
 
-2. **Server-side build, client-side render.** Do work in Python (where seconds are fine). Pre-compute reference counts, pre-flatten segment definitions, pre-build the lowercased catalog index. The client must finish in milliseconds.
+2. **Precompute analysis, bound presentation.** Python computes graph degrees,
+   anatomy trees, comparison fields, trend aggregates, and chart geometry.
+   Browser views filter complete data but materialize bounded DOM batches.
 
-3. **Vanilla JS, no framework.** D3 only for the force simulation. Otherwise plain DOM with event delegation.
+3. **Vanilla JavaScript, with D3 only for the graph.** There is no frontend
+   framework or client build pipeline.
 
-4. **Performance is enforced, not aspirational.** The budgets in [`PERFORMANCE.md`](PERFORMANCE.md) are gated by CI via `scripts/perf_check.py`. An implementation that takes 5 seconds to render 500 components is broken regardless of how it looks.
+4. **Performance is a contract.** Both Python build/output budgets and
+   browser-measured render/filter/graph budgets are gated as documented in
+   [`PERFORMANCE.md`](PERFORMANCE.md).
 
-5. **Descriptive, not evaluative.** No grades, no findings, no opinions. The visualizer renders what exists; it doesn't propose changes. Anything evaluative belongs in [`sdr-grader`](https://github.com/brian-a-au/sdr-grader).
+5. **Descriptions, not judgments.** The visualizer renders what exists. Grades,
+   findings, and recommendations belong in
+   [`sdr-grader`](https://github.com/brian-a-au/sdr-grader).
+
+6. **Snapshots are untrusted.** Public adaptation and direct tree-analysis
+   boundaries enforce the limits in
+   [`PRODUCT_CONTRACT.md`](PRODUCT_CONTRACT.md#integrity-and-resource-bounds).
+   Payload JSON rejects non-finite numbers, filenames are sanitized, and
+   terminal control bytes are rendered visibly.
 
 ## Vendoring relationship with sdr-grader
 
-The normalized model (`core/models.py`), the adapters, and the input layer are vendored from `sdr-grader` per [`SPEC-VISUALIZER.md`](../SPEC-VISUALIZER.md) §11 — not shared as a Python package. The duplication is intentional: a solo open-source maintainer benefits more from each project standing alone than from architectural elegance, and the duplicated surface (~1,000 lines) changes infrequently. Files diverge over time only when the divergence is deliberate (the visualizer has expanded `analysis/`; the grader has `rules/`, `core/grader.py`, `trend/`).
+The normalized model, adapters, and parts of the input layer originated in
+`sdr-grader` rather than a shared Python package. The duplication lets each
+small tool install and evolve independently. Shared defensive behavior must be
+evaluated and mirrored in the same release cycle, while intentional
+visualizer-only differences stay documented and tested in
+[`ADAPTER_GUIDE.md`](ADAPTER_GUIDE.md#vendoring-parity-with-sdr-grader).
 
-If a third tool joins the family, factor a shared `sdr-core` package then.
+If a third tool creates sustained demand for the same layer, reconsider a
+shared package then; do not introduce one merely to eliminate modest,
+deliberately reviewed duplication.
 
 ## Adding a new view
 
-1. Add a partial under `render/templates/` for the view's scaffold.
-2. `{% include %}` it from `render/templates/index.html.j2`.
-3. Add a `<button class="view-button" data-view="..."` to the nav.
-4. Extend `render/static/visualizer.js`'s `showView()` to toggle the new section's `hidden`, and add an init function that runs lazily on first switch.
-5. Append CSS for the view to `render/static/visualizer.css`.
-6. Add structural assertions in `tests/test_renderer.py` (e.g. the section id is present, the data the view consumes is in the payload).
+1. Add a partial under `render/templates/` for the view scaffold.
+2. Include it from `render/templates/index.html.j2`.
+3. Add the view button and URL-state behavior in `render/static/visualizer.js`.
+4. Initialize expensive work only on first entry and define an objective DOM
+   bound before adding data-dependent markup.
+5. Add styling to `render/static/visualizer.css`.
+6. Put any new denormalization in `render/data_payload.py` or a focused render
+   helper rather than re-analyzing raw definitions in JavaScript.
+7. Add payload/schema, renderer, browser-functional, and browser-performance
+   coverage proportional to the new path.
 
-The data the view needs should already be in `data_payload.build_payload`'s output. If not, that's the place to denormalize it — keep client-side work to a minimum.
+## Adding or changing an input platform
+
+Follow [`ADAPTER_GUIDE.md`](ADAPTER_GUIDE.md#adding-a-new-platform), preserve
+the stable surfaces in [`PRODUCT_CONTRACT.md`](PRODUCT_CONTRACT.md), and
+complete the current-generator and sibling-parity evidence in
+[`RELEASING.md`](RELEASING.md) before changing public compatibility claims.

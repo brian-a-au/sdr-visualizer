@@ -84,11 +84,11 @@ The visualizer is single-platform-per-snapshot, but the architecture doesn't pre
 
 The downstream layers need no changes — `analysis/`, `render/`, the catalog UI, and the graph view all work against the normalized model.
 
-The fixtures may diverge from sdr-grader's over time — the visualizer wants more component variety to exercise rendering; the grader wants more rule-triggering edge cases — but the model contract is shared between projects per [`SPEC-VISUALIZER.md`](../SPEC-VISUALIZER.md) §11.
+The fixtures may diverge from sdr-grader's over time — the visualizer wants more component variety to exercise rendering; the grader wants more rule-triggering edge cases — but shared defensive behavior follows the parity policy in [`PRODUCT_CONTRACT.md`](PRODUCT_CONTRACT.md#compatibility-policy).
 
 ## Vendoring parity with sdr-grader
 
-`adapters/{cja,aa}.py` are vendored from [`sdr-grader`](https://github.com/brian-a-au/sdr-grader) per SPEC §11/§15. They are **not** byte-identical copies, and shouldn't be assumed to be — but the *defensive coercion* of untrusted snapshot fields is a shared class that must stay in sync. When you touch it, mirror the change to the sibling in the same cycle.
+`adapters/{cja,aa}.py` originated in [`sdr-grader`](https://github.com/brian-a-au/sdr-grader). They are **not** byte-identical copies, and shouldn't be assumed to be — but the *defensive coercion* of untrusted snapshot fields is a shared class that must stay in sync. When you touch it, mirror the change to the sibling in the same cycle and record the evidence required by [`RELEASING.md`](RELEASING.md#sibling-parity).
 
 **Shared, behavior-identical (keep in sync):**
 

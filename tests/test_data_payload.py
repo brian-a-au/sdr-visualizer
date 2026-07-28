@@ -1,4 +1,4 @@
-"""Tests for render/data_payload.py (SPEC-VISUALIZER §10 Phase 3)."""
+"""Tests for the stable embedded data payload."""
 
 from __future__ import annotations
 

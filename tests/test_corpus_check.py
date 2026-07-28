@@ -47,6 +47,34 @@ def test_recursive_discovery_and_failure_reporting(tmp_path, capsys):
     assert "2 failed" in out
 
 
+def test_decoder_failures_do_not_abort_remaining_corpus(tmp_path, capsys):
+    corpus = _build_corpus(tmp_path)
+    (corpus / "invalid-utf8.json").write_bytes(b"\xff")
+    (corpus / "oversized-integer.json").write_text(
+        '{"value":' + ("9" * 5_000) + "}",
+        encoding="utf-8",
+    )
+
+    rc = corpus_check.sweep(corpus, check_budgets=False)
+
+    assert rc == 1
+    out = capsys.readouterr().out
+    assert "invalid-utf8.json" in out
+    assert "oversized-integer.json" in out
+    assert "2 ok, 2 failed of 4" in out
+
+
+def test_missing_schema_validator_is_blocking(tmp_path, monkeypatch, capsys):
+    corpus = _build_corpus(tmp_path)
+    monkeypatch.setattr(corpus_check, "_VALIDATOR", None)
+    monkeypatch.setattr(corpus_check, "_VALIDATOR_ERROR", "jsonschema is unavailable")
+
+    rc = corpus_check.sweep(corpus, check_budgets=False)
+
+    assert rc == 2
+    assert "schema validation unavailable" in capsys.readouterr().err
+
+
 def test_literal_u003c_text_in_snapshot_sweeps_ok(tmp_path):
     # A field whose text literally contains a backslash-u003c sequence (six
     # characters) is embedded in the payload with the backslash doubled. The
@@ -68,6 +96,27 @@ def test_budget_flag_reports_tier(tmp_path, capsys):
     rc = corpus_check.sweep(corpus, check_budgets=True)
     assert rc == 0
     assert "MB" in capsys.readouterr().out
+
+
+def test_budget_flag_rejects_graphs_outside_edge_envelope(tmp_path, monkeypatch):
+    corpus = _build_corpus(tmp_path)
+    snapshot = corpus / "org-a" / "cja.json"
+    original = corpus_check.build_payload_with_options
+
+    def dense_payload(implementation):
+        payload = original(implementation)
+        ids = [component["id"] for component in payload["components"]]
+        payload["graph"]["edges"] = [{"source": ids[0], "target": ids[1], "kind": "references"}] * (
+            corpus_check.MAX_PERFORMANCE_GRAPH_EDGES + 1
+        )
+        return payload
+
+    monkeypatch.setattr(corpus_check, "build_payload_with_options", dense_payload)
+
+    reason, _ = corpus_check._check_one(snapshot, check_budgets=True)
+
+    assert reason is not None
+    assert "8,001 graph edges exceed" in reason
 
 
 def test_missing_directory_is_usage_error(tmp_path):

@@ -24,6 +24,7 @@ from __future__ import annotations
 from typing import Any
 
 from sdr_visualizer.core.models import Segment
+from sdr_visualizer.core.structure_limits import validate_definition_structure
 
 LOGICAL_OPS = {"and", "or", "not", "without"}
 COMPARISON_OPS = {
@@ -52,7 +53,9 @@ COMPARISON_OPS = {
 
 def parse_segment_tree(segment: Segment) -> dict[str, Any]:
     """Return a tree dict suitable for embedding in the HTML payload."""
-    return _walk(segment.definition or {})
+    definition = segment.definition or {}
+    validate_definition_structure(definition, label=f"segment definition {segment.id!r}")
+    return _walk(definition)
 
 
 def _walk(node: Any) -> dict[str, Any]:

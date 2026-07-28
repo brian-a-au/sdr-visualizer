@@ -1,4 +1,4 @@
-"""Mode 3: shell out to cja_auto_sdr / aa_auto_sdr (SPEC-VISUALIZER §7).
+"""Live mode: shell out to cja_auto_sdr / aa_auto_sdr.
 
 The visualizer does not call Adobe APIs directly. To run against a live
 data view or report suite, it shells out to the upstream snapshot tool
@@ -22,7 +22,16 @@ def shell_cja(
     """Shell out to cja_auto_sdr against a CJA data view ID."""
     return _shell_out(
         "cja_auto_sdr",
-        [dataview_id, "--format", "json", "--output", "-", *(extra_args or [])],
+        [
+            dataview_id,
+            "--format",
+            "json",
+            "--output",
+            "-",
+            "--include-all-inventory",
+            "--quiet",
+            *(extra_args or []),
+        ],
         flag="--dataview",
     )
 
@@ -57,11 +66,15 @@ def _shell_out(tool: str, argv: list[str], *, flag: str) -> tuple[dict[str, Any]
         raise InvalidSnapshotError(
             f"{tool} exited {exc.returncode}: {stderr.strip() or '(no stderr)'}"
         ) from exc
-    except FileNotFoundError as exc:
+    except (FileNotFoundError, UnicodeError) as exc:
         raise InvalidSnapshotError(f"{tool} could not be invoked: {exc}") from exc
 
     try:
         snapshot = json.loads(result.stdout)
     except json.JSONDecodeError as exc:
         raise InvalidSnapshotError(f"{tool} produced output that is not valid JSON: {exc}") from exc
+    except ValueError as exc:
+        raise InvalidSnapshotError(f"{tool} produced output that is not valid JSON: {exc}") from exc
+    except RecursionError as exc:
+        raise InvalidSnapshotError(f"{tool} output JSON exceeds nesting limits") from exc
     return snapshot, f"shell-out:{tool} {argv[0]}"

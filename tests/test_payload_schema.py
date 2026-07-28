@@ -46,6 +46,14 @@ def test_schema_is_valid_draft_2020_12():
     Draft202012Validator.check_schema(SCHEMA)
 
 
+def test_comparison_field_change_documentation_matches_schema_keys():
+    documentation = (REPO / "docs" / "EMBEDDED_DATA_FORMAT.md").read_text(encoding="utf-8")
+
+    assert "{field, old, new}" in documentation
+    assert "{field, added, removed}" in documentation
+    assert "{field, before, after}" not in documentation
+
+
 @pytest.mark.parametrize("name", FIXTURE_NAMES)
 def test_fixture_payload_validates(name):
     _assert_valid(build_payload_with_options(_impl(name)))
@@ -58,6 +66,46 @@ def test_compare_payload_validates():
     payload["changes"] = diff_implementations(baseline, impl)
     payload["meta"]["compared_to"] = payload["changes"]["baseline"]
     _assert_valid(payload)
+
+
+def test_timestampless_compare_cli_payload_and_sidecar_validate(tmp_path):
+    old_snapshot = {
+        "metadata": {"Data View ID": "dv-no-timestamp"},
+        "metrics": [{"id": "metrics/orders", "name": "Orders"}],
+        "dimensions": [],
+    }
+    new_snapshot = {
+        "metadata": {"Data View ID": "dv-no-timestamp"},
+        "metrics": [{"id": "metrics/orders", "name": "Renamed Orders"}],
+        "dimensions": [],
+    }
+    old = tmp_path / "old.json"
+    new = tmp_path / "new.json"
+    out = tmp_path / "report.html"
+    sidecar = tmp_path / "payload.json"
+    old.write_text(json.dumps(old_snapshot), encoding="utf-8")
+    new.write_text(json.dumps(new_snapshot), encoding="utf-8")
+
+    rc = main(
+        [
+            str(new),
+            "--compare-to",
+            str(old),
+            "--output",
+            str(out),
+            "--json",
+            str(sidecar),
+            "--quiet",
+        ]
+    )
+
+    assert rc == 0
+    embedded = extract_payload(out.read_text(encoding="utf-8"))
+    written = json.loads(sidecar.read_text(encoding="utf-8"))
+    assert embedded == written
+    assert embedded["changes"]["baseline"]["taken_at"] is None
+    assert embedded["meta"]["compared_to"]["taken_at"] is None
+    _assert_valid(embedded)
 
 
 def test_trend_payload_validates():

@@ -100,10 +100,10 @@ budgets and payload-schema validation included).
   catalog's Dimension / Metric filters also match derived fields of that
   kind, and the type column reads "Derived dimension" / "Derived
   metric". Declared only — never inferred.
-- Build warning at 5,000+ components (SPEC §14 Q4): the report still
+- Build warning at 5,000+ components: the report still
   builds; the warning states the size and that the graph view stays
   behind its `--max-graph-nodes` opt-in.
-- Generator-version compatibility warning (SPEC §14 Q5): warns — never
+- Generator-version compatibility warning: warns — never
   refuses — when a snapshot's generator is newer than the newest version
   this release was tested against (CJA 3.5.17, AA 1.18.0; per-adapter
   constants in the vendored layer, mirrored to sdr-grader).
@@ -129,9 +129,9 @@ budgets and payload-schema validation included).
 
 ### Notes
 
-- SPEC §14 fully resolved: Q1/Q2 shipped in 0.3.0; Q3 (Adobe UI links)
-  and Q6 (Open Graph metadata) rejected; Q4 and Q5 shipped here as
-  warnings.
+- The earlier open-design list was resolved: shareable URL state and the
+  small-graph layout shipped in 0.3.0; Adobe UI links and Open Graph
+  metadata were rejected; size and generator-version warnings shipped here.
 - The accessibility pass is deliberately the first 1.x item, not a 1.0.0
   blocker.
 
@@ -149,7 +149,7 @@ budgets and payload-schema validation included).
 - `scripts/corpus_check.py`: sweep a private directory tree of real
   snapshots through the full build, asserting adapter acceptance, payload
   serializability, embedded-payload parseability, and (optionally) the
-  §6 size budget per tier. A clean corpus sweep becomes the 1.0.0 gate;
+  published size budget per tier. A clean corpus sweep becomes the 1.0.0 gate;
   swept clean ahead of this release over the local real corpus
   (108 snapshots, budget checks included).
 - Contributor hygiene: `CONTRIBUTING.md`, PR and issue templates, and
@@ -212,7 +212,7 @@ budgets and payload-schema validation included).
   that mixes data views / report suites exits 3, so unrelated inventories are
   never diffed (mirroring `--compare-to`, which refuses both). Fewer than 2
   usable snapshots exits 3, as does combining `--trend` with `--compare-to`,
-  `--dataview`, `--rsid`, a file path, or stdin. (SPEC §13, trend mode)
+  `--dataview`, `--rsid`, a file path, or stdin.
 - **`--allow-instance-mismatch`.** Opt-in flag that lets `--compare-to` and
   `--trend` span different data views / report suites on purpose (for example
   staging versus prod drift); the run proceeds with a warning instead of
@@ -248,7 +248,7 @@ budgets and payload-schema validation included).
   embedded as the payload's `changes` section — the baseline snapshot itself
   is never embedded, so the report grows only with the size of the diff.
   A platform mismatch between the two snapshots exits 3; differing instance
-  ids warn but proceed. (SPEC §13, comparative view)
+  ids warn but proceed.
 
 ## [0.3.0] - 2026-07-11
 
@@ -260,7 +260,7 @@ budgets and payload-schema validation included).
   ticks before — ~0.8 s blocked at 2,000 nodes, ~2.2 s at 5,000). Graphs
   that can't settle in budget finish asynchronously, one tick per frame.
   The simulation also uses a coarser Barnes-Hut theta and faster alpha
-  decay (~30% cheaper ticks) above 1,000 nodes — §6's interactive ceiling —
+  decay (~30% cheaper ticks) above 1,000 nodes — the interactive ceiling —
   or above a lower `--max-graph-nodes` opt-in threshold, whichever is
   smaller.
 - **Graph hover/filter repaints coalesced to one pass per frame.** Filter
@@ -286,11 +286,10 @@ budgets and payload-schema validation included).
 - **Shareable URL state.** Catalog search, type/description/references/modified
   filters, sort, the active view, and the open detail panel are reflected in
   `location.hash` — copy the URL to share a filtered view ("every undocumented
-  metric"). Restored on load. (SPEC §14 Q1)
+  metric"). Restored on load.
 - **Radial layout for small graphs.** Implementations with fewer than 20
   components skip the force simulation and place nodes evenly on a circle —
   force-directed layouts look chaotic at that size. Drag and reset still work.
-  (SPEC §14 Q2)
 - CI browser gate now also asserts entering the graph view blocks the main
   thread < 700 ms (`scripts/perf_browser_check.py`) — script time plus a
   forced style/layout flush of the inserted SVG — timing the worst-case
@@ -298,7 +297,7 @@ budgets and payload-schema validation included).
   stops being exercised); plus browser-level functional tests for hover
   neighbor-highlighting, graph search fade/highlight, and filter-cancels-
   hover behavior.
-- Perf gate now enforces the SPEC §6 100- and 500-component tiers (build
+- Perf gate now enforces the published 100- and 500-component tiers (build
   time + HTML size) via generated small fixtures, and the browser gate
   covers the AA path and asserts per-tier budgets (1,000-component budgets
   on the large fixtures, 2,000-component on XL).
@@ -310,7 +309,8 @@ budgets and payload-schema validation included).
   segment reference.
 - Snapshots containing `NaN`/`Infinity` exit 3 with a clear message instead
   of emitting a report whose payload the browser cannot parse (exit 0).
-- Usage errors exit 3, not argparse's default 2 (SPEC §7 forbids 2), and
+- Usage errors exit 3, not argparse's default 2 (the public CLI contract
+  reserves 0/1/3), and
   unwritable `--output`/`--json` paths exit 1 with a clean message instead
   of a traceback.
 - AA segment `nesting_depth` counts container nesting; it previously
@@ -383,7 +383,10 @@ Net payload reduction: ~40% at the 1,200-component tier.
 
 ## [0.1.0] - 2026-05-09
 
-First releasable cut. Feature-complete per [`SPEC-VISUALIZER.md`](SPEC-VISUALIZER.md) §10 phases 0–10. Surface (CLI flags, `--json` payload shape, exit codes, embedded payload schema) is documented but not yet hardened against real-world implementations — expect changes between 0.x releases as feedback comes in.
+First releasable cut of the original catalog, graph, and anatomy scope. Surface
+(CLI flags, `--json` payload shape, exit codes, embedded payload schema) is
+documented but not yet hardened against real-world implementations — expect
+changes between 0.x releases as feedback comes in.
 
 ### Added
 
@@ -391,11 +394,11 @@ First releasable cut. Feature-complete per [`SPEC-VISUALIZER.md`](SPEC-VISUALIZE
 - **Reference graph view.** D3 force-directed layout with per-type color coding, in-degree-proportional node sizing, hover-to-highlight neighbors, drag-to-pin, pan + zoom, and graceful degradation above the 1,000-node threshold (configurable via `--max-graph-nodes`).
 - **Segment anatomy.** Reached from a segment's detail panel. Renders the segment definition tree as nested containers with subtle alpha-stacked shading per nesting depth, color-coded AND/OR/NOT operators, and clickable inline references to other segments.
 - **Calculated-metric anatomy.** Reached from a calc metric's detail panel. Renders the formula as a tree of operations and operands; metric refs are clickable.
-- **CJA + AA adapters.** Vendored from `sdr-grader` v1.0 per SPEC §15. Handle missing-description normalization, segment depth + container-context extraction, calc-metric formula parsing across both shapes (CJA `col1`/`col2`, AA `args`), classifications-as-tags for AA.
+- **CJA + AA adapters.** Originated in `sdr-grader` v1.0. Handle missing-description normalization, segment depth + container-context extraction, calc-metric formula parsing across both shapes (CJA `col1`/`col2`, AA `args`), classifications-as-tags for AA.
 - **Four input modes.** File path, snapshot directory (with `--at TIMESTAMP`), shell-out to `cja_auto_sdr` / `aa_auto_sdr`, stdin.
-- **CLI flags.** `--platform`, `--output`, `--json`, `--title`, `--exclude-orphans`, `--max-graph-nodes`, `--at`, `--quiet`, `--version`. Exit codes 0 / 1 / 3 per SPEC §7.
+- **CLI flags.** `--platform`, `--output`, `--json`, `--title`, `--exclude-orphans`, `--max-graph-nodes`, `--at`, `--quiet`, `--version`. Exit codes 0 / 1 / 3.
 - **Single-file output.** All CSS, JS (vanilla + D3 v7), and JSON payload inlined. No fetches, no CDNs, no external resources.
-- **Performance gate.** `scripts/perf_check.py` enforces SPEC §6 budgets (build time + HTML size) for both CJA and AA at the 1,000-component class. Wired into CI.
+- **Performance gate.** `scripts/perf_check.py` enforces the published budgets (build time + HTML size) for both CJA and AA at the 1,000-component class. Wired into CI.
 - **Documentation.** [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md), [`docs/PERFORMANCE.md`](docs/PERFORMANCE.md), [`docs/ADAPTER_GUIDE.md`](docs/ADAPTER_GUIDE.md), [`docs/EMBEDDED_DATA_FORMAT.md`](docs/EMBEDDED_DATA_FORMAT.md).
 
 ### Stability
@@ -419,7 +422,7 @@ The following are explicitly internal and may change without notice:
 - No browser-side performance gate yet (Python build time + HTML size are gated; client-side render and filter latency aren't). *(Resolved in 0.2.0 by scripts/perf_browser_check.py.)*
 - The PyPI publish step in `release.yml` is `continue-on-error: true` until trusted-publisher is configured at pypi.org. *(Resolved in 0.6.0: publishing moved to a hard, gated publish job — a failure fails the release.)*
 
-### Deferred to later releases (per SPEC §13)
+### Deferred to later releases
 
 - Comparative view, two snapshots side-by-side (v0.2) *(Shipped in 0.4.0.)*
 - Trend mode against a directory of snapshots (v0.3) *(Shipping in 0.5.0.)*

@@ -1,4 +1,4 @@
-"""Phase 9 perf tests (SPEC-VISUALIZER §6).
+"""Tests for the published Python-side performance gate.
 
 Asserts the budgets that gate CI: build time + HTML size at the 1,000-
 component-class workload. Two large fixtures are exercised — CJA (1,200
@@ -8,6 +8,7 @@ each adapter differ enough that one passing doesn't imply the other.
 
 from __future__ import annotations
 
+import importlib.util
 import json
 import time
 from pathlib import Path
@@ -16,9 +17,16 @@ import pytest
 
 from sdr_visualizer.adapters.aa import adapt as aa_adapt
 from sdr_visualizer.adapters.cja import adapt as cja_adapt
-from sdr_visualizer.render.renderer import render
+from sdr_visualizer.render.renderer import build_payload_with_options, render
 
 FIXTURES = Path(__file__).parent / "fixtures"
+REPO = Path(__file__).resolve().parent.parent
+
+generator_spec = importlib.util.spec_from_file_location(
+    "generate_large_fixture", REPO / "scripts" / "generate_large_fixture.py"
+)
+generate_large_fixture = importlib.util.module_from_spec(generator_spec)
+generator_spec.loader.exec_module(generate_large_fixture)
 
 
 def _budget_check(snap: dict, adapt):
@@ -48,3 +56,21 @@ def test_cja_large_fixture_meets_budget():
 def test_aa_large_fixture_meets_budget():
     snap = json.loads((FIXTURES / "aa_snapshot_large.json").read_text(encoding="utf-8"))
     _budget_check(snap, aa_adapt)
+
+
+def test_dense_graph_fixture_has_expected_node_and_edge_pressure():
+    snap = generate_large_fixture.build_snapshot(scale=5 / 6, dense_graph_edges=7_800)
+    payload = build_payload_with_options(cja_adapt(snap))
+    html = render(cja_adapt(snap))
+
+    assert 990 <= payload["meta"]["component_count"] <= 1_010
+    assert 7_800 <= len(payload["graph"]["edges"]) <= 8_000
+    assert len(html.encode("utf-8")) / (1024 * 1024) < 4.0
+
+
+def test_browser_graph_edge_limit_matches_python_performance_gate():
+    javascript = (
+        REPO / "src" / "sdr_visualizer" / "render" / "static" / "visualizer.js"
+    ).read_text(encoding="utf-8")
+
+    assert "var GRAPH_EDGE_THRESHOLD = 8000;" in javascript

@@ -18,13 +18,16 @@ from __future__ import annotations
 from typing import Any
 
 from sdr_visualizer.core.models import CalculatedMetric
+from sdr_visualizer.core.structure_limits import validate_definition_structure
 
 BINARY_OPS = {"divide", "multiply", "subtract", "add"}
 NARY_OPS = {"sum", "product", "min", "max", "mean", "median"}
 
 
 def parse_formula_tree(metric: CalculatedMetric) -> dict[str, Any]:
-    return _walk(metric.formula or {})
+    formula = metric.formula or {}
+    validate_definition_structure(formula, label=f"calculated metric formula {metric.id!r}")
+    return _walk(formula)
 
 
 def _walk(node: Any) -> dict[str, Any]:

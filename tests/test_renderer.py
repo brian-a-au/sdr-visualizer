@@ -1,4 +1,4 @@
-"""Tests for render/renderer.py (SPEC-VISUALIZER §10 Phase 3)."""
+"""Tests for the self-contained HTML renderer."""
 
 from __future__ import annotations
 

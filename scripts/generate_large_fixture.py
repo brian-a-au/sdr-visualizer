@@ -19,6 +19,7 @@ from __future__ import annotations
 import argparse
 import json
 from pathlib import Path
+from typing import Any
 
 REPO = Path(__file__).resolve().parent.parent
 TARGET = REPO / "tests" / "fixtures" / "cja_snapshot_large.json"
@@ -151,28 +152,34 @@ def _calc_metric(idx: int) -> dict:
     }
 
 
-def main() -> None:
-    parser = argparse.ArgumentParser(
-        description="Synthesize a large CJA fixture for performance testing."
-    )
-    parser.add_argument(
-        "--scale",
-        type=float,
-        default=1.0,
-        help="Multiply the base component counts (1.0 = 1,200 components; "
-        "1.67 = roughly the SPEC §6 2,000-component tier). "
-        "Cross-references use hardcoded moduli, so scales above 1.0 leave the "
-        "highest-index components unreferenced (orphans).",
-    )
-    parser.add_argument("--output", type=Path, default=TARGET, help="Fixture path to write.")
-    args = parser.parse_args()
+def _add_dense_graph_references(snapshot: dict[str, Any], target_edges: int) -> None:
+    derived = snapshot["derived_fields"]["fields"]
+    targets = [
+        *(record["id"] for record in snapshot["metrics"]),
+        *(record["id"] for record in snapshot["dimensions"]),
+    ]
+    if target_edges < 0:
+        raise ValueError("dense_graph_edges must be >= 0")
+    if target_edges > len(derived) * len(targets):
+        raise ValueError("dense_graph_edges exceeds the unique derived-field edge capacity")
+    for record in derived:
+        record["component_references"] = []
+    for edge_index in range(target_edges):
+        source_index = edge_index % len(derived)
+        reference_index = edge_index // len(derived)
+        target_index = (source_index * 17 + reference_index) % len(targets)
+        derived[source_index]["component_references"].append(targets[target_index])
 
-    n_metrics = round(300 * args.scale)
-    n_dimensions = round(500 * args.scale)
-    n_derived = round(300 * args.scale)
-    n_segments = round(60 * args.scale)
-    n_calc = round(40 * args.scale)
 
+def build_snapshot(*, scale: float = 1.0, dense_graph_edges: int = 0) -> dict[str, Any]:
+    """Build a deterministic adapter-valid synthetic CJA snapshot."""
+    if scale <= 0:
+        raise ValueError("scale must be > 0")
+    n_metrics = round(300 * scale)
+    n_dimensions = round(500 * scale)
+    n_derived = round(300 * scale)
+    n_segments = round(60 * scale)
+    n_calc = round(40 * scale)
     snapshot = {
         "metadata": {
             "Data View ID": "dv_large_synthetic",
@@ -187,8 +194,49 @@ def main() -> None:
         "segments": {"segments": [_segment(i) for i in range(1, n_segments + 1)]},
         "calculated_metrics": {"metrics": [_calc_metric(i) for i in range(1, n_calc + 1)]},
     }
+    if dense_graph_edges:
+        _add_dense_graph_references(snapshot, dense_graph_edges)
+    return snapshot
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser(
+        description="Synthesize a large CJA fixture for performance testing."
+    )
+    parser.add_argument(
+        "--scale",
+        type=float,
+        default=1.0,
+        help="Multiply the base component counts (1.0 = 1,200 components; "
+        "1.67 = roughly the published 2,000-component tier). "
+        "Cross-references use hardcoded moduli, so scales above 1.0 leave the "
+        "highest-index components unreferenced (orphans).",
+    )
+    parser.add_argument(
+        "--dense-graph-edges",
+        type=int,
+        default=0,
+        help="Add this many unique derived-field reference edges.",
+    )
+    parser.add_argument("--output", type=Path, default=TARGET, help="Fixture path to write.")
+    args = parser.parse_args()
+    try:
+        snapshot = build_snapshot(
+            scale=args.scale,
+            dense_graph_edges=args.dense_graph_edges,
+        )
+    except ValueError as exc:
+        parser.error(str(exc))
     args.output.write_text(json.dumps(snapshot), encoding="utf-8")
-    total = n_metrics + n_dimensions + n_derived + n_segments + n_calc
+    total = sum(
+        (
+            len(snapshot["metrics"]),
+            len(snapshot["dimensions"]),
+            len(snapshot["derived_fields"]["fields"]),
+            len(snapshot["segments"]["segments"]),
+            len(snapshot["calculated_metrics"]["metrics"]),
+        )
+    )
     print(f"wrote {args.output} ({total} components)")
 
 

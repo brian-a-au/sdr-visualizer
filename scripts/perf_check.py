@@ -1,7 +1,7 @@
-"""Performance gate (SPEC-VISUALIZER §6).
+"""Published Python-side performance gate.
 
 Renders fixtures and asserts the build-time + HTML-size budgets across all
-four SPEC §6 tiers. CI runs this after pytest (see .github/workflows/test.yml).
+four documented tiers. CI runs this after pytest (see .github/workflows/test.yml).
 
   - CJA small (100 components, `generate_large_fixture.py --scale 0.083`):
     100-component budgets (build < 1s, size < 0.5MB). Skipped when absent.
@@ -49,7 +49,7 @@ CJA_XL = REPO / "tests" / "fixtures" / "cja_snapshot_xl.json"
 XL_BUILD_BUDGET_S = 12.0
 XL_SIZE_BUDGET_MB = 8.0
 
-# Small tiers (SPEC §6 rows previously unenforced — the fixed CSS+JS+D3
+# Small tiers (the fixed CSS+JS+D3
 # overhead alone is ~340 KB, i.e. ~68% of the 100-component size budget,
 # so static-asset growth is exactly what these tiers watch).
 CJA_SMALL = REPO / "tests" / "fixtures" / "cja_snapshot_small.json"
@@ -79,6 +79,15 @@ def _load_mutate():
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     return module.mutate
+
+
+def _load_generator():
+    spec = importlib.util.spec_from_file_location(
+        "generate_large_fixture", REPO / "scripts" / "generate_large_fixture.py"
+    )
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module.build_snapshot
 
 
 def _measure_compare(old_snap: dict, new_snap: dict) -> tuple[list[str], str]:
@@ -203,6 +212,12 @@ def main() -> int:
     aa_failures, aa_report = _measure("AA", aa_snap, aa_adapt)
     print(aa_report)
 
+    # The generator also retains ~100 ordinary segment/calc edges; keep the
+    # total just inside the documented 8,000-edge envelope.
+    dense_snap = _load_generator()(scale=5 / 6, dense_graph_edges=7_800)
+    dense_failures, dense_report = _measure("CJA-dense", dense_snap, cja_adapt)
+    print(dense_report)
+
     mutate = _load_mutate()
 
     compare_failures, compare_report = _measure_compare(mutate(cja_snap), cja_snap)
@@ -225,6 +240,7 @@ def main() -> int:
         *small_failures,
         *cja_failures,
         *aa_failures,
+        *dense_failures,
         *compare_failures,
         *trend_failures,
         *xl_failures,

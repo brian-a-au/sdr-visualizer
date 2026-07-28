@@ -65,6 +65,12 @@ def build_reference_graph(impl: Implementation) -> dict[str, Any]:
     for cm in impl.calculated_metrics:
         for ref in cm.references:
             add_edge(cm.id, ref, "references")
+    for df in impl.derived_fields:
+        references = df.platform_specific.get("component_references", [])
+        if isinstance(references, list):
+            for ref in references:
+                if isinstance(ref, str):
+                    add_edge(df.id, ref, "references")
 
     return {
         "nodes": nodes,

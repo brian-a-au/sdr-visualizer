@@ -1,6 +1,6 @@
 """Edge-case tests against the minimal CJA fixture.
 
-Per SPEC-VISUALIZER §10 Phase 3: confirm edge cases (empty implementation,
+Confirm edge cases (empty implementation,
 no segments, no calc metrics).
 """
 

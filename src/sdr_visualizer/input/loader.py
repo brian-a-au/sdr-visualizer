@@ -1,4 +1,4 @@
-"""Input loading for all four CLI modes (SPEC-VISUALIZER §7).
+"""Input loading for the file, directory, stdin, and live CLI modes.
 
 - Mode 1: file path -> read JSON.
 - Mode 2: directory path -> pick the latest snapshot in it, or `--at` to
@@ -63,18 +63,26 @@ def _load_stdin() -> tuple[dict[str, Any], str]:
         snapshot = json.loads(raw)
     except json.JSONDecodeError as exc:
         raise InvalidSnapshotError(f"stdin is not valid JSON: {exc}") from exc
+    except ValueError as exc:
+        raise InvalidSnapshotError(f"stdin is not valid JSON: {exc}") from exc
+    except RecursionError as exc:
+        raise InvalidSnapshotError("stdin JSON exceeds nesting limits") from exc
     return snapshot, "stdin"
 
 
 def _load_from_file(path: Path) -> tuple[dict[str, Any], str]:
     try:
         text = path.read_text(encoding="utf-8")
-    except OSError as exc:
+    except (OSError, UnicodeError) as exc:
         raise InvalidSnapshotError(f"could not read {path}: {exc}") from exc
     try:
         snapshot = json.loads(text)
     except json.JSONDecodeError as exc:
         raise InvalidSnapshotError(f"{path}: not valid JSON: {exc}") from exc
+    except ValueError as exc:
+        raise InvalidSnapshotError(f"{path}: not valid JSON: {exc}") from exc
+    except RecursionError as exc:
+        raise InvalidSnapshotError(f"{path}: JSON exceeds nesting limits") from exc
     return snapshot, str(path)
 
 
@@ -107,9 +115,9 @@ def _pick_snapshot(candidates: list[Path], *, at: str | None) -> Path:
                     file=sys.stderr,
                 )
     if not has_timestamp:
-        # Fall back to filesystem mtime — deterministic across runs on the
-        # same machine, even if not portable.
-        annotated_mtime = [(p, datetime.fromtimestamp(p.stat().st_mtime)) for p in candidates]
+        # Fall back to filesystem mtime on the same UTC-naive clock used by
+        # filename timestamps and parsed --at values.
+        annotated_mtime = [(p, _mtime_timestamp(p)) for p in candidates]
         has_timestamp = annotated_mtime
 
     if at is None:
@@ -142,6 +150,11 @@ def _extract_timestamp(path: Path) -> datetime | None:
         return datetime(year, month, day, hour, minute, second)
     except (TypeError, ValueError):
         return None
+
+
+def _mtime_timestamp(path: Path) -> datetime:
+    """Return filesystem mtime on the loader's UTC-naive comparison clock."""
+    return datetime.fromtimestamp(path.stat().st_mtime, tz=UTC).replace(tzinfo=None)
 
 
 def _parse_iso_timestamp(value: str) -> datetime | None:

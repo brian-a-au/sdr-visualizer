@@ -6,9 +6,11 @@ import io
 import json
 import os
 import subprocess
+import time
 from pathlib import Path
 
 import pytest
+from conftest import extract_payload
 
 from sdr_visualizer.cli.main import main
 from sdr_visualizer.core.exceptions import InvalidSnapshotError, UnknownPlatformError
@@ -107,11 +109,55 @@ def test_mode3_dataview_shells_to_cja_auto_sdr_and_ignores_at(tmp_path, monkeypa
         ]
     )
     assert rc == 0
-    assert "cja_auto_sdr" in captured["cmd"][0]
-    assert "dv_xyz" in captured["cmd"]
-    assert "--format" in captured["cmd"] and "json" in captured["cmd"]
-    assert output.read_text(encoding="utf-8").startswith("<!doctype html>")
+    assert captured["cmd"] == [
+        "/usr/local/bin/cja_auto_sdr",
+        "dv_xyz",
+        "--format",
+        "json",
+        "--output",
+        "-",
+        "--include-all-inventory",
+        "--quiet",
+    ]
+    html = output.read_text(encoding="utf-8")
+    assert html.startswith("<!doctype html>")
+    report = extract_payload(html)
+    assert report["segments"]
+    assert report["calculated_metrics"]
+    assert any(component["type"] == "derived_field" for component in report["components"])
     assert "--at applies only to snapshot directories; ignoring" in capsys.readouterr().err
+
+
+def test_shell_cja_appends_extra_args_after_complete_inventory_defaults(monkeypatch):
+    payload = json.loads((FIXTURES / "cja_snapshot_clean.json").read_text(encoding="utf-8"))
+    monkeypatch.setattr(
+        "sdr_visualizer.input.shell_out.shutil.which",
+        lambda name: "/usr/local/bin/" + name,
+    )
+    captured = {}
+
+    def fake_subprocess_run(cmd, **kwargs):
+        captured["cmd"] = cmd
+        return subprocess.CompletedProcess(cmd, 0, stdout=json.dumps(payload))
+
+    monkeypatch.setattr("sdr_visualizer.input.shell_out.subprocess.run", fake_subprocess_run)
+
+    shell_cja("dv_xyz", extra_args=["--log-level", "debug"])
+
+    assert captured["cmd"] == [
+        "/usr/local/bin/cja_auto_sdr",
+        "dv_xyz",
+        "--format",
+        "json",
+        "--output",
+        "-",
+        "--include-all-inventory",
+        "--quiet",
+        "--log-level",
+        "debug",
+    ]
+    assert captured["cmd"].count("--include-all-inventory") == 1
+    assert captured["cmd"].count("--quiet") == 1
 
 
 def test_mode3_rsid_shells_to_aa_auto_sdr(tmp_path, monkeypatch):
@@ -138,8 +184,14 @@ def test_mode3_rsid_shells_to_aa_auto_sdr(tmp_path, monkeypatch):
     output = tmp_path / "out.html"
     rc = main(["--rsid", "prod_us", "--output", str(output), "--quiet"])
     assert rc == 0
-    assert "aa_auto_sdr" in captured["cmd"][0]
-    assert "prod_us" in captured["cmd"]
+    assert captured["cmd"] == [
+        "/usr/local/bin/aa_auto_sdr",
+        "prod_us",
+        "--format",
+        "json",
+        "--output",
+        "-",
+    ]
 
 
 def test_mode3_unknown_tool_returns_validation_error(tmp_path, monkeypatch, capsys):
@@ -180,6 +232,18 @@ def test_shell_out_file_disappearing_after_lookup_is_domain_error(monkeypatch):
         shell_cja("dv_xyz")
 
 
+def test_shell_out_invalid_utf8_is_domain_error(monkeypatch):
+    monkeypatch.setattr("sdr_visualizer.input.shell_out.shutil.which", lambda _name: "/bin/tool")
+
+    def invalid_utf8(_cmd, **_kwargs):
+        raise UnicodeDecodeError("utf-8", b"\xff", 0, 1, "invalid start byte")
+
+    monkeypatch.setattr("sdr_visualizer.input.shell_out.subprocess.run", invalid_utf8)
+
+    with pytest.raises(InvalidSnapshotError, match="could not be invoked"):
+        shell_cja("dv_xyz")
+
+
 def test_shell_out_invalid_json_is_domain_error(monkeypatch):
     monkeypatch.setattr("sdr_visualizer.input.shell_out.shutil.which", lambda _name: "/bin/tool")
     monkeypatch.setattr(
@@ -188,6 +252,34 @@ def test_shell_out_invalid_json_is_domain_error(monkeypatch):
     )
 
     with pytest.raises(InvalidSnapshotError, match="produced output that is not valid JSON"):
+        shell_cja("dv_xyz")
+
+
+def test_shell_out_oversized_integer_is_domain_error(monkeypatch):
+    monkeypatch.setattr("sdr_visualizer.input.shell_out.shutil.which", lambda _name: "/bin/tool")
+    oversized = '{"value":' + ("9" * 5_000) + "}"
+    monkeypatch.setattr(
+        "sdr_visualizer.input.shell_out.subprocess.run",
+        lambda cmd, **_kwargs: subprocess.CompletedProcess(cmd, 0, stdout=oversized),
+    )
+
+    with pytest.raises(InvalidSnapshotError, match="not valid JSON"):
+        shell_cja("dv_xyz")
+
+
+def test_shell_out_json_recursion_error_is_domain_error(monkeypatch):
+    monkeypatch.setattr("sdr_visualizer.input.shell_out.shutil.which", lambda _name: "/bin/tool")
+    monkeypatch.setattr(
+        "sdr_visualizer.input.shell_out.subprocess.run",
+        lambda cmd, **_kwargs: subprocess.CompletedProcess(cmd, 0, stdout="{}"),
+    )
+
+    def recurse(_value):
+        raise RecursionError("decoder recursion")
+
+    monkeypatch.setattr("sdr_visualizer.input.shell_out.json.loads", recurse)
+
+    with pytest.raises(InvalidSnapshotError, match="JSON exceeds nesting limits"):
         shell_cja("dv_xyz")
 
 
@@ -220,6 +312,50 @@ def test_mode4_malformed_stdin_exits_3(monkeypatch, capsys, stdin_text, expected
 
     assert rc == 3
     assert expected in capsys.readouterr().err
+
+
+def test_mode4_oversized_integer_exits_3(monkeypatch, capsys):
+    monkeypatch.setattr("sys.stdin", io.StringIO('{"value":' + ("9" * 5_000) + "}"))
+
+    rc = main(["-", "--quiet"])
+
+    assert rc == 3
+    assert "stdin is not valid JSON" in capsys.readouterr().err
+
+
+def test_invalid_utf8_file_exits_3(tmp_path, capsys):
+    snapshot = tmp_path / "invalid-utf8.json"
+    snapshot.write_bytes(b"\xff")
+
+    rc = main([str(snapshot), "--quiet"])
+
+    assert rc == 3
+    assert "could not read" in capsys.readouterr().err
+
+
+def test_stdin_json_recursion_error_is_domain_error(monkeypatch):
+    monkeypatch.setattr("sys.stdin", io.StringIO("{}"))
+
+    def recurse(_value):
+        raise RecursionError("decoder recursion")
+
+    monkeypatch.setattr("sdr_visualizer.input.loader.json.loads", recurse)
+
+    with pytest.raises(InvalidSnapshotError, match="stdin JSON exceeds nesting limits"):
+        load_snapshot("-")
+
+
+def test_file_json_recursion_error_is_domain_error(tmp_path, monkeypatch):
+    snapshot = tmp_path / "snapshot.json"
+    snapshot.write_text("{}", encoding="utf-8")
+
+    def recurse(_value):
+        raise RecursionError("decoder recursion")
+
+    monkeypatch.setattr("sdr_visualizer.input.loader.json.loads", recurse)
+
+    with pytest.raises(InvalidSnapshotError, match="JSON exceeds nesting limits"):
+        load_snapshot(str(snapshot))
 
 
 # ---------------------------------------------------------------------------
@@ -299,6 +435,34 @@ def test_invalid_filename_timestamp_falls_back_to_mtime(tmp_path):
 
     assert snap == {"chosen": True}
     assert source.endswith(newer.name)
+
+
+def test_mtime_cutoff_selection_is_timezone_independent(tmp_path):
+    before = tmp_path / "before.json"
+    after = tmp_path / "after.json"
+    before.write_text('{"chosen": "before"}', encoding="utf-8")
+    after.write_text('{"chosen": "after"}', encoding="utf-8")
+    os.utime(before, (1767265200, 1767265200))  # 2026-01-01T11:00:00Z
+    os.utime(after, (1767272400, 1767272400))  # 2026-01-01T13:00:00Z
+    original_tz = os.environ.get("TZ")
+    selected = []
+    try:
+        for zone in ("UTC", "America/Los_Angeles", "Pacific/Auckland"):
+            os.environ["TZ"] = zone
+            time.tzset()
+            snapshot, _source = load_snapshot(
+                str(tmp_path),
+                at="2026-01-01T07:00:00-05:00",
+            )
+            selected.append(snapshot["chosen"])
+    finally:
+        if original_tz is None:
+            os.environ.pop("TZ", None)
+        else:
+            os.environ["TZ"] = original_tz
+        time.tzset()
+
+    assert selected == ["before", "before", "before"]
 
 
 def test_detect_platform_rejects_non_object_and_unknown_shape():

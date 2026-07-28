@@ -5,8 +5,6 @@
 [![Lint](https://github.com/brian-a-au/sdr-visualizer/actions/workflows/lint.yml/badge.svg)](https://github.com/brian-a-au/sdr-visualizer/actions/workflows/lint.yml)
 [![Version Sync](https://github.com/brian-a-au/sdr-visualizer/actions/workflows/version-sync.yml/badge.svg)](https://github.com/brian-a-au/sdr-visualizer/actions/workflows/version-sync.yml)
 [![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-blue.svg)](https://www.python.org/downloads/)
-[![Coverage](https://img.shields.io/badge/coverage-99.88%25-brightgreen.svg)](tests/)
-[![Tests](https://img.shields.io/badge/tests-334-brightgreen.svg)](tests/)
 [![Ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json)](https://github.com/astral-sh/ruff)
 [![uv](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/uv/main/assets/badge/v0.json)](https://github.com/astral-sh/uv)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
@@ -17,12 +15,23 @@ Static-output visual catalog generator for Adobe Customer Journey Analytics (CJA
 - An interactive force-directed reference graph
 - Per-segment anatomy diagrams that make deeply-nested segments legible
 - Per-calculated-metric formula trees with click-through to referenced metrics
+- Snapshot-to-snapshot Changes and multi-snapshot Trend views
 
 ![The catalog view: header stats strip, search and filters, and the component table](https://raw.githubusercontent.com/brian-a-au/sdr-visualizer/main/docs/screenshot-catalog.png)
 
 **Live examples:** [CJA report](https://brian-a-au.github.io/sdr-visualizer/cja-typical.html) · [AA report](https://brian-a-au.github.io/sdr-visualizer/aa-typical.html)
 
-The output is one HTML file: no server, no build step on the consumer side, no CDN dependencies. Everything is built into that one file. The component data is stored as JSON, the styling as CSS, and the interactive code as JavaScript, all inside it. You open it by double-clicking it in any modern web browser, and it works without an internet connection. There are no network requests, so no data is sent anywhere, and you can open it safely inside a locked-down corporate environment. You can move it, rename it, or copy it anywhere, and it still opens the same way. Drop it on a wiki, email it to a stakeholder, screenshot it into a deck.
+The output is one HTML file: no server, no consumer-side build step, and no
+CDN dependencies. Its JSON, CSS, JavaScript, and D3 runtime are embedded, so it
+opens in a modern browser without an internet connection and makes no network
+requests.
+
+Offline does not mean cleared for distribution. A report can contain
+implementation and component names, descriptions, segment and
+calculated-metric logic, owners, identifiers, timestamps, and source paths.
+Treat it as derived from the source snapshot. Move, email, post, or attach it
+only in authorized locations and in accordance with your organization's
+confidentiality and data-handling policy.
 
 ## Install
 
@@ -115,15 +124,17 @@ prod drift), pass `--allow-instance-mismatch`; the run then proceeds with a
 warning. Platform mismatches are always rejected. The report shown alongside
 the trend is the newest usable snapshot in the directory.
 
-- **Shareable links** — the catalog's filters, sort, view, and open detail panel are encoded in the URL hash; copy the address bar to share a filtered view.
+- **Restorable report links** — the catalog's filters, sort, view, and open detail panel are encoded in the URL hash. Within an authorized report location, copy the address bar to restore the same filtered view.
 
 ## Performance budget
 
 The output is CI-gated against the budgets in [`docs/PERFORMANCE.md`](docs/PERFORMANCE.md).
-Build time and HTML size are enforced at every §6 tier (100 / 500 / 1,000 / 2,000
+Build time and HTML size are enforced at every published tier (100 / 500 / 1,000 / 2,000
 components). Browser-measured budgets are enforced at the 1,000-component tier
 (initial render < 1s, filter/search < 150ms) and the 2,000-component tier
 (< 2s, < 300ms), plus a 700ms cap on the graph view's main-thread block.
+These guarantees cover up to 8,000 reference edges; denser valid reports use
+an explicit graph opt-in and sit outside the published size/latency envelope.
 
 ## Stability
 
@@ -133,7 +144,15 @@ From 1.0.0, [semantic versioning](https://semver.org) covers the surface below. 
 
 **Exit codes.** `0` success, `1` runtime error, `3` invalid input. `2` is never used.
 
-**The data payload.** The JSON embedded in every report and the `--json` sidecar share one schema, published at [docs/payload-schema.json](https://github.com/brian-a-au/sdr-visualizer/blob/main/docs/payload-schema.json) (JSON Schema 2020-12), validated in CI against every payload shape the bundled fixtures produce, and against a real corpus of 108 production snapshots before each release. Removing or retyping a field is major; adding optional fields is minor. The `segment_trees` / `formula_trees` node internals are documented in the schema as loosely specified.
+**The data payload.** The JSON embedded in every report and the `--json`
+sidecar share one schema, published at
+[`docs/payload-schema.json`](docs/payload-schema.json) (JSON Schema 2020-12)
+and validated in CI against every payload shape produced by the bundled
+fixtures. Removing or retyping a field is major; adding optional fields is
+minor. The `segment_trees` / `formula_trees` node internals are documented in
+the schema as loosely specified. Current-generator and private-corpus
+validation is a separate, recorded release gate; see
+[`docs/RELEASING.md`](docs/RELEASING.md).
 
 **Performance budgets.** The tier table above is a guarantee, not a goal: loosening a budget is a breaking change; tightening one is minor.
 
@@ -151,6 +170,10 @@ uv run ruff format     # Auto-format
 
 uv run python scripts/generate_examples.py   # Regenerate examples/
 uv run python scripts/perf_check.py          # Run the perf gate
+uv run python scripts/check_markdown_links.py
+uv run python scripts/check_workflow_policy.py
+uv build --out-dir dist/packages
+uv run python scripts/package_smoke_check.py dist/packages/
 ```
 
 ## See also
@@ -165,6 +188,16 @@ uv run python scripts/perf_check.py          # Run the perf gate
 - [`docs/ADAPTER_GUIDE.md`](docs/ADAPTER_GUIDE.md) — how the CJA and AA adapters work, and how to add a new platform.
 - [`docs/PERFORMANCE.md`](docs/PERFORMANCE.md) — performance budgets and how they're enforced.
 - [`docs/EMBEDDED_DATA_FORMAT.md`](docs/EMBEDDED_DATA_FORMAT.md) — the JSON payload format embedded in the HTML output.
+- [`docs/PRODUCT_CONTRACT.md`](docs/PRODUCT_CONTRACT.md) — supported inputs, stable surfaces, limits, and compatibility policy.
+- [`docs/RELEASING.md`](docs/RELEASING.md) — candidate, corpus, repository-control, publication, and announcement gates.
+
+## Community
+
+Contributions are welcome within the project's intentionally narrow scope.
+Read [`CONTRIBUTING.md`](CONTRIBUTING.md) before opening a pull request. Report
+security issues privately as described in [`SECURITY.md`](SECURITY.md); do not
+put vulnerabilities or customer snapshot data in a public issue. Participation
+is governed by the [`CODE_OF_CONDUCT.md`](CODE_OF_CONDUCT.md).
 
 ## License
 

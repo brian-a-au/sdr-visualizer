@@ -8,7 +8,7 @@ in-process. Per snapshot it asserts:
   - the payload survives json.dumps(allow_nan=False),
   - the rendered HTML's embedded payload extracts and parses back,
   - the embedded payload validates against docs/payload-schema.json,
-  - with --check-budgets: the HTML size fits the SPEC §6 tier for the
+  - with --check-budgets: the HTML size fits the published tier for the
     snapshot's component count (no budget above the 2,000 tier — output
     there is valid but degraded by design).
 
@@ -32,29 +32,37 @@ REPO = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(REPO / "src"))
 
 from sdr_visualizer.core.exceptions import InvalidSnapshotError, UnknownPlatformError  # noqa: E402
+from sdr_visualizer.core.structure_limits import measure_structure  # noqa: E402
 from sdr_visualizer.core.visualizer import build_implementation  # noqa: E402
 from sdr_visualizer.render.renderer import build_payload_with_options, render_payload  # noqa: E402
 
 try:
     from jsonschema import Draft202012Validator
-except ImportError:  # dev-only dependency; the sweep still runs without it
+except ImportError as exc:
     Draft202012Validator = None
+    _VALIDATOR_ERROR = f"jsonschema is unavailable: {exc}"
+else:
+    _VALIDATOR_ERROR = None
 
 _SCHEMA_PATH = REPO / "docs" / "payload-schema.json"
-_VALIDATOR = (
-    Draft202012Validator(json.loads(_SCHEMA_PATH.read_text(encoding="utf-8")))
-    if Draft202012Validator is not None
-    else None
-)
+if Draft202012Validator is None:
+    _VALIDATOR = None
+else:
+    try:
+        _VALIDATOR = Draft202012Validator(json.loads(_SCHEMA_PATH.read_text(encoding="utf-8")))
+    except (OSError, ValueError) as exc:
+        _VALIDATOR = None
+        _VALIDATOR_ERROR = f"could not load {_SCHEMA_PATH}: {exc}"
 
 _SDR_DATA_RE = re.compile(
     r'<script id="sdr-data" type="application/json">(?P<json>.*?)</script>',
     re.DOTALL,
 )
 
-# SPEC §6 size budgets by component-count tier (MB). Above 2,000 the output
+# Published size budgets by component-count tier (MB). Above 2,000 the output
 # is valid but degraded by design — no budget is asserted.
 _TIERS = ((100, 0.5), (500, 2.0), (1000, 4.0), (2000, 8.0))
+MAX_PERFORMANCE_GRAPH_EDGES = 8_000
 
 
 def _tier_budget_mb(component_count: int) -> float | None:
@@ -68,8 +76,9 @@ def _check_one(path: Path, *, check_budgets: bool) -> tuple[str | None, str]:
     """Return (failure_reason, ok_detail). Exactly one of the two is set."""
     try:
         snapshot = json.loads(path.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError) as exc:
+    except (OSError, ValueError, RecursionError) as exc:
         return f"unreadable or invalid JSON: {exc}", ""
+    structure_nodes, structure_depth = measure_structure(snapshot)
     try:
         impl = build_implementation(snapshot, source=str(path))
         payload = build_payload_with_options(impl)
@@ -96,27 +105,45 @@ def _check_one(path: Path, *, check_budgets: bool) -> tuple[str | None, str]:
         embedded = json.loads(match.group("json"))
     except json.JSONDecodeError as exc:
         return f"embedded payload does not parse: {exc}", ""
-    if _VALIDATOR is not None:
-        error = next(iter(_VALIDATOR.iter_errors(embedded)), None)
-        if error is not None:
-            return (
-                f"payload violates docs/payload-schema.json at {error.json_path}: {error.message}",
-                "",
-            )
+    if _VALIDATOR is None:
+        return f"schema validation unavailable: {_VALIDATOR_ERROR or 'unknown error'}", ""
+    error = next(iter(_VALIDATOR.iter_errors(embedded)), None)
+    if error is not None:
+        return (
+            f"payload violates docs/payload-schema.json at {error.json_path}: {error.message}",
+            "",
+        )
     size_mb = len(html.encode("utf-8")) / (1024 * 1024)
     count = payload["meta"]["component_count"]
     if check_budgets:
+        edge_count = len(payload["graph"]["edges"])
+        if edge_count > MAX_PERFORMANCE_GRAPH_EDGES:
+            return (
+                f"{edge_count:,} graph edges exceed the supported performance "
+                f"envelope of {MAX_PERFORMANCE_GRAPH_EDGES:,}",
+                "",
+            )
         budget = _tier_budget_mb(count)
         if budget is not None and size_mb > budget:
             return (
                 f"{size_mb:.2f}MB exceeds the {budget}MB budget for {count} components",
                 "",
             )
-        return None, f"  ({size_mb:.2f}MB, {count} components)"
-    return None, ""
+        return (
+            None,
+            f"  ({size_mb:.2f}MB, {count} components, "
+            f"{structure_nodes:,} nodes, depth {structure_depth})",
+        )
+    return None, f"  ({structure_nodes:,} nodes, depth {structure_depth})"
 
 
 def sweep(corpus: Path, *, check_budgets: bool) -> int:
+    if _VALIDATOR is None:
+        print(
+            f"FAIL: schema validation unavailable: {_VALIDATOR_ERROR or 'unknown error'}",
+            file=sys.stderr,
+        )
+        return 2
     snapshots = sorted(p for p in corpus.rglob("*.json") if p.is_file())
     if not snapshots:
         print(f"no .json snapshots found under {corpus}", file=sys.stderr)
@@ -140,7 +167,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument(
         "--check-budgets",
         action="store_true",
-        help="Also assert the SPEC §6 size budget for each snapshot's tier",
+        help="Also assert the published size budget for each snapshot's tier",
     )
     args = parser.parse_args(argv)
     corpus = Path(args.corpus)

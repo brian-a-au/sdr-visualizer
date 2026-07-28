@@ -8,22 +8,18 @@ Guidance for Claude Code when working in this repo.
 
 It is **not** an AI tool — no LLM calls, no agent loops. Plain Python builds the static output; plain JS (plus D3 for the graph) drives client-side interactivity. There is no server, no build step on the consumer side, and no CDN dependencies.
 
-## The spec
+## Project authority
 
-The full project spec lives **outside the repo** at `./SPEC-VISUALIZER.md` in the local working directory (gitignored intentionally — the working folder is preserved as a reference area, the repo is the deliverable). Read it end-to-end before scaffolding or extending anything. Sections of particular load:
-
-- §3 The four views (catalog is primary; graph + segment anatomy + calc-metric anatomy are companions)
-- §4 Visual register (publication serif body, Söhne UI, restrained palette; sibling to grader)
-- §5 Architecture (server-side build, client-side render; one HTML file, no fetches)
-- §6 Performance budget (CI-enforced, not aspirational)
-- §8 Normalized internal model (vendored verbatim from sdr-grader; same shapes)
-- §10 Build phases (do not skip; do not merge)
-- §11 Vendoring rationale (why we duplicate models/adapters/input from sdr-grader rather than share a package)
-- §12 Decisions already made (do not relitigate)
+The tracked [`docs/PRODUCT_CONTRACT.md`](docs/PRODUCT_CONTRACT.md) defines the
+supported inputs, stable public surfaces, resource bounds, confidentiality
+guidance, compatibility policy, and release boundary. Read it before changing
+public behavior. [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) defines the
+current data flow and module responsibilities; [`docs/RELEASING.md`](docs/RELEASING.md)
+defines the evidence required for a candidate, publication, and announcement.
 
 ## Sibling project
 
-`sdr-grader` lives next door at `../sdr-grader` and is the source for vendored files per §15:
+`sdr-grader` is the sibling source for shared defensive behavior:
 
 | sdr-grader path | sdr-visualizer path |
 |---|---|
@@ -36,9 +32,11 @@ When vendoring, rewrite `sdr_grader` → `sdr_visualizer` in import paths. Fixtu
 
 The adapters have themselves diverged from the grader's copies — some legitimately (the grader carries evaluative/governance helpers the descriptive visualizer omits), some as deliberate visualizer-only behavior (numeric coercion raises for trend-skip and passes `NaN` through for the audit-H2 render guard, where the grader defaults). The shared defensive-coercion helpers (`_parse_tag_list`, `_parse_ref_list`, `_optional_list`) are kept behavior-identical and must be mirrored when touched. Before "syncing" an adapter to the sibling, read the **Vendoring parity with sdr-grader** section of [`docs/ADAPTER_GUIDE.md`](docs/ADAPTER_GUIDE.md) — it enumerates what is shared, what is grader-only, and which divergences are intentional and pinned by tests.
 
-## Phase discipline
+## Change discipline
 
-Each phase in §10 produces a single reviewable artifact. Don't proceed to phase N+1 until phase N is reviewed. Don't bundle phases. Phase 3 (catalog view) is the largest single piece of work — spend disproportionate care there.
+Keep correctness, browser performance, release automation, documentation, and
+community changes in reviewable units with focused tests. Do not combine
+unrelated behavior changes merely because they share a release target.
 
 ## Develop
 
@@ -54,9 +52,11 @@ uv run ruff format     # Auto-format
 - **Static output, dynamic interaction.** Python emits one HTML file with embedded JSON, embedded CSS, embedded JS. No fetches, no API, no server.
 - **Server-side build, client-side render.** Do work in Python (where seconds are fine); the client just reads, filters, and renders.
 - **Vanilla JS, no framework.** D3 only for the reference graph. No React / Vue / Svelte.
-- **Performance is enforced.** §6 budgets are CI-gated. An implementation that takes 5 seconds to render 500 components is broken regardless of how it looks.
+- **Performance is enforced.** The budgets in [`docs/PERFORMANCE.md`](docs/PERFORMANCE.md) are CI-gated. An implementation that takes 5 seconds to render 500 components is broken regardless of how it looks.
 - **The visualizer is descriptive, not evaluative.** No grades, no findings, no opinions. That belongs in `sdr-grader`.
 
 ## When in doubt
 
-Prefer a tighter feature set executed beautifully over a broader feature set executed adequately. Surface ambiguity as a GitHub issue rather than guessing — SPEC §14 has the open questions list as a starting point.
+Prefer a tighter feature set executed beautifully over a broader feature set
+executed adequately. Surface unresolved public-contract questions as GitHub
+issues rather than silently expanding or weakening the contract.

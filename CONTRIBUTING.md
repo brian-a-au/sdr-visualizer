@@ -2,11 +2,13 @@
 
 Thanks for your interest. This project has a deliberately tight scope and a
 few non-negotiable architectural rules; reading this first will save you a
-review round-trip.
+review round-trip. By participating, you agree to follow the
+[`CODE_OF_CONDUCT.md`](CODE_OF_CONDUCT.md).
 
 ## The rules of the road
 
-These are settled decisions (see the spec history), not open questions:
+These are settled decisions in the
+[`product contract`](docs/PRODUCT_CONTRACT.md), not open questions:
 
 - **Static output, dynamic interaction.** The tool emits one self-contained
   HTML file: embedded JSON, embedded CSS, embedded JS. No fetches, no CDNs,
@@ -42,8 +44,12 @@ uv run pytest                    # tests (includes browser tests)
 uv run pytest --ignore=tests/test_browser_functional.py --cov=sdr_visualizer --cov-branch --cov-report=term-missing --cov-report=json --cov-fail-under=99  # Python coverage gate
 uv run ruff check                # lint
 uv run ruff format               # format (the repo is format-clean)
+uv run python scripts/check_markdown_links.py
 uv run python scripts/perf_check.py           # build/size budgets
 uv run python scripts/perf_browser_check.py   # browser budgets
+uv run python scripts/check_workflow_policy.py
+uv build
+uv run python scripts/package_smoke_check.py dist/  # isolated wheel + sdist installs
 ```
 
 Every PR needs: tests for behavior changes, a green suite, clean
@@ -51,11 +57,31 @@ Every PR needs: tests for behavior changes, a green suite, clean
 coverage from the non-browser Python suite, and green browser/perf gates when
 the change could plausibly affect them.
 
+Release artifacts are not considered usable merely because `uv build`
+succeeds. The package smoke check installs the wheel and source distribution
+independently into temporary environments outside the checkout, then verifies
+import/version metadata, the console entry point, `--help`, and an offline
+render. Keep runtime dependencies limited to imports used by shipped package
+code; tooling-only dependencies belong in the `dev` group.
+
+If your change affects rendered output, run
+`uv run python scripts/generate_examples.py` and commit the refreshed
+`examples/*.html` files in the same PR. CI checks deterministic drift and
+never pushes directly to `main`, so branch protection has no automation
+bypass.
+
 ## Releases (maintainer notes)
+
+Use the full candidate and publication checklist in
+[`docs/RELEASING.md`](docs/RELEASING.md).
 
 The release commit bumps `pyproject.toml`, `src/sdr_visualizer/__init__.py`,
 and `uv.lock` together, dates the CHANGELOG's Unreleased section, and adds
 the version's link definition at the bottom of the file. Tag the release
 commit itself — never a commit whose message contains `[skip ci]` (the
 examples auto-commits), because GitHub skips all workflows for such a tag.
-Do not commit locally generated `examples/*.html`; CI regenerates them.
+The release workflow publishes to PyPI before creating the GitHub release and
+both stages verify the same `SHA256SUMS` manifest. If PyPI succeeds but the
+final GitHub-release job fails, rerun only the failed `github-release` job
+against the retained artifact. Never rerun the successful publish job or try
+to republish the same version to PyPI.

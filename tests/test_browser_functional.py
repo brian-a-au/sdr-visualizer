@@ -116,6 +116,16 @@ def test_url_hash_written_on_filter_change(browser_page, tmp_path):
     assert "q=" not in browser_page.evaluate("location.hash")
 
 
+def test_perf_filter_hook_waits_for_frame_and_layout(browser_page, tmp_path):
+    out = _render_to(tmp_path, "cja_snapshot_messy.json", "perf_hook.html")
+    browser_page.goto(out.as_uri())
+    browser_page.wait_for_selector("#catalog-body tr", state="attached", timeout=10_000)
+    assert browser_page.evaluate("() => window.__sdrPerf.timeFilter('revenue') instanceof Promise")
+    elapsed = browser_page.evaluate("window.__sdrPerf.timeFilter('metric')")
+    assert isinstance(elapsed, (int, float))
+    assert elapsed >= 0
+
+
 def test_url_hash_restores_open_detail(browser_page, tmp_path):
     snap = json.loads((FIXTURES / "cja_snapshot_messy.json").read_text(encoding="utf-8"))
     known_id = snap["metrics"][0]["id"]
@@ -331,6 +341,23 @@ def test_graph_filter_change_cancels_hover(browser_page, tmp_path):
     assert _node_labels(browser_page, "is-highlighted") == ["Dim 1"]
 
 
+def test_graph_edge_density_requires_explicit_opt_in(browser_page, tmp_path):
+    snap = json.loads((FIXTURES / "cja_snapshot_clean.json").read_text(encoding="utf-8"))
+    payload = build_payload_with_options(cja_adapt(snap))
+    ids = [component["id"] for component in payload["components"]]
+    edge = {"source": ids[0], "target": ids[1], "kind": "references"}
+    payload["graph"]["edges"] = [edge] * 8_001
+    out = tmp_path / "dense-edge-gate.html"
+    out.write_text(render_payload(payload), encoding="utf-8")
+
+    browser_page.goto(out.as_uri())
+    browser_page.wait_for_selector("#catalog-body tr", state="attached", timeout=10_000)
+    browser_page.click('.view-button[data-view="graph"]')
+
+    assert browser_page.locator("#graph-degraded").is_visible()
+    assert browser_page.locator("#graph-canvas line.graph-edge").count() == 0
+
+
 def test_small_graph_uses_radial_layout(browser_page, tmp_path):
     _open_tiny_graph(browser_page, tmp_path, "tiny.html")
     positions = browser_page.evaluate(
@@ -428,11 +455,43 @@ def _render_compare(tmp_path, name, old_snapshot, new_snapshot):
     return out
 
 
+def _render_many_changes(tmp_path: Path, name: str) -> Path:
+    _, new = _compare_pair()
+    new_impl = cja_adapt(new)
+    payload = build_payload_with_options(new_impl)
+    added = []
+    for i in range(1_205):
+        if i < 620:
+            entry_name = f"Batch Match {i:04d}"
+        elif i == 1_100:
+            entry_name = "Offpage Needle"
+        else:
+            entry_name = f"Other Change {i:04d}"
+        added.append(
+            {
+                "id": f"metrics/synthetic_{i:04d}",
+                "type": "metric",
+                "name": entry_name,
+            }
+        )
+    payload["changes"] = {
+        "baseline": {"source": "synthetic-baseline.json", "taken_at": None},
+        "added": added,
+        "removed": [],
+        "modified": [],
+    }
+    payload["meta"]["compared_to"] = payload["changes"]["baseline"]
+    out = tmp_path / name
+    out.write_text(render_payload(payload), encoding="utf-8")
+    return out
+
+
 def test_changes_view_renders_counts_and_field_detail(browser_page, tmp_path):
     old, new = _compare_pair()
     out = _render_compare(tmp_path, "compare.html", old, new)
     browser_page.goto(out.as_uri())
     browser_page.wait_for_selector("#catalog-body tr", state="attached", timeout=10_000)
+    assert browser_page.locator("#changes-body .change-row").count() == 0
     browser_page.click('.view-button[data-view="changes"]')
     summary = browser_page.inner_text("#changes-summary")
     assert "+1 added" in summary
@@ -486,6 +545,8 @@ def test_changes_view_shows_no_description_chip(browser_page, tmp_path):
     browser_page.wait_for_selector("#catalog-body tr", state="attached", timeout=10_000)
     browser_page.click('.view-button[data-view="changes"]')
     added_id = added_without_description["id"]
+    browser_page.fill("#changes-search", added_id)
+    browser_page.wait_for_timeout(300)
     chip = browser_page.locator(
         f'.change-added:has(button.ref-link[data-id="{added_id}"]) .change-no-desc'
     )
@@ -532,6 +593,7 @@ def test_changes_view_url_state_restores(browser_page, tmp_path):
     browser_page.wait_for_selector("#search-input", state="attached", timeout=10_000)
     hidden = browser_page.evaluate("document.getElementById('changes-view').hidden")
     assert hidden is False
+    assert browser_page.locator("#changes-body .change-row").count() == 3
 
 
 def test_changes_empty_state(browser_page, tmp_path):
@@ -558,6 +620,91 @@ def test_changes_search_filters_rows(browser_page, tmp_path):
     assert visible == 1
 
 
+def test_changes_filter_and_progressive_batches_are_bounded(browser_page, tmp_path):
+    out = _render_many_changes(tmp_path, "compare_many.html")
+    browser_page.goto(out.as_uri())
+    browser_page.wait_for_selector("#catalog-body tr", state="attached", timeout=10_000)
+    assert browser_page.locator("#changes-body .change-row").count() == 0
+
+    browser_page.click('.view-button[data-view="changes"]')
+    assert browser_page.locator("#changes-body .change-row").count() == 250
+
+    # Filtering operates on the complete change arrays, not just the
+    # currently materialized DOM batch.
+    browser_page.fill("#changes-search", "offpage needle")
+    browser_page.wait_for_timeout(300)
+    rows = browser_page.locator("#changes-body .change-row")
+    assert rows.count() == 1
+    assert "Offpage Needle" in rows.first.inner_text()
+
+    # A result set below the hard cap can be disclosed in fixed-size batches.
+    browser_page.fill("#changes-search", "batch match")
+    browser_page.wait_for_timeout(300)
+    assert rows.count() == 250
+    while browser_page.locator("#changes-show-next").count():
+        browser_page.click("#changes-show-next")
+    assert rows.count() == 620
+
+    # An unfiltered result set never creates more than 1,000 rows and offers
+    # refinement rather than an unbounded "show all" escape hatch.
+    browser_page.fill("#changes-search", "")
+    browser_page.wait_for_timeout(300)
+    while browser_page.locator("#changes-show-next").count():
+        browser_page.click("#changes-show-next")
+    assert rows.count() == 1_000
+    assert "refine" in browser_page.inner_text("#changes-status").lower()
+    assert browser_page.locator("#changes-show-all").count() == 0
+
+
+def test_changes_reentry_does_not_duplicate_state_or_listeners(browser_page, tmp_path):
+    out = _render_many_changes(tmp_path, "compare_reentry.html")
+    browser_page.goto(out.as_uri())
+    browser_page.wait_for_selector("#catalog-body tr", state="attached", timeout=10_000)
+
+    browser_page.click('.view-button[data-view="changes"]')
+    rows = browser_page.locator("#changes-body .change-row")
+    assert rows.count() == 250
+    browser_page.click('.view-button[data-view="catalog"]')
+    browser_page.click('.view-button[data-view="changes"]')
+    assert rows.count() == 250
+    browser_page.click("#changes-show-next")
+    assert rows.count() == 500
+
+
+def test_lazy_changes_and_trend_escape_hostile_text(browser_page, tmp_path):
+    _, new = _compare_pair()
+    payload = build_payload_with_options(cja_adapt(new))
+    change_probe = '"><img data-change-probe src=x onerror="window.__changeXss=true">'
+    payload["changes"] = {
+        "baseline": {"source": "hostile-baseline.json", "taken_at": None},
+        "added": [{"id": change_probe, "type": "metric", "name": change_probe}],
+        "removed": [],
+        "modified": [],
+    }
+    trend_impls = [
+        cja_adapt(snapshot, source=f"hostile_trend_{index}.json")
+        for index, snapshot in enumerate(_trend_series_snapshots())
+    ]
+    payload["trend"] = build_trend(trend_impls, capped=False)
+    trend_probe = '"><img data-trend-probe src=x onerror="window.__trendXss=true">'
+    payload["trend"]["intervals"][0]["added"] = [trend_probe]
+    out = tmp_path / "lazy_hostile.html"
+    out.write_text(render_payload(payload), encoding="utf-8")
+
+    browser_page.goto(out.as_uri())
+    browser_page.wait_for_selector("#catalog-body tr", state="attached", timeout=10_000)
+    browser_page.click('.view-button[data-view="changes"]')
+    assert browser_page.locator("img[data-change-probe]").count() == 0
+    assert change_probe in browser_page.inner_text("#changes-body")
+    assert browser_page.evaluate("window.__changeXss") is None
+
+    browser_page.click('.view-button[data-view="trend"]')
+    browser_page.click("#trend-log details.trend-interval:first-child summary")
+    assert browser_page.locator("img[data-trend-probe]").count() == 0
+    assert trend_probe in browser_page.inner_text("#trend-log")
+    assert browser_page.evaluate("window.__trendXss") is None
+
+
 def _trend_series_snapshots():
     def snap(metrics):
         return {
@@ -581,7 +728,7 @@ def _trend_series_snapshots():
     ]
 
 
-def _render_trend(tmp_path, name):
+def _render_trend(tmp_path, name, *, added_ids=None):
     # Distinct sources per snapshot (rather than the adapter's shared
     # "<unknown>" default): with no snapshot_taken_at, interval "from"/"to"
     # fall back to snapshot_source, and identical sources would make every
@@ -592,6 +739,8 @@ def _render_trend(tmp_path, name):
     ]
     payload = build_payload_with_options(impls[-1])
     payload["trend"] = build_trend(impls, capped=False)
+    if added_ids is not None:
+        payload["trend"]["intervals"][0]["added"] = added_ids
     out = tmp_path / name
     out.write_text(render_payload(payload), encoding="utf-8")
     return out
@@ -601,6 +750,7 @@ def test_trend_view_renders_charts_and_log(browser_page, tmp_path):
     out = _render_trend(tmp_path, "trend.html")
     browser_page.goto(out.as_uri())
     browser_page.wait_for_selector("#catalog-body tr", state="attached", timeout=10_000)
+    assert browser_page.locator("#trend-log details.trend-interval").count() == 0
     browser_page.click('.view-button[data-view="trend"]')
     charts = browser_page.evaluate("document.querySelectorAll('#trend-view svg.sparkline').length")
     assert charts >= 5
@@ -608,6 +758,7 @@ def test_trend_view_renders_charts_and_log(browser_page, tmp_path):
         "document.querySelectorAll('#trend-log details.trend-interval').length"
     )
     assert rows == 2
+    assert browser_page.locator("#trend-log .trend-id").count() == 0
     summary = browser_page.inner_text("#trend-log details.trend-interval >> nth=0")
     assert "+1" in summary
     # Interval labels must stay navigable when dates are equal or missing:
@@ -632,11 +783,44 @@ def test_trend_interval_expands_to_id_lists(browser_page, tmp_path):
     assert "metrics/m1" in body  # removed in the second interval
 
 
+def test_trend_ids_materialize_in_fixed_batches(browser_page, tmp_path):
+    ids = [f"metrics/high_churn_{i:04d}" for i in range(250)]
+    out = _render_trend(tmp_path, "trend_many_ids.html", added_ids=ids)
+    browser_page.goto(out.as_uri())
+    browser_page.wait_for_selector("#catalog-body tr", state="attached", timeout=10_000)
+    browser_page.click('.view-button[data-view="trend"]')
+    assert browser_page.locator("#trend-log .trend-id").count() == 0
+
+    interval = browser_page.locator("#trend-log details.trend-interval").first
+    interval.locator("summary").click()
+    assert interval.locator(".trend-id").count() == 100
+    while interval.locator(".trend-show-next").count():
+        interval.locator(".trend-show-next").click()
+    assert interval.locator(".trend-id").count() == 250
+
+
+def test_trend_reentry_does_not_duplicate_state_or_listeners(browser_page, tmp_path):
+    ids = [f"metrics/high_churn_{i:04d}" for i in range(250)]
+    out = _render_trend(tmp_path, "trend_reentry.html", added_ids=ids)
+    browser_page.goto(out.as_uri())
+    browser_page.wait_for_selector("#catalog-body tr", state="attached", timeout=10_000)
+
+    browser_page.click('.view-button[data-view="trend"]')
+    interval = browser_page.locator("#trend-log details.trend-interval").first
+    interval.locator("summary").click()
+    assert interval.locator(".trend-id").count() == 100
+    browser_page.click('.view-button[data-view="catalog"]')
+    browser_page.click('.view-button[data-view="trend"]')
+    interval.locator(".trend-show-next").click()
+    assert interval.locator(".trend-id").count() == 200
+
+
 def test_trend_view_url_state_restores(browser_page, tmp_path):
     out = _render_trend(tmp_path, "trend_url.html")
     browser_page.goto(out.as_uri() + "#view=trend")
     browser_page.wait_for_selector("#search-input", state="attached", timeout=10_000)
     assert browser_page.evaluate("document.getElementById('trend-view').hidden") is False
+    assert browser_page.locator("#trend-log details.trend-interval").count() == 2
 
 
 def test_trend_absent_without_flag(browser_page, tmp_path):

@@ -1,4 +1,4 @@
-"""AA adapter tests (SPEC-VISUALIZER §10 Phase 7)."""
+"""AA adapter contract tests."""
 
 from __future__ import annotations
 
@@ -9,6 +9,7 @@ import pytest
 
 from sdr_visualizer.adapters.aa import adapt
 from sdr_visualizer.core.exceptions import InvalidSnapshotError
+from sdr_visualizer.core.structure_limits import MAX_STRUCTURE_DEPTH
 from sdr_visualizer.input.detect import detect_platform
 from sdr_visualizer.render.renderer import render
 
@@ -180,6 +181,17 @@ def test_nesting_depth_counts_container_nesting_only():
     impl = adapt(snapshot)
     depths = {s.id: s.nesting_depth for s in impl.segments}
     assert depths == {"s_one": 1, "s_zero": 0, "s_two": 2}
+
+
+def test_aa_adapter_rejects_snapshot_beyond_structure_depth_budget():
+    nested = 0
+    for _ in range(MAX_STRUCTURE_DEPTH):
+        nested = {"child": nested}
+    snapshot = _minimal_aa()
+    snapshot["hostile"] = nested
+
+    with pytest.raises(InvalidSnapshotError, match=r"AA snapshot.*depth"):
+        adapt(snapshot)
 
 
 def test_formula_text_renders_nested_formulas_readably():
@@ -354,8 +366,20 @@ def test_scalar_formula_args_render_without_crashing():
     assert "<html" in html.lower()
 
 
+@pytest.mark.parametrize("section", ["calculated_metrics", "segments"])
+def test_aa_definition_budget_is_enforced_before_recursive_summary(section):
+    snap = json.loads((FIXTURES / "aa_snapshot_clean.json").read_text(encoding="utf-8"))
+    if section == "calculated_metrics":
+        snap[section][0]["definition"] = {"formula": {"func": "add", "args": [0] * 10_000}}
+    else:
+        snap[section][0]["definition"] = {"children": [0] * 10_000}
+
+    with pytest.raises(InvalidSnapshotError, match="maximum of 10,000 nodes"):
+        adapt(snap)
+
+
 # ---------------------------------------------------------------------------
-# sdr-grader parity: stringified JSON tag lists parse (SPEC §11/§15).
+# sdr-grader parity: stringified JSON tag lists parse.
 # ---------------------------------------------------------------------------
 
 
@@ -399,7 +423,7 @@ def test_nan_complexity_score_passes_through_adapter_for_renderer_to_reject():
 
 # ---------------------------------------------------------------------------
 # Q5 (1.0.0): generator-version compatibility warning helper. Warn-only,
-# never refuse. Mirrored to sdr-grader (SPEC §11/§15).
+# never refuse. Mirrored to sdr-grader.
 # ---------------------------------------------------------------------------
 
 

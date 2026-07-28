@@ -1,4 +1,4 @@
-"""CLI exit codes (SPEC §7).
+"""Public CLI exit codes.
 
 The visualizer has no equivalent of the grader's "below threshold" failure
 mode, so there is no exit code 2.

@@ -1,7 +1,7 @@
 """AA adapter: aa_auto_sdr JSON output -> normalized Implementation.
 
-Per SPEC §5: eVars and props both map to dimensions (with platform_specific
-preserving allocation/expiration/prop-specific flags); events map to metrics;
+eVars and props both map to dimensions (with platform_specific preserving
+allocation/expiration/prop-specific flags); events map to metrics;
 classifications attach as tags on the parent dimension.
 """
 
@@ -17,12 +17,17 @@ from sdr_visualizer.core.models import (
     Implementation,
     Segment,
 )
+from sdr_visualizer.core.structure_limits import (
+    validate_definition_structure,
+    validate_snapshot_structure,
+)
 
 
 def adapt(snapshot: dict[str, Any], *, source: str = "<unknown>") -> Implementation:
     """Convert a parsed aa_auto_sdr JSON snapshot into an Implementation."""
     if not isinstance(snapshot, dict):
         raise InvalidSnapshotError(f"expected top-level JSON object, got {type(snapshot).__name__}")
+    validate_snapshot_structure(snapshot, label="AA snapshot")
 
     if "report_suite" in snapshot:
         rs = snapshot["report_suite"]
@@ -172,7 +177,11 @@ def _calc_from_record(record: Any) -> CalculatedMetric:
     description = _normalize_description(record.get("description"))
     definition = record.get("definition") or {}
     formula = definition.get("formula") if isinstance(definition, dict) else {}
-    formula_text = _stringify_formula(formula) if isinstance(formula, dict) else ""
+    if isinstance(formula, dict):
+        validate_definition_structure(formula, label=f"calculated metric formula {metric_id!r}")
+        formula_text = _stringify_formula(formula)
+    else:
+        formula_text = ""
     references = _extract_aa_calc_refs(formula)
 
     return CalculatedMetric(
@@ -233,6 +242,8 @@ def _segment_from_record(record: Any) -> Segment:
     name = record.get("name") or segment_id
     description = _normalize_description(record.get("description"))
     definition = record.get("definition") or {}
+    if isinstance(definition, dict):
+        validate_definition_structure(definition, label=f"segment definition {segment_id!r}")
     nesting_depth, container_types = _walk_segment_definition(definition)
     references: list[str] = []  # AA segments don't expose direct cross-refs in the basic shape
 
@@ -290,16 +301,16 @@ def _walk_segment_definition(definition: Any) -> tuple[int, list[str]]:
 # The newest aa_auto_sdr version this release was validated against
 # (bundled fixtures + the private real corpus; re-derive at each release:
 # grep -rho '"Tool Version": "[^"]*"|"tool_version": "[^"]*"' over corpus
-# and fixtures, take the max). Q5 (SPEC §14): warn only — never refuse.
+# and fixtures, take the max). The compatibility policy warns — never refuses.
 TESTED_THROUGH_GENERATOR_VERSION = "1.18.0"
 
 
 def generator_version_warning(adapter_version: str) -> str | None:
     """Return warning text when the snapshot's generator is newer than the
     newest version this release was tested against, else None. Unparseable
-    versions ("unknown", empty, suffixed builds) never warn. Vendored
-    parity: behavior-identical copy in sdr-grader (SPEC §11/§15); the
-    per-platform constant value is the one deliberate difference."""
+    versions ("unknown", empty, suffixed builds) never warn. This helper has a
+    behavior-identical sibling copy in sdr-grader; the per-platform constant
+    value is the one deliberate difference."""
     tested = _version_tuple(TESTED_THROUGH_GENERATOR_VERSION)
     seen = _version_tuple(adapter_version)
     if tested is None or seen is None or seen <= tested:
@@ -342,7 +353,7 @@ def _parse_tag_list(value: Any) -> list[str]:
     cja_auto_sdr (see cja.py's copy — adapters stay standalone reference
     examples, so this helper is intentionally duplicated). Handles native
     lists, stringified lists, and falls back to [] for anything else. Kept
-    behavior-identical to sdr-grader's copy (SPEC §11/§15)."""
+    behavior-identical to sdr-grader's copy."""
     if value is None or value == "":
         return []
     if isinstance(value, list):
@@ -360,7 +371,7 @@ def _parse_tag_list(value: Any) -> list[str]:
 def _optional_list(snapshot: dict[str, Any], key: str) -> list[Any]:
     """Optional sections (segments, calculated_metrics) may be absent or null,
     but a present non-list value is a malformed export, not an empty one.
-    Vendored verbatim from sdr-grader (SPEC §11/§15)."""
+    Kept behavior-identical to the sibling copy in sdr-grader."""
     value = snapshot.get(key)
     if value is None:
         return []
@@ -372,7 +383,7 @@ def _optional_list(snapshot: dict[str, Any], key: str) -> list[Any]:
 
 
 def _as_float(value: Any) -> float:
-    """The visualizer's variant of sdr-grader's `_safe_float` (SPEC §11/§15).
+    """The visualizer's variant of sdr-grader's `_safe_float`.
     Two intentional deltas from the grader, both driven by visualizer-only
     behavior — do NOT reconcile them away to match the sibling:
 
