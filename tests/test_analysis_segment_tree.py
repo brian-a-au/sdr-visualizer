@@ -10,7 +10,9 @@ import pytest
 from sdr_visualizer.adapters.aa import adapt as aa_adapt
 from sdr_visualizer.adapters.cja import adapt as cja_adapt
 from sdr_visualizer.analysis.segment_tree import parse_segment_tree
+from sdr_visualizer.core.exceptions import InvalidSnapshotError
 from sdr_visualizer.core.models import Segment
+from sdr_visualizer.core.structure_limits import MAX_STRUCTURE_DEPTH
 
 FIXTURES = Path(__file__).parent / "fixtures"
 
@@ -240,3 +242,12 @@ def test_plain_segment_ref_still_parses():
     tree = parse_segment_tree(seg)
     assert tree["kind"] == "segment_ref"
     assert tree["segment_id"] == "segments/other"
+
+
+def test_direct_segment_tree_rejects_excessive_depth_before_recursive_walk():
+    definition = {"func": "eq", "val": "x"}
+    for _ in range(MAX_STRUCTURE_DEPTH + 1):
+        definition = {"definition": definition}
+
+    with pytest.raises(InvalidSnapshotError, match=r"segment definition.*depth"):
+        parse_segment_tree(_make_segment(definition))

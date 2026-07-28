@@ -53,6 +53,40 @@ def test_max_graph_nodes_threads_to_payload(tmp_path):
     assert payload["meta"]["max_graph_nodes"] == 250
 
 
+def test_max_graph_nodes_zero_is_valid_and_enters_payload(tmp_path):
+    output = tmp_path / "out.html"
+
+    rc = main(
+        [
+            str(FIXTURES / "cja_snapshot_clean.json"),
+            "--max-graph-nodes",
+            "0",
+            "--output",
+            str(output),
+            "--quiet",
+        ]
+    )
+
+    assert rc == 0
+    assert _embedded_payload(output.read_text(encoding="utf-8"))["meta"]["max_graph_nodes"] == 0
+
+
+def test_negative_max_graph_nodes_is_usage_error_3():
+    import pytest
+
+    with pytest.raises(SystemExit) as exc_info:
+        main(
+            [
+                str(FIXTURES / "cja_snapshot_clean.json"),
+                "--max-graph-nodes",
+                "-1",
+                "--quiet",
+            ]
+        )
+
+    assert exc_info.value.code == 3
+
+
 def test_json_flag_writes_separate_file_and_reports_both_outputs(tmp_path, capsys):
     html_out = tmp_path / "out.html"
     json_out = tmp_path / "out.json"

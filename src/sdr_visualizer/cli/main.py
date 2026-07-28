@@ -10,7 +10,9 @@ Wires all four input modes:
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
+import re
 import sys
 from datetime import UTC, datetime
 from pathlib import Path
@@ -40,6 +42,33 @@ from sdr_visualizer.render.renderer import build_payload_with_options, render_pa
 # (simplified rendering; the graph view already needs --max-graph-nodes
 # opt-in past 1,000 nodes). Warn — never refuse — on valid input.
 EXTREME_SIZE_WARNING = 5000
+_FILENAME_TOKEN_MAX_LENGTH = 80
+_WINDOWS_RESERVED_NAMES = {
+    "aux",
+    "clock$",
+    "com1",
+    "com2",
+    "com3",
+    "com4",
+    "com5",
+    "com6",
+    "com7",
+    "com8",
+    "com9",
+    "con",
+    "lpt1",
+    "lpt2",
+    "lpt3",
+    "lpt4",
+    "lpt5",
+    "lpt6",
+    "lpt7",
+    "lpt8",
+    "lpt9",
+    "nul",
+    "prn",
+}
+_UNSAFE_FILENAME_RUN = re.compile(r"[^A-Za-z0-9._-]+")
 
 
 class _ArgumentParser(argparse.ArgumentParser):
@@ -185,13 +214,15 @@ def _load_baseline(args: argparse.Namespace, impl: Implementation) -> Implementa
     if baseline.instance_id != impl.instance_id:
         if not args.allow_instance_mismatch:
             raise InvalidSnapshotError(
-                f"--compare-to instance mismatch: baseline is {baseline.instance_id}, "
-                f"primary snapshot is {impl.instance_id}; compare snapshots of the same "
+                "--compare-to instance mismatch: baseline is "
+                f"{_visible_terminal_text(baseline.instance_id)}, primary snapshot is "
+                f"{_visible_terminal_text(impl.instance_id)}; compare snapshots of the same "
                 "data view / report suite (or pass --allow-instance-mismatch)"
             )
         print(
             "sdr-visualizer: warning: comparing different instances "
-            f"({baseline.instance_id} vs {impl.instance_id}); --allow-instance-mismatch set",
+            f"({_visible_terminal_text(baseline.instance_id)} vs "
+            f"{_visible_terminal_text(impl.instance_id)}); --allow-instance-mismatch set",
             file=sys.stderr,
         )
     return baseline
@@ -230,15 +261,16 @@ def _load_trend(args: argparse.Namespace) -> tuple[Implementation, dict]:
             )
         instances = sorted({i.instance_id for i in impls})
         if len(instances) > 1:
+            visible_instances = ", ".join(_visible_terminal_text(value) for value in instances)
             if not args.allow_instance_mismatch:
                 raise InvalidSnapshotError(
                     "--trend directory mixes data views / report suites "
-                    f"({', '.join(instances)}); use snapshots of a single implementation "
+                    f"({visible_instances}); use snapshots of a single implementation "
                     "(or pass --allow-instance-mismatch)"
                 )
             print(
                 "sdr-visualizer: warning: --trend directory mixes data views / report "
-                f"suites ({', '.join(instances)}); --allow-instance-mismatch set",
+                f"suites ({visible_instances}); --allow-instance-mismatch set",
                 file=sys.stderr,
             )
     if len(impls) < 2:
@@ -318,7 +350,7 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     p.add_argument(
         "--max-graph-nodes",
-        type=int,
+        type=_non_negative_int,
         help="Override the graph-rendering threshold (default 1000).",
     )
     p.add_argument(
@@ -334,8 +366,49 @@ def _resolve_output_path(explicit: str | None, instance_id: str) -> Path:
     if explicit:
         return Path(explicit)
     timestamp = datetime.now(UTC).strftime("%Y-%m-%dT%H%M%SZ")
-    safe_instance = instance_id.replace("/", "_")
+    safe_instance = _safe_filename_token(instance_id)
     return Path(f"./visualize-{safe_instance}-{timestamp}.html")
+
+
+def _non_negative_int(value: str) -> int:
+    try:
+        parsed = int(value)
+    except ValueError as exc:
+        raise argparse.ArgumentTypeError("must be a non-negative integer") from exc
+    if parsed < 0:
+        raise argparse.ArgumentTypeError("must be a non-negative integer")
+    return parsed
+
+
+def _safe_filename_token(value: str) -> str:
+    """Return a portable, bounded token with a digest when normalization loses data."""
+    original = str(value)
+    normalized = _UNSAFE_FILENAME_RUN.sub("-", original).strip("._-")
+    transformed = normalized != original
+    if not normalized:
+        normalized = "instance"
+        transformed = True
+    if normalized.split(".", 1)[0].lower() in _WINDOWS_RESERVED_NAMES:
+        normalized = f"instance-{normalized}"
+        transformed = True
+
+    digest = hashlib.sha256(original.encode("utf-8")).hexdigest()[:8]
+    if len(normalized) > _FILENAME_TOKEN_MAX_LENGTH:
+        transformed = True
+    if transformed:
+        prefix_length = _FILENAME_TOKEN_MAX_LENGTH - len(digest) - 1
+        normalized = normalized[:prefix_length].rstrip("._-") or "instance"
+        return f"{normalized}-{digest}"
+    return normalized
+
+
+def _visible_terminal_text(value: str) -> str:
+    """Render terminal control bytes visibly so identifiers cannot alter the display."""
+    return "".join(
+        f"\\u{codepoint:04X}" if codepoint < 32 or 127 <= codepoint <= 159 else character
+        for character in str(value)
+        for codepoint in [ord(character)]
+    )
 
 
 __all__ = ["main", "STDIN_TOKEN"]

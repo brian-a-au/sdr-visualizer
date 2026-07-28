@@ -32,6 +32,7 @@ REPO = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(REPO / "src"))
 
 from sdr_visualizer.core.exceptions import InvalidSnapshotError, UnknownPlatformError  # noqa: E402
+from sdr_visualizer.core.structure_limits import measure_structure  # noqa: E402
 from sdr_visualizer.core.visualizer import build_implementation  # noqa: E402
 from sdr_visualizer.render.renderer import build_payload_with_options, render_payload  # noqa: E402
 
@@ -68,8 +69,9 @@ def _check_one(path: Path, *, check_budgets: bool) -> tuple[str | None, str]:
     """Return (failure_reason, ok_detail). Exactly one of the two is set."""
     try:
         snapshot = json.loads(path.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError) as exc:
+    except (OSError, json.JSONDecodeError, RecursionError) as exc:
         return f"unreadable or invalid JSON: {exc}", ""
+    structure_nodes, structure_depth = measure_structure(snapshot)
     try:
         impl = build_implementation(snapshot, source=str(path))
         payload = build_payload_with_options(impl)
@@ -112,8 +114,12 @@ def _check_one(path: Path, *, check_budgets: bool) -> tuple[str | None, str]:
                 f"{size_mb:.2f}MB exceeds the {budget}MB budget for {count} components",
                 "",
             )
-        return None, f"  ({size_mb:.2f}MB, {count} components)"
-    return None, ""
+        return (
+            None,
+            f"  ({size_mb:.2f}MB, {count} components, "
+            f"{structure_nodes:,} nodes, depth {structure_depth})",
+        )
+    return None, f"  ({structure_nodes:,} nodes, depth {structure_depth})"
 
 
 def sweep(corpus: Path, *, check_budgets: bool) -> int:

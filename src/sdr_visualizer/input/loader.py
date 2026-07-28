@@ -63,6 +63,8 @@ def _load_stdin() -> tuple[dict[str, Any], str]:
         snapshot = json.loads(raw)
     except json.JSONDecodeError as exc:
         raise InvalidSnapshotError(f"stdin is not valid JSON: {exc}") from exc
+    except RecursionError as exc:
+        raise InvalidSnapshotError("stdin JSON exceeds nesting limits") from exc
     return snapshot, "stdin"
 
 
@@ -75,6 +77,8 @@ def _load_from_file(path: Path) -> tuple[dict[str, Any], str]:
         snapshot = json.loads(text)
     except json.JSONDecodeError as exc:
         raise InvalidSnapshotError(f"{path}: not valid JSON: {exc}") from exc
+    except RecursionError as exc:
+        raise InvalidSnapshotError(f"{path}: JSON exceeds nesting limits") from exc
     return snapshot, str(path)
 
 

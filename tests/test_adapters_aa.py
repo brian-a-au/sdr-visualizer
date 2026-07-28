@@ -9,6 +9,7 @@ import pytest
 
 from sdr_visualizer.adapters.aa import adapt
 from sdr_visualizer.core.exceptions import InvalidSnapshotError
+from sdr_visualizer.core.structure_limits import MAX_STRUCTURE_DEPTH
 from sdr_visualizer.input.detect import detect_platform
 from sdr_visualizer.render.renderer import render
 
@@ -180,6 +181,17 @@ def test_nesting_depth_counts_container_nesting_only():
     impl = adapt(snapshot)
     depths = {s.id: s.nesting_depth for s in impl.segments}
     assert depths == {"s_one": 1, "s_zero": 0, "s_two": 2}
+
+
+def test_aa_adapter_rejects_snapshot_beyond_structure_depth_budget():
+    nested = 0
+    for _ in range(MAX_STRUCTURE_DEPTH):
+        nested = {"child": nested}
+    snapshot = _minimal_aa()
+    snapshot["hostile"] = nested
+
+    with pytest.raises(InvalidSnapshotError, match=r"AA snapshot.*depth"):
+        adapt(snapshot)
 
 
 def test_formula_text_renders_nested_formulas_readably():

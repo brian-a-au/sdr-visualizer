@@ -10,7 +10,9 @@ import pytest
 from sdr_visualizer.adapters.aa import adapt as aa_adapt
 from sdr_visualizer.adapters.cja import adapt as cja_adapt
 from sdr_visualizer.analysis.formula_tree import collect_metric_refs, parse_formula_tree
+from sdr_visualizer.core.exceptions import InvalidSnapshotError
 from sdr_visualizer.core.models import CalculatedMetric
+from sdr_visualizer.core.structure_limits import MAX_STRUCTURE_DEPTH
 
 FIXTURES = Path(__file__).parent / "fixtures"
 
@@ -205,3 +207,12 @@ def test_scalar_formula_args_degrade_to_empty_operation():
     tree = parse_formula_tree(_make_metric({"func": "add", "args": 7}))
     assert tree["kind"] == "operation"
     assert tree["args"] == []
+
+
+def test_direct_formula_tree_rejects_excessive_depth_before_recursive_walk():
+    formula = {"func": "metric", "name": "metrics/orders"}
+    for _ in range(MAX_STRUCTURE_DEPTH + 1):
+        formula = {"formula": formula}
+
+    with pytest.raises(InvalidSnapshotError, match=r"calculated metric formula.*depth"):
+        parse_formula_tree(_make_metric(formula))

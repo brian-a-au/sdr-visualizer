@@ -17,12 +17,14 @@ from sdr_visualizer.core.models import (
     Implementation,
     Segment,
 )
+from sdr_visualizer.core.structure_limits import validate_snapshot_structure
 
 
 def adapt(snapshot: dict[str, Any], *, source: str = "<unknown>") -> Implementation:
     """Convert a parsed aa_auto_sdr JSON snapshot into an Implementation."""
     if not isinstance(snapshot, dict):
         raise InvalidSnapshotError(f"expected top-level JSON object, got {type(snapshot).__name__}")
+    validate_snapshot_structure(snapshot, label="AA snapshot")
 
     if "report_suite" in snapshot:
         rs = snapshot["report_suite"]

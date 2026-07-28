@@ -73,4 +73,6 @@ def _shell_out(tool: str, argv: list[str], *, flag: str) -> tuple[dict[str, Any]
         snapshot = json.loads(result.stdout)
     except json.JSONDecodeError as exc:
         raise InvalidSnapshotError(f"{tool} produced output that is not valid JSON: {exc}") from exc
+    except RecursionError as exc:
+        raise InvalidSnapshotError(f"{tool} output JSON exceeds nesting limits") from exc
     return snapshot, f"shell-out:{tool} {argv[0]}"

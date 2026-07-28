@@ -242,6 +242,22 @@ def test_shell_out_invalid_json_is_domain_error(monkeypatch):
         shell_cja("dv_xyz")
 
 
+def test_shell_out_json_recursion_error_is_domain_error(monkeypatch):
+    monkeypatch.setattr("sdr_visualizer.input.shell_out.shutil.which", lambda _name: "/bin/tool")
+    monkeypatch.setattr(
+        "sdr_visualizer.input.shell_out.subprocess.run",
+        lambda cmd, **_kwargs: subprocess.CompletedProcess(cmd, 0, stdout="{}"),
+    )
+
+    def recurse(_value):
+        raise RecursionError("decoder recursion")
+
+    monkeypatch.setattr("sdr_visualizer.input.shell_out.json.loads", recurse)
+
+    with pytest.raises(InvalidSnapshotError, match="JSON exceeds nesting limits"):
+        shell_cja("dv_xyz")
+
+
 # ---------------------------------------------------------------------------
 # Mode 4: stdin
 # ---------------------------------------------------------------------------
@@ -271,6 +287,31 @@ def test_mode4_malformed_stdin_exits_3(monkeypatch, capsys, stdin_text, expected
 
     assert rc == 3
     assert expected in capsys.readouterr().err
+
+
+def test_stdin_json_recursion_error_is_domain_error(monkeypatch):
+    monkeypatch.setattr("sys.stdin", io.StringIO("{}"))
+
+    def recurse(_value):
+        raise RecursionError("decoder recursion")
+
+    monkeypatch.setattr("sdr_visualizer.input.loader.json.loads", recurse)
+
+    with pytest.raises(InvalidSnapshotError, match="stdin JSON exceeds nesting limits"):
+        load_snapshot("-")
+
+
+def test_file_json_recursion_error_is_domain_error(tmp_path, monkeypatch):
+    snapshot = tmp_path / "snapshot.json"
+    snapshot.write_text("{}", encoding="utf-8")
+
+    def recurse(_value):
+        raise RecursionError("decoder recursion")
+
+    monkeypatch.setattr("sdr_visualizer.input.loader.json.loads", recurse)
+
+    with pytest.raises(InvalidSnapshotError, match="JSON exceeds nesting limits"):
+        load_snapshot(str(snapshot))
 
 
 # ---------------------------------------------------------------------------

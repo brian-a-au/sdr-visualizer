@@ -17,6 +17,7 @@ import pytest
 from sdr_visualizer.adapters.cja import adapt
 from sdr_visualizer.core.exceptions import InvalidSnapshotError
 from sdr_visualizer.core.models import CalculatedMetric, Component, Implementation, Segment
+from sdr_visualizer.core.structure_limits import MAX_DEFINITION_NODES, MAX_STRUCTURE_DEPTH
 
 FIXTURES = Path(__file__).parent / "fixtures"
 MESSY_PATH = FIXTURES / "cja_snapshot_messy.json"
@@ -475,6 +476,52 @@ def test_falsy_numeric_scalars_still_default():
     impl = adapt(snap)
     assert impl.segments[0].nesting_depth == 0
     assert impl.calculated_metrics[0].complexity_score == 0.0
+
+
+def test_cja_adapter_rejects_snapshot_beyond_structure_depth_budget():
+    nested = 0
+    for _ in range(MAX_STRUCTURE_DEPTH):
+        nested = {"child": nested}
+    snapshot = _minimal_cja(hostile=nested)
+
+    with pytest.raises(InvalidSnapshotError, match=r"CJA snapshot.*depth"):
+        adapt(snapshot)
+
+
+def test_cja_decoded_definition_node_budget_boundary():
+    def snapshot_with_args(count):
+        return _minimal_cja(
+            calculated_metrics={
+                "metrics": [
+                    {
+                        "metric_id": "cm/budget",
+                        "definition_json": json.dumps({"func": "sum", "args": [0] * count}),
+                    }
+                ]
+            }
+        )
+
+    # dict + func scalar + args list + scalar items = MAX_DEFINITION_NODES
+    adapt(snapshot_with_args(MAX_DEFINITION_NODES - 3))
+
+    with pytest.raises(InvalidSnapshotError, match=r"calculated metric definition.*10,000 nodes"):
+        adapt(snapshot_with_args(MAX_DEFINITION_NODES - 2))
+
+
+def test_cja_definition_json_recursion_error_is_invalid_snapshot(monkeypatch):
+    snapshot = _minimal_cja(
+        calculated_metrics={
+            "metrics": [{"metric_id": "cm/deep", "definition_json": '{"func":"sum"}'}]
+        }
+    )
+
+    def recurse(_value):
+        raise RecursionError("decoder recursion")
+
+    monkeypatch.setattr("sdr_visualizer.adapters.cja.json.loads", recurse)
+
+    with pytest.raises(InvalidSnapshotError, match=r"definition.*JSON exceeds nesting limits"):
+        adapt(snapshot)
 
 
 # ---------------------------------------------------------------------------

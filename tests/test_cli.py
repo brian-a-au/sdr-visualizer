@@ -8,7 +8,8 @@ from pathlib import Path
 import pytest
 from conftest import extract_payload
 
-from sdr_visualizer.cli.main import main
+from sdr_visualizer.cli.main import _safe_filename_token, _visible_terminal_text, main
+from sdr_visualizer.core.structure_limits import MAX_STRUCTURE_DEPTH
 from sdr_visualizer.core.visualizer import build_implementation
 from sdr_visualizer.render.renderer import build_payload_with_options
 
@@ -47,6 +48,188 @@ def test_default_output_path_uses_instance_id(tmp_path, monkeypatch):
     assert rc == 0
     files = list(tmp_path.glob("visualize-dv_clean_prod_web-*.html"))
     assert len(files) == 1
+
+
+@pytest.mark.parametrize(
+    "instance_id",
+    [
+        "../escape",
+        r"..\escape",
+        ".",
+        "!!!",
+        "tenant\nname",
+        "ténant",
+        "x" * 200,
+        "CON",
+    ],
+)
+def test_default_output_filename_token_is_portable_and_bounded(instance_id):
+    token = _safe_filename_token(instance_id)
+
+    assert token
+    assert len(token) <= 80
+    assert all(char.isascii() and (char.isalnum() or char in "._-") for char in token)
+    assert token[0] not in "._-"
+    assert token[-1] not in "._-"
+
+
+def test_transformed_filename_tokens_are_collision_resistant():
+    tokens = {_safe_filename_token(value) for value in ("tenant/a", r"tenant\a", "tenant a")}
+
+    assert len(tokens) == 3
+    assert _safe_filename_token("dv_clean_prod_web") == "dv_clean_prod_web"
+
+
+def test_hostile_instance_id_default_output_stays_in_working_directory(tmp_path, monkeypatch):
+    snapshot = json.loads((FIXTURES / "cja_snapshot_clean.json").read_text(encoding="utf-8"))
+    snapshot["metadata"]["Data View ID"] = "../outside\nname"
+    source = _write_json(tmp_path / "hostile-id.json", snapshot)
+    monkeypatch.chdir(tmp_path)
+
+    rc = main([str(source), "--quiet"])
+
+    assert rc == 0
+    outputs = list(tmp_path.glob("visualize-*.html"))
+    assert len(outputs) == 1
+    assert outputs[0].parent == tmp_path
+    assert ".." not in outputs[0].name
+    assert "\n" not in outputs[0].name
+
+
+def test_visible_terminal_text_escapes_c0_c1_controls():
+    raw = "tenant\n\r\x1b]8;;https://example.test\x07link\x1b\\\x9b"
+    visible = _visible_terminal_text(raw)
+
+    assert not any(ord(char) < 32 or 127 <= ord(char) <= 159 for char in visible)
+    assert visible == (
+        r"tenant\u000A\u000D\u001B]8;;https://example.test"
+        r"\u0007link\u001B\\u009B"
+    )
+
+
+def test_compare_instance_mismatch_diagnostic_escapes_controls(tmp_path, capsys):
+    hostile_id = "baseline\n\x1b]8;;https://example.test\x07name"
+    old = _write_json(tmp_path / "old.json", _cja_compare_snapshot(dv_id=hostile_id))
+    new = _write_json(tmp_path / "new.json", _cja_compare_snapshot(dv_id="primary"))
+
+    rc = main(
+        [
+            str(new),
+            "--compare-to",
+            str(old),
+            "--output",
+            str(tmp_path / "out.html"),
+            "--quiet",
+        ]
+    )
+
+    assert rc == 3
+    err = capsys.readouterr().err
+    assert "\x1b" not in err
+    assert "\x07" not in err
+    assert r"baseline\u000A\u001B]8;;https://example.test\u0007name" in err
+
+
+def test_overdeep_file_exits_3_without_artifacts_or_traceback(tmp_path, capsys):
+    nested = 0
+    for _ in range(MAX_STRUCTURE_DEPTH):
+        nested = {"child": nested}
+    snapshot = _cja_compare_snapshot()
+    snapshot["hostile"] = nested
+    source = _write_json(tmp_path / "deep.json", snapshot)
+    output = tmp_path / "out.html"
+    sidecar = tmp_path / "out.json"
+
+    rc = main(
+        [
+            str(source),
+            "--output",
+            str(output),
+            "--json",
+            str(sidecar),
+            "--quiet",
+        ]
+    )
+
+    assert rc == 3
+    assert not output.exists()
+    assert not sidecar.exists()
+    err = capsys.readouterr().err
+    assert "depth" in err
+    assert "Traceback" not in err
+
+
+def test_overdeep_live_snapshot_exits_3_without_artifact(tmp_path, monkeypatch, capsys):
+    nested = 0
+    for _ in range(MAX_STRUCTURE_DEPTH):
+        nested = {"child": nested}
+    snapshot = _cja_compare_snapshot()
+    snapshot["hostile"] = nested
+    monkeypatch.setattr(
+        "sdr_visualizer.cli.main.shell_cja",
+        lambda _dataview: (snapshot, "shell-out:cja_auto_sdr dv-deep"),
+    )
+    output = tmp_path / "out.html"
+
+    rc = main(["--dataview", "dv-deep", "--output", str(output), "--quiet"])
+
+    assert rc == 3
+    assert not output.exists()
+    assert "depth" in capsys.readouterr().err
+
+
+def test_overdeep_compare_baseline_exits_3_without_artifact(tmp_path, capsys):
+    nested = 0
+    for _ in range(MAX_STRUCTURE_DEPTH):
+        nested = {"child": nested}
+    baseline_snapshot = _cja_compare_snapshot()
+    baseline_snapshot["hostile"] = nested
+    baseline = _write_json(tmp_path / "baseline.json", baseline_snapshot)
+    primary = _write_json(tmp_path / "primary.json", _cja_compare_snapshot())
+    output = tmp_path / "out.html"
+
+    rc = main(
+        [
+            str(primary),
+            "--compare-to",
+            str(baseline),
+            "--output",
+            str(output),
+            "--quiet",
+        ]
+    )
+
+    assert rc == 3
+    assert not output.exists()
+    assert "depth" in capsys.readouterr().err
+
+
+def test_overdeep_trend_member_is_skipped_as_unusable(tmp_path, capsys):
+    series = tmp_path / "series"
+    series.mkdir()
+    _write_json(
+        series / "snapshot_2026-01-01T00-00-00.json",
+        _cja_compare_snapshot("Metric One"),
+    )
+    _write_json(
+        series / "snapshot_2026-02-01T00-00-00.json",
+        _cja_compare_snapshot("Metric Two"),
+    )
+    nested = 0
+    for _ in range(MAX_STRUCTURE_DEPTH):
+        nested = {"child": nested}
+    deep = _cja_compare_snapshot("Metric Three")
+    deep["hostile"] = nested
+    _write_json(series / "snapshot_2026-03-01T00-00-00.json", deep)
+    output = tmp_path / "out.html"
+
+    rc = main([str(series), "--trend", "--output", str(output), "--quiet"])
+
+    assert rc == 0
+    assert output.exists()
+    err = capsys.readouterr().err
+    assert "skipping" in err
+    assert "depth" in err
 
 
 @pytest.mark.parametrize(
