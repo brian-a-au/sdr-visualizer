@@ -35,7 +35,8 @@ def list_snapshot_series(
     at: str | None = None,
     cap: int = TREND_SNAPSHOT_CAP,
     transform: None = None,
-) -> tuple[list[SnapshotEntry], bool]: ...
+) -> tuple[list[SnapshotEntry], bool]:
+    pass
 
 
 @overload
@@ -45,7 +46,8 @@ def list_snapshot_series(
     at: str | None = None,
     cap: int = TREND_SNAPSHOT_CAP,
     transform: Callable[[dict[str, Any], str], Selected | None],
-) -> tuple[list[Selected], bool]: ...
+) -> tuple[list[Selected], bool]:
+    pass
 
 
 def list_snapshot_series(
