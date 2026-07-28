@@ -146,34 +146,35 @@ def _wheel_metadata(artifact: Path) -> tuple[str, set[str]]:
 
 def _sdist_project(artifact: Path) -> tuple[dict[str, Any], set[str]]:
     with tarfile.open(artifact, "r:gz") as archive:
-        members = [
-            member for member in archive.getmembers() if member.name.endswith("/pyproject.toml")
-        ]
+        all_members = archive.getmembers()
+        members = [member for member in all_members if member.name.endswith("/pyproject.toml")]
         if len(members) != 1:
             raise _fail("sdist", "metadata", f"expected one pyproject.toml, found {len(members)}")
         stream = archive.extractfile(members[0])
         if stream is None:
             raise _fail("sdist", "metadata", "could not read pyproject.toml")
         project_file = tomllib.loads(stream.read().decode("utf-8"))
-        names = {
-            member.name.split("/", 1)[1] for member in archive.getmembers() if "/" in member.name
-        }
+        names = {member.name.split("/", 1)[1] for member in all_members if "/" in member.name}
     return project_file["project"], names
+
+
+def _sdist_inspection(artifact: Path) -> tuple[str, set[str], set[str]]:
+    project, names = _sdist_project(artifact)
+    dependencies = {
+        _requirement_name(requirement) for requirement in project.get("dependencies", [])
+    }
+    return str(project["version"]), dependencies, names
 
 
 def artifact_metadata(artifact: Path) -> tuple[str, set[str]]:
     """Return artifact version and canonical direct runtime dependency names."""
     if artifact.suffix == ".whl":
         return _wheel_metadata(artifact)
-    project, _ = _sdist_project(artifact)
-    return str(project["version"]), {
-        _requirement_name(requirement) for requirement in project.get("dependencies", [])
-    }
+    version, dependencies, _ = _sdist_inspection(artifact)
+    return version, dependencies
 
 
-def validate_sdist_contents(artifact: Path) -> None:
-    """Assert that shipped docs exist and private/generated material does not."""
-    _, names = _sdist_project(artifact)
+def _validate_sdist_names(names: set[str]) -> None:
     missing = sorted(REQUIRED_SDIST_PATHS - names)
     if missing:
         raise _fail("sdist", "contents", f"missing shipped files: {', '.join(missing)}")
@@ -187,6 +188,12 @@ def validate_sdist_contents(artifact: Path) -> None:
     )
     if forbidden:
         raise _fail("sdist", "contents", f"contains forbidden files: {', '.join(forbidden)}")
+
+
+def validate_sdist_contents(artifact: Path) -> None:
+    """Assert that shipped docs exist and private/generated material does not."""
+    _, _, names = _sdist_inspection(artifact)
+    _validate_sdist_names(names)
 
 
 def validate_identity(identity: dict[str, Any], label: str, repo_root: Path) -> str:
@@ -321,7 +328,11 @@ def main() -> int:
         versions = []
         for artifact in artifacts:
             label = "wheel" if artifact.suffix == ".whl" else "sdist"
-            version, dependencies = artifact_metadata(artifact)
+            if label == "sdist":
+                version, dependencies, names = _sdist_inspection(artifact)
+            else:
+                version, dependencies = artifact_metadata(artifact)
+                names = None
             if dependencies != EXPECTED_RUNTIME_DEPENDENCIES:
                 raise _fail(
                     label,
@@ -329,8 +340,8 @@ def main() -> int:
                     f"runtime dependencies {sorted(dependencies)!r} != "
                     f"{sorted(EXPECTED_RUNTIME_DEPENDENCIES)!r}",
                 )
-            if label == "sdist":
-                validate_sdist_contents(artifact)
+            if names is not None:
+                _validate_sdist_names(names)
             installed_version = smoke_artifact(artifact, fixture=args.fixture)
             if installed_version != version:
                 raise _fail(

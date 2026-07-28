@@ -253,37 +253,32 @@ def _load_trend(args: argparse.Namespace) -> tuple[Implementation, dict]:
         at=args.at,
         transform=select_implementation,
     )
-    if impls:
-        # A trend must be a single implementation: one platform and one data
-        # view / report suite. Both dimensions are refused when mixed, the same
-        # way --compare-to refuses a mismatch, rather than diffing unrelated
-        # inventories. Platform is declarable, so its message points at
-        # --platform; instance has no flag, so the fix is a cleaner directory.
-        # (With --platform set, non-matching snapshots fail to adapt above and
-        # never reach here.)
-        platforms = sorted({i.platform for i in impls})
-        if len(platforms) > 1:
-            raise InvalidSnapshotError(
-                f"--trend directory mixes platforms ({', '.join(platforms)}); "
-                "pass --platform cja|aa to select one, or use a single-platform directory"
-            )
-        instances = sorted({i.instance_id for i in impls})
-        if len(instances) > 1:
-            visible_instances = ", ".join(_visible_terminal_text(value) for value in instances)
-            if not args.allow_instance_mismatch:
-                raise InvalidSnapshotError(
-                    "--trend directory mixes data views / report suites "
-                    f"({visible_instances}); use snapshots of a single implementation "
-                    "(or pass --allow-instance-mismatch)"
-                )
-            print(
-                "sdr-visualizer: warning: --trend directory mixes data views / report "
-                f"suites ({visible_instances}); --allow-instance-mismatch set",
-                file=sys.stderr,
-            )
-    if len(impls) < 2:
+    # A trend must be a single implementation: one platform and one data
+    # view / report suite. Both dimensions are refused when mixed, the same
+    # way --compare-to refuses a mismatch, rather than diffing unrelated
+    # inventories. Platform is declarable, so its message points at
+    # --platform; instance has no flag, so the fix is a cleaner directory.
+    # (With --platform set, non-matching snapshots fail to adapt above and
+    # never reach here.)
+    platforms = sorted({i.platform for i in impls})
+    if len(platforms) > 1:
         raise InvalidSnapshotError(
-            "--trend needs at least 2 usable snapshots after skipping unusable ones"
+            f"--trend directory mixes platforms ({', '.join(platforms)}); "
+            "pass --platform cja|aa to select one, or use a single-platform directory"
+        )
+    instances = sorted({i.instance_id for i in impls})
+    if len(instances) > 1:
+        visible_instances = ", ".join(_visible_terminal_text(value) for value in instances)
+        if not args.allow_instance_mismatch:
+            raise InvalidSnapshotError(
+                "--trend directory mixes data views / report suites "
+                f"({visible_instances}); use snapshots of a single implementation "
+                "(or pass --allow-instance-mismatch)"
+            )
+        print(
+            "sdr-visualizer: warning: --trend directory mixes data views / report "
+            f"suites ({visible_instances}); --allow-instance-mismatch set",
+            file=sys.stderr,
         )
     return impls[-1], build_trend(impls, capped=capped)
 
@@ -412,11 +407,13 @@ def _safe_filename_token(value: str) -> str:
 
 def _visible_terminal_text(value: str) -> str:
     """Render terminal control bytes visibly so identifiers cannot alter the display."""
-    return "".join(
-        f"\\u{codepoint:04X}" if codepoint < 32 or 127 <= codepoint <= 159 else character
-        for character in str(value)
-        for codepoint in [ord(character)]
-    )
+    visible = []
+    for character in str(value):
+        codepoint = ord(character)
+        visible.append(
+            f"\\u{codepoint:04X}" if codepoint < 32 or 127 <= codepoint <= 159 else character
+        )
+    return "".join(visible)
 
 
 __all__ = ["main", "STDIN_TOKEN"]

@@ -1146,7 +1146,7 @@
   }
 
   var CHANGES_BATCH_SIZE = 250;
-  var CHANGES_RENDER_CAP = 1000;
+  var CHANGES_RENDER_CAP = ROW_RENDER_CAP;
   var changesState = {
     initialized: false,
     entries: [],
@@ -1338,6 +1338,7 @@
       trendIdList("Added", iv.added, "change-count-added", intervalIndex, "added") +
       trendIdList("Removed", iv.removed, "change-count-removed", intervalIndex, "removed") +
       trendIdList("Modified", iv.modified, "change-count-modified", intervalIndex, "modified");
+    $body.setAttribute("data-rendered", "true");
   }
 
   function renderTrendLog() {
@@ -1385,13 +1386,16 @@
     $trendView.addEventListener("toggle", function (event) {
       var details = event.target.closest("details.trend-interval");
       if (!details || !details.open) return;
+      if (details.querySelector(".trend-interval-body").getAttribute("data-rendered")) return;
       renderTrendInterval(Number(details.getAttribute("data-interval")));
     }, true);
     $trendView.addEventListener("click", function (event) {
       var summary = event.target.closest("summary");
       if (summary) {
         var interval = summary.closest("details.trend-interval");
-        if (interval) renderTrendInterval(Number(interval.getAttribute("data-interval")));
+        if (interval && !interval.open) {
+          renderTrendInterval(Number(interval.getAttribute("data-interval")));
+        }
       }
       var button = event.target.closest("button.trend-show-next");
       if (!button) return;

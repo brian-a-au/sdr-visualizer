@@ -111,10 +111,12 @@ def check_markdown_file(
     *,
     repo: Path,
     tracked_paths: set[str],
+    anchor_cache: dict[Path, set[str]] | None = None,
 ) -> list[str]:
     """Return actionable local-link errors for one Markdown file."""
     repo = repo.resolve()
     source = source.resolve()
+    anchor_cache = {} if anchor_cache is None else anchor_cache
     display_source = source.relative_to(repo).as_posix()
     text = _without_fenced_code(source.read_text(encoding="utf-8"))
     matches = list(INLINE_LINK_RE.finditer(text)) + list(REFERENCE_DEFINITION_RE.finditer(text))
@@ -152,7 +154,11 @@ def check_markdown_file(
 
         if split.fragment and resolved.suffix.lower() in {".md", ".markdown"}:
             anchor = unquote(split.fragment)
-            if anchor not in markdown_anchors(resolved):
+            anchors = anchor_cache.get(resolved)
+            if anchors is None:
+                anchors = markdown_anchors(resolved)
+                anchor_cache[resolved] = anchors
+            if anchor not in anchors:
                 errors.append(
                     f"{display_source}:{line}: Markdown anchor does not exist: {raw_target}"
                 )
@@ -163,13 +169,19 @@ def check_markdown_file(
 def check_repository(repo: Path) -> list[str]:
     """Validate every tracked ``.md`` file in a repository."""
     tracked = tracked_files(repo)
+    anchor_cache: dict[Path, set[str]] = {}
     markdown = sorted(
         repo / path for path in tracked if Path(path).suffix.lower() in {".md", ".markdown"}
     )
     return [
         error
         for path in markdown
-        for error in check_markdown_file(path, repo=repo, tracked_paths=tracked)
+        for error in check_markdown_file(
+            path,
+            repo=repo,
+            tracked_paths=tracked,
+            anchor_cache=anchor_cache,
+        )
     ]
 
 
