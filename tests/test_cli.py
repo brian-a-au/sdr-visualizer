@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 import pytest
@@ -654,6 +655,45 @@ def test_trend_platform_declaration_selects_one_platform(tmp_path, capsys):
     assert "skipping" in capsys.readouterr().err  # AA snapshot failed CJA adaptation
     payload = extract_payload(out.read_text(encoding="utf-8"))
     assert len(payload["trend"]["snapshots"]) == 2
+
+
+def test_trend_platform_selection_happens_before_sixty_snapshot_cap(tmp_path, capsys):
+    series = tmp_path / "series"
+    series.mkdir()
+    start = datetime(2026, 1, 1, tzinfo=UTC)
+    for index in range(2):
+        stamp = (start + timedelta(hours=index)).strftime("%Y-%m-%dT%H-%M-%S")
+        _write_json(
+            series / f"snapshot_{stamp}.json",
+            _cja_trend_snapshot("dv_cja", [f"metrics/m{index}"]),
+        )
+    for index in range(60):
+        stamp = (start + timedelta(hours=index + 2)).strftime("%Y-%m-%dT%H-%M-%S")
+        aa_snapshot = {
+            "report_suite": {"rsid": "aa_newer"},
+            "dimensions": [],
+            "metrics": [],
+        }
+        _write_json(series / f"snapshot_{stamp}.json", aa_snapshot)
+    output = tmp_path / "out.html"
+
+    rc = main(
+        [
+            str(series),
+            "--trend",
+            "--platform",
+            "cja",
+            "--output",
+            str(output),
+            "--quiet",
+        ]
+    )
+
+    assert rc == 0
+    payload = extract_payload(output.read_text(encoding="utf-8"))
+    assert len(payload["trend"]["snapshots"]) == 2
+    assert payload["trend"]["capped"] is False
+    assert "capped at 60 snapshots" not in capsys.readouterr().err
 
 
 def _cja_trend_snapshot(dv_id, metric_ids):

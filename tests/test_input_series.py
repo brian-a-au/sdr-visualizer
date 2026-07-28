@@ -70,22 +70,20 @@ def test_malformed_recent_files_do_not_consume_cap_slots(tmp_path):
     assert capped is False
 
 
-def test_cap_does_not_read_or_warn_beyond_window(tmp_path, capsys):
-    # Once the window is full the loop stops before loading any older candidate,
-    # so reads stay bounded to the window no matter how large or corrupt the
-    # older archive is. The older corrupt files here are therefore never read
-    # (no per-file skip warning); `capped` records only that they exist.
+def test_cap_scans_past_corrupt_candidates_to_establish_selected_count(tmp_path, capsys):
+    # `capped` means a further usable selected snapshot exists, not merely an
+    # older filename. Corrupt candidates are therefore checked and skipped.
     _write(tmp_path, "snapshot_2026-03-01T00-00-00.json", {"n": 3})
     _write(tmp_path, "snapshot_2026-04-01T00-00-00.json", {"n": 4})
     (tmp_path / "snapshot_2026-01-01T00-00-00.json").write_text("{bad", encoding="utf-8")
     (tmp_path / "snapshot_2026-02-01T00-00-00.json").write_text("{bad", encoding="utf-8")
     entries, capped = list_snapshot_series(str(tmp_path), cap=2)
     assert [s["n"] for s, _ in entries] == [3, 4]
-    assert capped is True
+    assert capped is False
     err = capsys.readouterr().err
-    assert "older history omitted" in err
-    assert "snapshot_2026-01-01" not in err  # never loaded
-    assert "snapshot_2026-02-01" not in err
+    assert "older history omitted" not in err
+    assert "skipping snapshot_2026-01-01" in err
+    assert "skipping snapshot_2026-02-01" in err
 
 
 def test_oversized_integer_snapshot_skipped_with_warning(tmp_path, capsys):
@@ -171,3 +169,47 @@ def test_mtime_fallback_when_no_filename_timestamps(tmp_path):
     os.utime(b, (now, now))
     entries, _ = list_snapshot_series(str(tmp_path))
     assert [s["n"] for s, _ in entries] == [1, 2]
+
+
+def test_cap_counts_only_successful_transform_results(tmp_path, capsys):
+    for i in range(TREND_SNAPSHOT_CAP):
+        _write(
+            tmp_path,
+            f"snapshot_2026-01-{i // 24 + 1:02d}T{i % 24:02d}-00-00.json",
+            {"platform": "cja", "n": i},
+        )
+    for i in range(3):
+        _write(
+            tmp_path,
+            f"snapshot_2026-02-0{i + 1}T00-00-00.json",
+            {"platform": "aa", "n": 100 + i},
+        )
+    (tmp_path / "snapshot_2026-02-04T00-00-00.json").write_text("{bad", encoding="utf-8")
+
+    entries, capped = list_snapshot_series(
+        str(tmp_path),
+        transform=lambda snapshot, source: (
+            (snapshot, source) if snapshot.get("platform") == "cja" else None
+        ),
+    )
+
+    assert len(entries) == TREND_SNAPSHOT_CAP
+    assert capped is False
+    assert "older history omitted" not in capsys.readouterr().err
+
+    _write(
+        tmp_path,
+        "snapshot_2025-12-31T23-00-00.json",
+        {"platform": "cja", "n": -1},
+    )
+    entries, capped = list_snapshot_series(
+        str(tmp_path),
+        transform=lambda snapshot, source: (
+            (snapshot, source) if snapshot.get("platform") == "cja" else None
+        ),
+    )
+
+    assert len(entries) == TREND_SNAPSHOT_CAP
+    assert capped is True
+    assert entries[0][0]["n"] == 0
+    assert "capped at 60 snapshots" in capsys.readouterr().err

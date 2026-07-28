@@ -6,6 +6,7 @@ import io
 import json
 import os
 import subprocess
+import time
 from pathlib import Path
 
 import pytest
@@ -391,6 +392,34 @@ def test_invalid_filename_timestamp_falls_back_to_mtime(tmp_path):
 
     assert snap == {"chosen": True}
     assert source.endswith(newer.name)
+
+
+def test_mtime_cutoff_selection_is_timezone_independent(tmp_path):
+    before = tmp_path / "before.json"
+    after = tmp_path / "after.json"
+    before.write_text('{"chosen": "before"}', encoding="utf-8")
+    after.write_text('{"chosen": "after"}', encoding="utf-8")
+    os.utime(before, (1767265200, 1767265200))  # 2026-01-01T11:00:00Z
+    os.utime(after, (1767272400, 1767272400))  # 2026-01-01T13:00:00Z
+    original_tz = os.environ.get("TZ")
+    selected = []
+    try:
+        for zone in ("UTC", "America/Los_Angeles", "Pacific/Auckland"):
+            os.environ["TZ"] = zone
+            time.tzset()
+            snapshot, _source = load_snapshot(
+                str(tmp_path),
+                at="2026-01-01T07:00:00-05:00",
+            )
+            selected.append(snapshot["chosen"])
+    finally:
+        if original_tz is None:
+            os.environ.pop("TZ", None)
+        else:
+            os.environ["TZ"] = original_tz
+        time.tzset()
+
+    assert selected == ["before", "before", "before"]
 
 
 def test_detect_platform_rejects_non_object_and_unknown_shape():

@@ -233,11 +233,13 @@ def _load_trend(args: argparse.Namespace) -> tuple[Implementation, dict]:
 
     Returns (newest usable Implementation, trend payload section). Raised
     InvalidSnapshotError maps to exit 3 in main()'s except clause."""
-    entries, capped = list_snapshot_series(args.path, at=args.at)
-    impls: list[Implementation] = []
-    for snapshot, source in entries:
+
+    def select_implementation(
+        snapshot: dict,
+        source: str,
+    ) -> Implementation | None:
         try:
-            impls.append(build_implementation(snapshot, source=source, platform=args.platform))
+            return build_implementation(snapshot, source=source, platform=args.platform)
         except (InvalidSnapshotError, UnknownPlatformError, ValueError, TypeError) as exc:
             # Broad on purpose: any snapshot the adapter cannot turn into a valid
             # Implementation — a bad platform, or a scalar-coercion failure such
@@ -245,6 +247,13 @@ def _load_trend(args: argparse.Namespace) -> tuple[Implementation, dict]:
             # is a skippable unusable snapshot, not a reason to abort the whole
             # trend. The stderr warning keeps a genuine adapter regression visible.
             print(f"sdr-visualizer: warning: skipping {source}: {exc}", file=sys.stderr)
+            return None
+
+    impls, capped = list_snapshot_series(
+        args.path,
+        at=args.at,
+        transform=select_implementation,
+    )
     if impls:
         # A trend must be a single implementation: one platform and one data
         # view / report suite. Both dimensions are refused when mixed, the same

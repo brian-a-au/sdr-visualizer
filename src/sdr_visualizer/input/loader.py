@@ -111,9 +111,9 @@ def _pick_snapshot(candidates: list[Path], *, at: str | None) -> Path:
                     file=sys.stderr,
                 )
     if not has_timestamp:
-        # Fall back to filesystem mtime — deterministic across runs on the
-        # same machine, even if not portable.
-        annotated_mtime = [(p, datetime.fromtimestamp(p.stat().st_mtime)) for p in candidates]
+        # Fall back to filesystem mtime on the same UTC-naive clock used by
+        # filename timestamps and parsed --at values.
+        annotated_mtime = [(p, _mtime_timestamp(p)) for p in candidates]
         has_timestamp = annotated_mtime
 
     if at is None:
@@ -146,6 +146,11 @@ def _extract_timestamp(path: Path) -> datetime | None:
         return datetime(year, month, day, hour, minute, second)
     except (TypeError, ValueError):
         return None
+
+
+def _mtime_timestamp(path: Path) -> datetime:
+    """Return filesystem mtime on the loader's UTC-naive comparison clock."""
+    return datetime.fromtimestamp(path.stat().st_mtime, tz=UTC).replace(tzinfo=None)
 
 
 def _parse_iso_timestamp(value: str) -> datetime | None:
