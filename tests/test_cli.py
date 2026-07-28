@@ -167,6 +167,32 @@ def test_compare_to_embeds_changes_section(tmp_path):
     assert payload["meta"]["compared_to"]["source"].endswith("old.json")
 
 
+def test_compare_to_accepts_snapshots_without_timestamps(tmp_path):
+    old = _write_json(tmp_path / "old.json", _cja_compare_snapshot("Metric One"))
+    new = _write_json(tmp_path / "new.json", _cja_compare_snapshot("Metric One (renamed)"))
+    out = tmp_path / "out.html"
+    sidecar = tmp_path / "payload.json"
+
+    rc = main(
+        [
+            str(new),
+            "--compare-to",
+            str(old),
+            "--output",
+            str(out),
+            "--json",
+            str(sidecar),
+            "--quiet",
+        ]
+    )
+
+    assert rc == 0
+    embedded = extract_payload(out.read_text(encoding="utf-8"))
+    assert embedded["changes"]["baseline"]["taken_at"] is None
+    assert embedded["meta"]["compared_to"]["taken_at"] is None
+    assert embedded == json.loads(sidecar.read_text(encoding="utf-8"))
+
+
 def test_no_compare_flag_means_no_changes_section(tmp_path):
     snap = _write_json(tmp_path / "snap.json", _cja_compare_snapshot())
     out = tmp_path / "plain.html"

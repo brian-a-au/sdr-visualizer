@@ -523,6 +523,36 @@ def test_stringified_reference_lists_are_parsed():
     assert impl.calculated_metrics[0].references == ["metrics/x"]
 
 
+@pytest.mark.parametrize(
+    "raw_references",
+    [
+        ["metrics/orders", "variables/channel", "metrics/orders"],
+        '["metrics/orders", "variables/channel", "metrics/orders"]',
+    ],
+)
+def test_derived_field_component_references_are_normalized_and_deduplicated(
+    raw_references,
+):
+    impl = adapt(
+        _minimal_cja(
+            derived_fields={
+                "fields": [
+                    {
+                        "component_id": "variables/derived-channel",
+                        "component_name": "Derived Channel",
+                        "component_references": raw_references,
+                    }
+                ]
+            }
+        )
+    )
+
+    assert impl.derived_fields[0].platform_specific["component_references"] == [
+        "metrics/orders",
+        "variables/channel",
+    ]
+
+
 def test_nan_complexity_score_passes_through_adapter_for_renderer_to_reject():
     # Deliberate divergence from sdr-grader (which coerces NaN to a default):
     # the visualizer passes NaN through so the renderer's allow_nan=False guard

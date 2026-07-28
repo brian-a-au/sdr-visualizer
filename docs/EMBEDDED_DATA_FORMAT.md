@@ -34,7 +34,12 @@ The payload is a stable contract: external tooling can rely on the keys document
   "generated_at":          "2026-04-25T09:14:00Z",
   "component_count":       487,
   "exclude_orphans_default": false,
-  "max_graph_nodes":       1000        // only present when --max-graph-nodes was passed
+  "max_graph_nodes":       1000,       // only present when --max-graph-nodes was passed
+  "compared_to": {                     // only present with --compare-to
+    "source": "/path/to/baseline.json",
+    "taken_at": "2026-04-20 09:14:00" | null,
+    "instance_id": "dv_prod_web"
+  }
 }
 ```
 
@@ -110,7 +115,26 @@ The payload is a stable contract: external tooling can rely on the keys document
 }
 ```
 
-> Edges are directed (source → target) and only emitted when the target exists in the inventory. Dangling references are visible on the source entry's `references` array but not in `graph.edges`. Graph *nodes* are derivable from the catalog entries (`id`, `type`, `name`, `in_degree`) — the client builds them in one pass at load; `in_degree`/`out_degree` live on each entry. The separate `nodes`/`in_degree`/`out_degree` sections were removed in 0.2.0.
+> Edges are directed (source → target) and only emitted when the target exists in the inventory. CJA derived-field `component_references` contribute edges after adapter normalization, alongside segment and calculated-metric references. Dangling segment and calculated-metric references remain visible on the source entry's `references` array but are not included in `graph.edges`; derived-field dangles remain available only in the original snapshot because `platform_specific` is not embedded. Graph *nodes* are derivable from the catalog entries (`id`, `type`, `name`, `in_degree`) — the client builds them in one pass at load; `in_degree`/`out_degree` live on each entry. The separate `nodes`/`in_degree`/`out_degree` sections were removed in 0.2.0.
+
+## `changes`
+
+Present only with `--compare-to`. The baseline reference accepts a missing
+snapshot timestamp, represented as `null` in both `changes.baseline.taken_at`
+and `meta.compared_to.taken_at`:
+
+```jsonc
+{
+  "baseline": {
+    "source": "/path/to/baseline.json",
+    "taken_at": null,
+    "instance_id": "dv_prod_web"
+  },
+  "added": [],
+  "removed": [],
+  "modified": []
+}
+```
 
 ## Search index
 

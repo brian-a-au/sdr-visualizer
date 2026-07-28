@@ -110,3 +110,42 @@ def test_dangling_references_dropped_synthetic():
     assert "metrics/known" in targets
     assert "metrics/missing" not in targets
     assert "metrics/missing" not in g["in_degree"]
+
+
+def test_derived_field_references_create_unique_edges_and_drop_dangles():
+    snapshot = {
+        "metadata": {"Data View ID": "dv-derived-references"},
+        "metrics": [{"id": "metrics/orders", "name": "Orders"}],
+        "dimensions": [{"id": "variables/channel", "name": "Channel"}],
+        "derived_fields": {
+            "fields": [
+                {
+                    "component_id": "variables/derived-channel",
+                    "component_name": "Derived Channel",
+                    "component_references": (
+                        '["metrics/orders", "variables/channel", '
+                        '"metrics/orders", "variables/missing"]'
+                    ),
+                }
+            ]
+        },
+    }
+
+    graph = build_reference_graph(cja_adapt(snapshot))
+
+    edges = [edge for edge in graph["edges"] if edge["source"] == "variables/derived-channel"]
+    assert edges == [
+        {
+            "source": "variables/derived-channel",
+            "target": "metrics/orders",
+            "kind": "references",
+        },
+        {
+            "source": "variables/derived-channel",
+            "target": "variables/channel",
+            "kind": "references",
+        },
+    ]
+    assert graph["out_degree"]["variables/derived-channel"] == 2
+    assert graph["in_degree"]["metrics/orders"] == 1
+    assert graph["in_degree"]["variables/channel"] == 1

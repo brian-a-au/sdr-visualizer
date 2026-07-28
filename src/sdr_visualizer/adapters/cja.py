@@ -172,6 +172,10 @@ def _derived_field_from_record(record: dict[str, Any]) -> Component:
         "modified_at",
     }
     platform_specific = {k: v for k, v in record.items() if k not in handled}
+    if "component_references" in platform_specific:
+        platform_specific["component_references"] = list(
+            dict.fromkeys(_parse_ref_list(platform_specific["component_references"]))
+        )
 
     return Component(
         id=str(component_id),

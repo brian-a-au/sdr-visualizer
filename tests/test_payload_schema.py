@@ -60,6 +60,46 @@ def test_compare_payload_validates():
     _assert_valid(payload)
 
 
+def test_timestampless_compare_cli_payload_and_sidecar_validate(tmp_path):
+    old_snapshot = {
+        "metadata": {"Data View ID": "dv-no-timestamp"},
+        "metrics": [{"id": "metrics/orders", "name": "Orders"}],
+        "dimensions": [],
+    }
+    new_snapshot = {
+        "metadata": {"Data View ID": "dv-no-timestamp"},
+        "metrics": [{"id": "metrics/orders", "name": "Renamed Orders"}],
+        "dimensions": [],
+    }
+    old = tmp_path / "old.json"
+    new = tmp_path / "new.json"
+    out = tmp_path / "report.html"
+    sidecar = tmp_path / "payload.json"
+    old.write_text(json.dumps(old_snapshot), encoding="utf-8")
+    new.write_text(json.dumps(new_snapshot), encoding="utf-8")
+
+    rc = main(
+        [
+            str(new),
+            "--compare-to",
+            str(old),
+            "--output",
+            str(out),
+            "--json",
+            str(sidecar),
+            "--quiet",
+        ]
+    )
+
+    assert rc == 0
+    embedded = extract_payload(out.read_text(encoding="utf-8"))
+    written = json.loads(sidecar.read_text(encoding="utf-8"))
+    assert embedded == written
+    assert embedded["changes"]["baseline"]["taken_at"] is None
+    assert embedded["meta"]["compared_to"]["taken_at"] is None
+    _assert_valid(embedded)
+
+
 def test_trend_payload_validates():
     impls = [_impl("cja_snapshot_clean.json"), _impl("cja_snapshot_messy.json")]
     payload = build_payload_with_options(impls[-1])
