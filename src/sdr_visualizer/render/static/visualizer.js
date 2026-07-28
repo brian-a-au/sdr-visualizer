@@ -656,6 +656,7 @@
   var GRAPH_NODE_THRESHOLD = (payload.meta && typeof payload.meta.max_graph_nodes === "number")
     ? payload.meta.max_graph_nodes
     : 1000;
+  var GRAPH_EDGE_THRESHOLD = 8000;
 
   var $viewButtons = document.querySelectorAll(".view-button[data-view]");
   var $catalogView = document.getElementById("catalog-view");
@@ -710,7 +711,8 @@
 
   function maybeInitGraph() {
     var totalNodes = catalog.length;
-    if (totalNodes > GRAPH_NODE_THRESHOLD) {
+    var totalEdges = ((payload.graph && payload.graph.edges) || []).length;
+    if (totalNodes > GRAPH_NODE_THRESHOLD || totalEdges > GRAPH_EDGE_THRESHOLD) {
       $graphDegraded.hidden = false;
       return;
     }

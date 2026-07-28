@@ -133,6 +133,8 @@ Build time and HTML size are enforced at every published tier (100 / 500 / 1,000
 components). Browser-measured budgets are enforced at the 1,000-component tier
 (initial render < 1s, filter/search < 150ms) and the 2,000-component tier
 (< 2s, < 300ms), plus a 700ms cap on the graph view's main-thread block.
+These guarantees cover up to 8,000 reference edges; denser valid reports use
+an explicit graph opt-in and sit outside the published size/latency envelope.
 
 ## Stability
 

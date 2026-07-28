@@ -117,6 +117,36 @@ def test_artifact_metadata_parsers_report_only_direct_runtime_requirements(tmp_p
     assert package_smoke_check.artifact_metadata(sdist) == ("1.0.3", {"jinja2"})
 
 
+def test_sdist_contents_reject_missing_required_document():
+    names = set(package_smoke_check.REQUIRED_SDIST_PATHS)
+    names.remove("README.md")
+
+    with pytest.raises(
+        package_smoke_check.SmokeFailure,
+        match=r"\[sdist: contents\].*README\.md",
+    ):
+        package_smoke_check._validate_sdist_names(names)
+
+
+@pytest.mark.parametrize(
+    "forbidden",
+    [
+        "tests/fixtures/cja_snapshot_large.json",
+        "SPEC-VISUALIZER.md",
+        "docs/plans/private-plan.md",
+        "src/sdr_visualizer/__pycache__/module.pyc",
+    ],
+)
+def test_sdist_contents_reject_private_generated_and_cache_paths(forbidden):
+    names = {*package_smoke_check.REQUIRED_SDIST_PATHS, forbidden}
+
+    with pytest.raises(
+        package_smoke_check.SmokeFailure,
+        match=r"\[sdist: contents\].*contains forbidden files",
+    ):
+        package_smoke_check._validate_sdist_names(names)
+
+
 def test_project_metadata_keeps_yaml_dev_only_and_ships_referenced_documents():
     project = tomllib.loads((REPO / "pyproject.toml").read_text(encoding="utf-8"))
     assert project["project"]["dependencies"] == ["jinja2>=3.1"]

@@ -142,7 +142,8 @@ and `meta.compared_to.taken_at`:
 ```
 
 `added` and `removed` entries contain `id`, `type`, and `name`. A `modified`
-entry also contains `fields`, an array of `{field, before, after}` records.
+entry also contains `fields`. Scalar changes use `{field, old, new}` records;
+list-valued changes use `{field, added, removed}` records.
 Only the baseline reference and change summaries are embedded; the full
 baseline snapshot is not.
 

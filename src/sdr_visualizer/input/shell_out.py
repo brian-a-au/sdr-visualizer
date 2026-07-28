@@ -66,12 +66,14 @@ def _shell_out(tool: str, argv: list[str], *, flag: str) -> tuple[dict[str, Any]
         raise InvalidSnapshotError(
             f"{tool} exited {exc.returncode}: {stderr.strip() or '(no stderr)'}"
         ) from exc
-    except FileNotFoundError as exc:
+    except (FileNotFoundError, UnicodeError) as exc:
         raise InvalidSnapshotError(f"{tool} could not be invoked: {exc}") from exc
 
     try:
         snapshot = json.loads(result.stdout)
     except json.JSONDecodeError as exc:
+        raise InvalidSnapshotError(f"{tool} produced output that is not valid JSON: {exc}") from exc
+    except ValueError as exc:
         raise InvalidSnapshotError(f"{tool} produced output that is not valid JSON: {exc}") from exc
     except RecursionError as exc:
         raise InvalidSnapshotError(f"{tool} output JSON exceeds nesting limits") from exc

@@ -59,8 +59,18 @@ def test_aa_large_fixture_meets_budget():
 
 
 def test_dense_graph_fixture_has_expected_node_and_edge_pressure():
-    snap = generate_large_fixture.build_snapshot(scale=5 / 6, dense_graph_edges=5_000)
+    snap = generate_large_fixture.build_snapshot(scale=5 / 6, dense_graph_edges=7_800)
     payload = build_payload_with_options(cja_adapt(snap))
+    html = render(cja_adapt(snap))
 
     assert 990 <= payload["meta"]["component_count"] <= 1_010
-    assert 5_000 <= len(payload["graph"]["edges"]) <= 5_200
+    assert 7_800 <= len(payload["graph"]["edges"]) <= 8_000
+    assert len(html.encode("utf-8")) / (1024 * 1024) < 4.0
+
+
+def test_browser_graph_edge_limit_matches_python_performance_gate():
+    javascript = (
+        REPO / "src" / "sdr_visualizer" / "render" / "static" / "visualizer.js"
+    ).read_text(encoding="utf-8")
+
+    assert "var GRAPH_EDGE_THRESHOLD = 8000;" in javascript

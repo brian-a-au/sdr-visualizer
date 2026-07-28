@@ -1028,9 +1028,9 @@ h1 {
 
   <div id="graph-stage" class="graph-stage">
     <div id="graph-degraded" class="graph-degraded ui" hidden>
-      <p>This implementation has more nodes than the default render
-        threshold. Showing the graph for thousands of nodes is slow and
-        often unhelpful.</p>
+      <p>This implementation has more nodes or reference edges than the
+        default render thresholds. Showing a very large graph can be slow
+        and difficult to use.</p>
       <button type="button" id="graph-render-anyway" class="ghost-button ui">Render anyway</button>
     </div>
     <svg id="graph-canvas" aria-label="Reference graph" role="img"></svg>
@@ -1718,6 +1718,7 @@ h1 {
   var GRAPH_NODE_THRESHOLD = (payload.meta && typeof payload.meta.max_graph_nodes === "number")
     ? payload.meta.max_graph_nodes
     : 1000;
+  var GRAPH_EDGE_THRESHOLD = 8000;
 
   var $viewButtons = document.querySelectorAll(".view-button[data-view]");
   var $catalogView = document.getElementById("catalog-view");
@@ -1772,7 +1773,8 @@ h1 {
 
   function maybeInitGraph() {
     var totalNodes = catalog.length;
-    if (totalNodes > GRAPH_NODE_THRESHOLD) {
+    var totalEdges = ((payload.graph && payload.graph.edges) || []).length;
+    if (totalNodes > GRAPH_NODE_THRESHOLD || totalEdges > GRAPH_EDGE_THRESHOLD) {
       $graphDegraded.hidden = false;
       return;
     }

@@ -232,6 +232,18 @@ def test_shell_out_file_disappearing_after_lookup_is_domain_error(monkeypatch):
         shell_cja("dv_xyz")
 
 
+def test_shell_out_invalid_utf8_is_domain_error(monkeypatch):
+    monkeypatch.setattr("sdr_visualizer.input.shell_out.shutil.which", lambda _name: "/bin/tool")
+
+    def invalid_utf8(_cmd, **_kwargs):
+        raise UnicodeDecodeError("utf-8", b"\xff", 0, 1, "invalid start byte")
+
+    monkeypatch.setattr("sdr_visualizer.input.shell_out.subprocess.run", invalid_utf8)
+
+    with pytest.raises(InvalidSnapshotError, match="could not be invoked"):
+        shell_cja("dv_xyz")
+
+
 def test_shell_out_invalid_json_is_domain_error(monkeypatch):
     monkeypatch.setattr("sdr_visualizer.input.shell_out.shutil.which", lambda _name: "/bin/tool")
     monkeypatch.setattr(
@@ -240,6 +252,18 @@ def test_shell_out_invalid_json_is_domain_error(monkeypatch):
     )
 
     with pytest.raises(InvalidSnapshotError, match="produced output that is not valid JSON"):
+        shell_cja("dv_xyz")
+
+
+def test_shell_out_oversized_integer_is_domain_error(monkeypatch):
+    monkeypatch.setattr("sdr_visualizer.input.shell_out.shutil.which", lambda _name: "/bin/tool")
+    oversized = '{"value":' + ("9" * 5_000) + "}"
+    monkeypatch.setattr(
+        "sdr_visualizer.input.shell_out.subprocess.run",
+        lambda cmd, **_kwargs: subprocess.CompletedProcess(cmd, 0, stdout=oversized),
+    )
+
+    with pytest.raises(InvalidSnapshotError, match="not valid JSON"):
         shell_cja("dv_xyz")
 
 
@@ -288,6 +312,25 @@ def test_mode4_malformed_stdin_exits_3(monkeypatch, capsys, stdin_text, expected
 
     assert rc == 3
     assert expected in capsys.readouterr().err
+
+
+def test_mode4_oversized_integer_exits_3(monkeypatch, capsys):
+    monkeypatch.setattr("sys.stdin", io.StringIO('{"value":' + ("9" * 5_000) + "}"))
+
+    rc = main(["-", "--quiet"])
+
+    assert rc == 3
+    assert "stdin is not valid JSON" in capsys.readouterr().err
+
+
+def test_invalid_utf8_file_exits_3(tmp_path, capsys):
+    snapshot = tmp_path / "invalid-utf8.json"
+    snapshot.write_bytes(b"\xff")
+
+    rc = main([str(snapshot), "--quiet"])
+
+    assert rc == 3
+    assert "could not read" in capsys.readouterr().err
 
 
 def test_stdin_json_recursion_error_is_domain_error(monkeypatch):

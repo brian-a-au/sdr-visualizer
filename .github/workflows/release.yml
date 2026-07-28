@@ -23,7 +23,7 @@ jobs:
         run: uv python install 3.12
 
       - name: Sync dependencies
-        run: uv sync --dev --group browser
+        run: uv sync --locked --dev --group browser
 
       - name: Install browsers
         run: uv run playwright install --with-deps chromium webkit
@@ -58,7 +58,7 @@ jobs:
         run: uv python install 3.12
 
       - name: Sync dependencies
-        run: uv sync --all-extras --dev
+        run: uv sync --locked --all-extras --dev
 
       - name: Lint
         run: uv run ruff check

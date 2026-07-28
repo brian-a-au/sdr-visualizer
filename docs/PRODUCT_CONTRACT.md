@@ -33,8 +33,12 @@ mixed trend directory. Live mode fixes the platform itself.
 
 A directory normally selects its newest timestamped snapshot. `--at` selects
 the newest snapshot at or before an ISO-8601 cutoff using UTC-consistent
-comparison. Corrupt files and filenames without usable timestamps are skipped
-with a warning during directory selection.
+comparison. In a directory that mixes timestamped and untimestamped filenames,
+the untimestamped files are skipped with a warning; when no filenames carry a
+timestamp, filesystem modification time is used. Ordinary directory mode
+loads the one selected file and reports it as invalid if it is corrupt.
+`--trend` instead scans past corrupt or unusable candidates with warnings until
+it fills the selected-platform window.
 
 `--compare-to` requires the same platform and, by default, the same data view
 or report suite. `--trend` likewise requires one platform and one
@@ -103,6 +107,8 @@ edges and degree counts. Dangling references do not create graph edges.
 Browser rendering is also bounded:
 
 - the catalog and Changes view render at most 1,000 matching rows at once;
+- the graph requires explicit opt-in above 1,000 nodes (or the configured
+  `--max-graph-nodes` value) and above 8,000 reference edges;
 - Changes materializes rows in batches of 250 after filtering the full data;
 - Trend emits at most 59 interval summaries for its 60 snapshots; and
 - Trend creates changed-ID chips only when an interval is expanded, in batches

@@ -4,7 +4,7 @@ Measures the budgets Python can't: initial render time, cold/warm
 filter/search latency, and the main-thread block when entering the graph
 view, in real Chromium via Playwright. In addition to the ordinary and XL
 tiers, the gate exercises a disjoint-ID comparison, a 60-snapshot
-high-churn trend, and a ~1,000-node/~5,000-edge graph.
+high-churn trend, and a ~1,000-node/~8,000-edge graph.
 
 Setup + run:
 
@@ -303,7 +303,9 @@ def main() -> int:
 
             dense_snap = generator_module.build_snapshot(
                 scale=5 / 6,
-                dense_graph_edges=5_000,
+                # The generator also retains ~100 ordinary segment/calc edges;
+                # keep the total just inside the documented 8,000-edge envelope.
+                dense_graph_edges=7_800,
             )
             dense_path = Path(tmp) / "cja_dense_graph.html"
             dense_path.write_text(render(adapters["cja"](dense_snap)), encoding="utf-8")
@@ -314,7 +316,7 @@ def main() -> int:
                 1000.0,
                 150.0,
                 False,
-                minimum_graph_edges=5_000,
+                minimum_graph_edges=7_800,
             )
             checked += 1
         browser.close()

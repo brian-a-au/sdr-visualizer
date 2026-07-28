@@ -40,7 +40,8 @@ Run from a clean checkout of the candidate:
 
 ```bash
 uv lock --check
-uv sync --dev --group browser
+uv sync --locked --dev --group browser
+uv run playwright install chromium webkit
 uv run ruff check
 uv run ruff format --check
 uv run python scripts/check_markdown_links.py
@@ -86,9 +87,19 @@ their metadata and confirm Jinja2 is the only direct runtime dependency,
 required public documents are in the source distribution, and ignored specs,
 plans, generated fixtures, caches, and repository metadata are absent.
 
-Run a vulnerability scan against an exported runtime-only dependency set.
-Record the scanner version, database date if reported, exact dependency set,
-and result. Review `LICENSE` and
+Export and audit the runtime-only dependency set:
+
+```bash
+uv export --locked --no-dev --no-emit-project --no-header \
+  --format requirements-txt \
+  --output-file /tmp/sdr-visualizer-runtime-requirements.txt
+uvx --python 3.12 pip-audit --disable-pip --no-deps \
+  -r /tmp/sdr-visualizer-runtime-requirements.txt
+```
+
+The audit must report no known vulnerabilities. Record the `pip-audit`
+version, vulnerability database date if reported, exact exported dependency
+set, and result. Review `LICENSE` and
 [`THIRD_PARTY_LICENSES`](../THIRD_PARTY_LICENSES) against shipped code and the
 resolved dependency licenses.
 

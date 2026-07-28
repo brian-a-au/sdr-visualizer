@@ -341,6 +341,23 @@ def test_graph_filter_change_cancels_hover(browser_page, tmp_path):
     assert _node_labels(browser_page, "is-highlighted") == ["Dim 1"]
 
 
+def test_graph_edge_density_requires_explicit_opt_in(browser_page, tmp_path):
+    snap = json.loads((FIXTURES / "cja_snapshot_clean.json").read_text(encoding="utf-8"))
+    payload = build_payload_with_options(cja_adapt(snap))
+    ids = [component["id"] for component in payload["components"]]
+    edge = {"source": ids[0], "target": ids[1], "kind": "references"}
+    payload["graph"]["edges"] = [edge] * 8_001
+    out = tmp_path / "dense-edge-gate.html"
+    out.write_text(render_payload(payload), encoding="utf-8")
+
+    browser_page.goto(out.as_uri())
+    browser_page.wait_for_selector("#catalog-body tr", state="attached", timeout=10_000)
+    browser_page.click('.view-button[data-view="graph"]')
+
+    assert browser_page.locator("#graph-degraded").is_visible()
+    assert browser_page.locator("#graph-canvas line.graph-edge").count() == 0
+
+
 def test_small_graph_uses_radial_layout(browser_page, tmp_path):
     _open_tiny_graph(browser_page, tmp_path, "tiny.html")
     positions = browser_page.evaluate(
@@ -639,6 +656,21 @@ def test_changes_filter_and_progressive_batches_are_bounded(browser_page, tmp_pa
     assert browser_page.locator("#changes-show-all").count() == 0
 
 
+def test_changes_reentry_does_not_duplicate_state_or_listeners(browser_page, tmp_path):
+    out = _render_many_changes(tmp_path, "compare_reentry.html")
+    browser_page.goto(out.as_uri())
+    browser_page.wait_for_selector("#catalog-body tr", state="attached", timeout=10_000)
+
+    browser_page.click('.view-button[data-view="changes"]')
+    rows = browser_page.locator("#changes-body .change-row")
+    assert rows.count() == 250
+    browser_page.click('.view-button[data-view="catalog"]')
+    browser_page.click('.view-button[data-view="changes"]')
+    assert rows.count() == 250
+    browser_page.click("#changes-show-next")
+    assert rows.count() == 500
+
+
 def test_lazy_changes_and_trend_escape_hostile_text(browser_page, tmp_path):
     _, new = _compare_pair()
     payload = build_payload_with_options(cja_adapt(new))
@@ -765,6 +797,22 @@ def test_trend_ids_materialize_in_fixed_batches(browser_page, tmp_path):
     while interval.locator(".trend-show-next").count():
         interval.locator(".trend-show-next").click()
     assert interval.locator(".trend-id").count() == 250
+
+
+def test_trend_reentry_does_not_duplicate_state_or_listeners(browser_page, tmp_path):
+    ids = [f"metrics/high_churn_{i:04d}" for i in range(250)]
+    out = _render_trend(tmp_path, "trend_reentry.html", added_ids=ids)
+    browser_page.goto(out.as_uri())
+    browser_page.wait_for_selector("#catalog-body tr", state="attached", timeout=10_000)
+
+    browser_page.click('.view-button[data-view="trend"]')
+    interval = browser_page.locator("#trend-log details.trend-interval").first
+    interval.locator("summary").click()
+    assert interval.locator(".trend-id").count() == 100
+    browser_page.click('.view-button[data-view="catalog"]')
+    browser_page.click('.view-button[data-view="trend"]')
+    interval.locator(".trend-show-next").click()
+    assert interval.locator(".trend-id").count() == 200
 
 
 def test_trend_view_url_state_restores(browser_page, tmp_path):

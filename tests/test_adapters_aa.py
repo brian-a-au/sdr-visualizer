@@ -366,6 +366,18 @@ def test_scalar_formula_args_render_without_crashing():
     assert "<html" in html.lower()
 
 
+@pytest.mark.parametrize("section", ["calculated_metrics", "segments"])
+def test_aa_definition_budget_is_enforced_before_recursive_summary(section):
+    snap = json.loads((FIXTURES / "aa_snapshot_clean.json").read_text(encoding="utf-8"))
+    if section == "calculated_metrics":
+        snap[section][0]["definition"] = {"formula": {"func": "add", "args": [0] * 10_000}}
+    else:
+        snap[section][0]["definition"] = {"children": [0] * 10_000}
+
+    with pytest.raises(InvalidSnapshotError, match="maximum of 10,000 nodes"):
+        adapt(snap)
+
+
 # ---------------------------------------------------------------------------
 # sdr-grader parity: stringified JSON tag lists parse.
 # ---------------------------------------------------------------------------

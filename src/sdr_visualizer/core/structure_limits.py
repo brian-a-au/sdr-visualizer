@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Iterator
 from typing import Any
 
 from sdr_visualizer.core.exceptions import InvalidSnapshotError
@@ -9,6 +10,17 @@ from sdr_visualizer.core.exceptions import InvalidSnapshotError
 MAX_STRUCTURE_DEPTH = 100
 MAX_STRUCTURE_NODES = 250_000
 MAX_DEFINITION_NODES = 10_000
+
+
+def _iter_structure(value: Any) -> Iterator[tuple[Any, int]]:
+    stack: list[tuple[Any, int]] = [(value, 0)]
+    while stack:
+        node, depth = stack.pop()
+        yield node, depth
+        if isinstance(node, dict):
+            stack.extend((child, depth + 1) for child in node.values())
+        elif isinstance(node, list):
+            stack.extend((child, depth + 1) for child in node)
 
 
 def measure_structure(value: Any) -> tuple[int, int]:
@@ -19,15 +31,9 @@ def measure_structure(value: Any) -> tuple[int, int]:
     """
     nodes = 0
     maximum_depth = 0
-    stack: list[tuple[Any, int]] = [(value, 0)]
-    while stack:
-        node, depth = stack.pop()
+    for _node, depth in _iter_structure(value):
         nodes += 1
         maximum_depth = max(maximum_depth, depth)
-        if isinstance(node, dict):
-            stack.extend((child, depth + 1) for child in node.values())
-        elif isinstance(node, list):
-            stack.extend((child, depth + 1) for child in node)
     return nodes, maximum_depth
 
 
@@ -58,18 +64,10 @@ def _validate_structure(
     max_depth: int,
     max_nodes: int,
 ) -> None:
-    nodes = 0
-    stack: list[tuple[Any, int]] = [(value, 0)]
-    while stack:
-        node, depth = stack.pop()
+    for nodes, (_node, depth) in enumerate(_iter_structure(value), start=1):
         if depth > max_depth:
             raise InvalidSnapshotError(
                 f"{label} exceeds the maximum structure depth of {max_depth}"
             )
-        nodes += 1
         if nodes > max_nodes:
             raise InvalidSnapshotError(f"{label} exceeds the maximum of {max_nodes:,} nodes")
-        if isinstance(node, dict):
-            stack.extend((child, depth + 1) for child in node.values())
-        elif isinstance(node, list):
-            stack.extend((child, depth + 1) for child in node)

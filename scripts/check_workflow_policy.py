@@ -16,6 +16,7 @@ from typing import Any
 import yaml
 
 SHA_RE = re.compile(r"^[0-9a-fA-F]{40}$")
+DOCKER_DIGEST_RE = re.compile(r"^docker://.+@sha256:[0-9a-fA-F]{64}$")
 WRITE_CAPABILITIES = {
     "contents": "repository contents",
     "pages": "GitHub Pages",
@@ -122,6 +123,16 @@ def _action_errors(path: Path, workflow: dict[str, Any]) -> list[str]:
         if not isinstance(job, dict):
             continue
         for uses in _job_actions(job):
+            if uses.startswith("docker://"):
+                if not DOCKER_DIGEST_RE.fullmatch(uses):
+                    errors.append(
+                        _error(
+                            path,
+                            f"job {job_name!r} Docker action must use an immutable "
+                            f"sha256 digest, got {uses!r}",
+                        )
+                    )
+                continue
             remote = _remote_action(uses)
             if remote is None:
                 continue
@@ -161,9 +172,41 @@ def _uses_action(step: dict[str, Any], action: str) -> bool:
     return remote is not None and remote[0] == action
 
 
-def _run_contains(step: dict[str, Any], *needles: str) -> bool:
-    run = str(step.get("run", ""))
-    return all(needle in run for needle in needles)
+def _run_is(step: dict[str, Any], command: str) -> bool:
+    return str(step.get("run", "")).strip() == command
+
+
+def _uses_default_success_gating(item: dict[str, Any]) -> bool:
+    return item.get("if") is None and item.get("continue-on-error") in {None, False}
+
+
+def _require_default_success(
+    errors: list[str],
+    *,
+    path: Path,
+    label: str,
+    item: dict[str, Any],
+) -> None:
+    if not _uses_default_success_gating(item):
+        errors.append(_error(path, f"{label} must use default success gating"))
+
+
+def _lock_errors(path: Path, workflow: dict[str, Any]) -> list[str]:
+    errors = []
+    jobs = workflow.get("jobs", {})
+    if not isinstance(jobs, dict):
+        return errors
+    for job_name, job in jobs.items():
+        if not isinstance(job, dict):
+            continue
+        for step in _steps(job):
+            for line in str(step.get("run", "")).splitlines():
+                command = line.strip()
+                if re.match(r"^uv\s+sync(?:\s|$)", command) and not re.search(
+                    r"(?:^|\s)--locked(?:\s|$)", command
+                ):
+                    errors.append(_error(path, f"job {job_name!r} uv sync must include --locked"))
+    return errors
 
 
 def _release_errors(path: Path, workflow: dict[str, Any]) -> list[str]:
@@ -180,18 +223,38 @@ def _release_errors(path: Path, workflow: dict[str, Any]) -> list[str]:
     build = jobs["build"]
     publish = jobs["publish"]
     github_release = jobs["github-release"]
+    if not all(isinstance(job, dict) for job in (build, publish, github_release)):
+        return [*errors, _error(path, "release jobs must be mappings")]
     if "build" not in _needs(publish):
         errors.append(_error(path, "publish must need build"))
     if "publish" not in _needs(github_release):
         errors.append(_error(path, "github-release must need publish"))
-    if github_release.get("if") is not None:
-        errors.append(_error(path, "github-release must use default success gating after publish"))
-    if publish.get("continue-on-error") not in {None, False}:
-        errors.append(_error(path, "publish must not continue on PyPI errors"))
+    for job_name, job in jobs.items():
+        if isinstance(job, dict):
+            _require_default_success(
+                errors,
+                path=path,
+                label=f"job {job_name!r}",
+                item=job,
+            )
 
-    build_distribution = _step_index(build, lambda step: _run_contains(step, "uv build"))
-    smoke = _step_index(build, lambda step: _run_contains(step, "package_smoke_check.py"))
-    checksum = _step_index(build, lambda step: _run_contains(step, "sha256sum", "SHA256SUMS"))
+    build_distribution = _step_index(
+        build, lambda step: _run_is(step, "uv build --out-dir dist/packages")
+    )
+    smoke = _step_index(
+        build,
+        lambda step: _run_is(
+            step,
+            "uv run python scripts/package_smoke_check.py dist/packages/",
+        ),
+    )
+    checksum = _step_index(
+        build,
+        lambda step: _run_is(
+            step,
+            "cd dist/packages && sha256sum *.whl *.tar.gz > ../SHA256SUMS",
+        ),
+    )
     upload = _step_index(build, lambda step: _uses_action(step, "actions/upload-artifact"))
     if None in {build_distribution, smoke, checksum, upload}:
         errors.append(_error(path, "build must build, smoke, checksum, then upload distributions"))
@@ -201,44 +264,99 @@ def _release_errors(path: Path, workflow: dict[str, Any]) -> list[str]:
         )
     elif "SHA256SUMS" not in str(_steps(build)[upload].get("with", {}).get("path", "")):
         errors.append(_error(path, "build artifact upload must include SHA256SUMS"))
+    for label, index in (
+        ("build distribution step", build_distribution),
+        ("installed-artifact smoke step", smoke),
+        ("digest generation step", checksum),
+        ("artifact upload step", upload),
+    ):
+        if index is not None:
+            _require_default_success(
+                errors,
+                path=path,
+                label=label,
+                item=_steps(build)[index],
+            )
 
+    publish_fetch = _step_index(
+        publish, lambda step: _uses_action(step, "actions/download-artifact")
+    )
     publish_verify = _step_index(
-        publish, lambda step: _run_contains(step, "sha256sum", "-c", "SHA256SUMS")
+        publish,
+        lambda step: _run_is(
+            step,
+            "cd dist/packages && sha256sum -c ../SHA256SUMS",
+        ),
     )
     pypi = _step_index(publish, lambda step: _uses_action(step, "pypa/gh-action-pypi-publish"))
     if publish_verify is None:
         errors.append(_error(path, "publish must verify SHA256SUMS"))
+    if publish_fetch is None:
+        errors.append(_error(path, "publish must fetch verified distributions"))
     if pypi is None:
         errors.append(_error(path, "publish must invoke pypa/gh-action-pypi-publish"))
-    elif _steps(publish)[pypi].get("continue-on-error") not in {None, False}:
-        errors.append(_error(path, "PyPI publication step must fail the publish job"))
-    if publish_verify is not None and pypi is not None and publish_verify > pypi:
-        errors.append(_error(path, "publish must verify SHA256SUMS before PyPI"))
+    if None not in {publish_fetch, publish_verify, pypi} and not (
+        publish_fetch < publish_verify < pypi
+    ):
+        errors.append(_error(path, "publish stages must be ordered fetch -> verify -> PyPI"))
     if pypi is not None:
         packages_dir = str(_steps(publish)[pypi].get("with", {}).get("packages-dir", ""))
         if packages_dir.rstrip("/") != "dist/packages":
             errors.append(_error(path, "PyPI packages-dir must exclude the SHA256SUMS manifest"))
+    for label, index in (
+        ("publish artifact fetch step", publish_fetch),
+        ("publish digest verification step", publish_verify),
+        ("PyPI publication step", pypi),
+    ):
+        if index is not None:
+            _require_default_success(
+                errors,
+                path=path,
+                label=label,
+                item=_steps(publish)[index],
+            )
 
+    release_fetch = _step_index(
+        github_release, lambda step: _uses_action(step, "actions/download-artifact")
+    )
     release_verify = _step_index(
-        github_release, lambda step: _run_contains(step, "sha256sum", "-c", "SHA256SUMS")
+        github_release,
+        lambda step: _run_is(
+            step,
+            "cd dist/packages && sha256sum -c ../SHA256SUMS",
+        ),
     )
     release_action = _step_index(
         github_release, lambda step: _uses_action(step, "softprops/action-gh-release")
     )
     if release_verify is None:
         errors.append(_error(path, "github-release must verify SHA256SUMS"))
+    if release_fetch is None:
+        errors.append(_error(path, "github-release must fetch verified distributions"))
     if release_action is None:
         errors.append(_error(path, "github-release must invoke softprops/action-gh-release"))
-    if (
-        release_verify is not None
-        and release_action is not None
-        and release_verify > release_action
+    if None not in {release_fetch, release_verify, release_action} and not (
+        release_fetch < release_verify < release_action
     ):
-        errors.append(_error(path, "github-release must verify SHA256SUMS before release"))
+        errors.append(
+            _error(path, "github-release stages must be ordered fetch -> verify -> release")
+        )
     if release_action is not None:
         files = str(_steps(github_release)[release_action].get("with", {}).get("files", ""))
         if "SHA256SUMS" not in files:
             errors.append(_error(path, "GitHub release files must include SHA256SUMS"))
+    for label, index in (
+        ("release artifact fetch step", release_fetch),
+        ("release digest verification step", release_verify),
+        ("GitHub release step", release_action),
+    ):
+        if index is not None:
+            _require_default_success(
+                errors,
+                path=path,
+                label=label,
+                item=_steps(github_release)[index],
+            )
 
     for job_name, job in jobs.items():
         if not isinstance(job, dict):
@@ -279,6 +397,7 @@ def check(path: Path) -> list[str]:
     return [
         *_action_errors(path, workflow),
         *_permission_errors(path, workflow),
+        *_lock_errors(path, workflow),
         *_release_errors(path, workflow),
         *_examples_errors(path, workflow),
     ]

@@ -104,6 +104,53 @@ def test_rejects_mutable_and_short_remote_action_refs(tmp_path):
     )
 
 
+def test_docker_actions_require_immutable_image_digests(tmp_path):
+    mutable = _write(
+        tmp_path,
+        "mutable-docker.yml",
+        """
+name: docker
+on: push
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: docker://alpine:3.21
+""",
+    )
+    assert any(
+        "Docker action must use an immutable sha256 digest" in error
+        for error in check_workflow_policy.check(mutable)
+    )
+
+    digest = "b" * 64
+    pinned = _write(
+        tmp_path,
+        "pinned-docker.yml",
+        mutable.read_text(encoding="utf-8").replace(
+            "docker://alpine:3.21",
+            f"docker://alpine@sha256:{digest}",
+        ),
+    )
+    assert check_workflow_policy.check(pinned) == []
+
+
+def test_dependency_sync_must_be_locked(tmp_path):
+    workflow = _write(
+        tmp_path,
+        "unlocked.yml",
+        _basic_workflow(SHA).replace(
+            f"- uses: actions/checkout@{SHA}",
+            f"- uses: actions/checkout@{SHA}\n      - run: uv sync --dev",
+        ),
+    )
+    assert any(
+        "uv sync must include --locked" in error for error in check_workflow_policy.check(workflow)
+    )
+
+
 def test_rejects_top_level_write_and_unneeded_job_write(tmp_path):
     top_level = _write(
         tmp_path,
@@ -200,6 +247,90 @@ def test_rejects_release_stage_without_digest_verification(tmp_path):
     assert any(
         "publish must verify SHA256SUMS" in error for error in check_workflow_policy.check(workflow)
     )
+
+
+def test_rejects_noop_digest_verification_text(tmp_path):
+    workflow = _write(
+        tmp_path,
+        "release.yml",
+        _release_workflow().replace(
+            "run: cd dist/packages && sha256sum -c ../SHA256SUMS",
+            "run: echo sha256sum -c SHA256SUMS",
+            1,
+        ),
+    )
+    assert any(
+        "publish must verify SHA256SUMS" in error for error in check_workflow_policy.check(workflow)
+    )
+
+
+def test_release_critical_steps_require_default_success_gating(tmp_path):
+    nonblocking_verify = _write(
+        tmp_path,
+        "release.yml",
+        _release_workflow().replace(
+            "      - run: cd dist/packages && sha256sum -c ../SHA256SUMS",
+            "      - continue-on-error: true\n"
+            "        run: cd dist/packages && sha256sum -c ../SHA256SUMS",
+            1,
+        ),
+    )
+    assert any(
+        "publish digest verification step must use default success gating" in error
+        for error in check_workflow_policy.check(nonblocking_verify)
+    )
+
+    always_publish = _write(
+        tmp_path,
+        "release.yml",
+        _release_workflow().replace(
+            f"      - uses: pypa/gh-action-pypi-publish@{SHA}",
+            f"      - uses: pypa/gh-action-pypi-publish@{SHA}\n        if: always()",
+        ),
+    )
+    assert any(
+        "PyPI publication step must use default success gating" in error
+        for error in check_workflow_policy.check(always_publish)
+    )
+
+
+def test_rejects_each_unsafe_release_stage_order(tmp_path):
+    cases = {
+        "smoke-before-build": (
+            "      - name: Build distributions\n"
+            "        run: uv build --out-dir dist/packages\n"
+            "      - name: Smoke installed artifacts\n"
+            "        run: uv run python scripts/package_smoke_check.py dist/packages/",
+            "      - name: Smoke installed artifacts\n"
+            "        run: uv run python scripts/package_smoke_check.py dist/packages/\n"
+            "      - name: Build distributions\n"
+            "        run: uv build --out-dir dist/packages",
+            "build artifact stages must be ordered",
+        ),
+        "verify-after-pypi": (
+            "      - run: cd dist/packages && sha256sum -c ../SHA256SUMS\n"
+            f"      - uses: pypa/gh-action-pypi-publish@{SHA}",
+            f"      - uses: pypa/gh-action-pypi-publish@{SHA}\n"
+            "      - run: cd dist/packages && sha256sum -c ../SHA256SUMS",
+            "publish stages must be ordered",
+        ),
+        "verify-after-release": (
+            "      - run: cd dist/packages && sha256sum -c ../SHA256SUMS\n"
+            f"      - uses: softprops/action-gh-release@{SHA}",
+            f"      - uses: softprops/action-gh-release@{SHA}\n"
+            "      - run: cd dist/packages && sha256sum -c ../SHA256SUMS",
+            "github-release stages must be ordered",
+        ),
+    }
+    for name, (before, after, expected) in cases.items():
+        workflow = _write(
+            tmp_path,
+            f"{name}.yml",
+            _release_workflow().replace(before, after),
+        )
+        release_path = tmp_path / "release.yml"
+        release_path.write_text(workflow.read_text(encoding="utf-8"), encoding="utf-8")
+        assert any(expected in error for error in check_workflow_policy.check(release_path)), name
 
 
 def test_rejects_manifest_inside_pypi_upload_directory(tmp_path):

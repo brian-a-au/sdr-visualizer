@@ -46,6 +46,14 @@ def test_schema_is_valid_draft_2020_12():
     Draft202012Validator.check_schema(SCHEMA)
 
 
+def test_comparison_field_change_documentation_matches_schema_keys():
+    documentation = (REPO / "docs" / "EMBEDDED_DATA_FORMAT.md").read_text(encoding="utf-8")
+
+    assert "{field, old, new}" in documentation
+    assert "{field, added, removed}" in documentation
+    assert "{field, before, after}" not in documentation
+
+
 @pytest.mark.parametrize("name", FIXTURE_NAMES)
 def test_fixture_payload_validates(name):
     _assert_valid(build_payload_with_options(_impl(name)))

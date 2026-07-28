@@ -81,6 +81,15 @@ def _load_mutate():
     return module.mutate
 
 
+def _load_generator():
+    spec = importlib.util.spec_from_file_location(
+        "generate_large_fixture", REPO / "scripts" / "generate_large_fixture.py"
+    )
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module.build_snapshot
+
+
 def _measure_compare(old_snap: dict, new_snap: dict) -> tuple[list[str], str]:
     times = []
     html = ""
@@ -203,6 +212,12 @@ def main() -> int:
     aa_failures, aa_report = _measure("AA", aa_snap, aa_adapt)
     print(aa_report)
 
+    # The generator also retains ~100 ordinary segment/calc edges; keep the
+    # total just inside the documented 8,000-edge envelope.
+    dense_snap = _load_generator()(scale=5 / 6, dense_graph_edges=7_800)
+    dense_failures, dense_report = _measure("CJA-dense", dense_snap, cja_adapt)
+    print(dense_report)
+
     mutate = _load_mutate()
 
     compare_failures, compare_report = _measure_compare(mutate(cja_snap), cja_snap)
@@ -225,6 +240,7 @@ def main() -> int:
         *small_failures,
         *cja_failures,
         *aa_failures,
+        *dense_failures,
         *compare_failures,
         *trend_failures,
         *xl_failures,
