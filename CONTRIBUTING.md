@@ -2,7 +2,8 @@
 
 Thanks for your interest. This project has a deliberately tight scope and a
 few non-negotiable architectural rules; reading this first will save you a
-review round-trip.
+review round-trip. By participating, you agree to follow the
+[`CODE_OF_CONDUCT.md`](CODE_OF_CONDUCT.md).
 
 ## The rules of the road
 

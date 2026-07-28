@@ -20,6 +20,7 @@ WRITE_CAPABILITIES = {
     "contents": "repository contents",
     "pages": "GitHub Pages",
     "id-token": "OIDC identity token",
+    "security-events": "code-scanning results",
 }
 
 
@@ -69,6 +70,8 @@ def _required_write_permissions(job: dict[str, Any]) -> set[str]:
         required.update({"pages", "id-token"})
     if any(action == "pypa/gh-action-pypi-publish" for action in actions):
         required.add("id-token")
+    if any(action == "github/codeql-action/analyze" for action in actions):
+        required.add("security-events")
     return required
 
 

@@ -189,6 +189,14 @@ uv run python scripts/package_smoke_check.py dist/packages/
 - [`docs/PRODUCT_CONTRACT.md`](docs/PRODUCT_CONTRACT.md) — supported inputs, stable surfaces, limits, and compatibility policy.
 - [`docs/RELEASING.md`](docs/RELEASING.md) — candidate, corpus, repository-control, publication, and announcement gates.
 
+## Community
+
+Contributions are welcome within the project's intentionally narrow scope.
+Read [`CONTRIBUTING.md`](CONTRIBUTING.md) before opening a pull request. Report
+security issues privately as described in [`SECURITY.md`](SECURITY.md); do not
+put vulnerabilities or customer snapshot data in a public issue. Participation
+is governed by the [`CODE_OF_CONDUCT.md`](CODE_OF_CONDUCT.md).
+
 ## License
 
 MIT — see [`LICENSE`](LICENSE). The output bundles [D3](https://d3js.org) v7,

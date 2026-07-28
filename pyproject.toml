@@ -51,6 +51,7 @@ include = [
     "docs/*.md",
     "docs/payload-schema.json",
     "CHANGELOG.md",
+    "CODE_OF_CONDUCT.md",
     "CONTRIBUTING.md",
     "SECURITY.md",
 ]

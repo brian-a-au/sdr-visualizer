@@ -18,12 +18,14 @@ Non-negotiable per CONTRIBUTING.md. Confirm:
 - [ ] Output stays descriptive — no grades, scores, or judgments
 - [ ] Perf budgets respected (`scripts/perf_check.py` / `perf_browser_check.py` green if plausibly affected)
 - [ ] Vendored files (`adapters/*`, `input/{loader,detect,shell_out}.py`) untouched — or the sdr-grader parity plan is stated below
+- [ ] No customer snapshots, identifiers, names, owners, formulas, source paths, or other private corpus data added
 
 ## Tests
 
 - [ ] `uv run pytest` passes locally (browser tests running, not skipped)
 - [ ] The non-browser Python suite passes with at least 99% combined line-and-branch coverage
 - [ ] `uv run ruff check` and `uv run ruff format --check` pass
+- [ ] `uv run python scripts/check_markdown_links.py` and `scripts/check_workflow_policy.py` pass
 
 ## Notes for the reviewer
 

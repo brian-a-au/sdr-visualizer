@@ -120,6 +120,39 @@ def test_rejects_top_level_write_and_unneeded_job_write(tmp_path):
     )
 
 
+def test_codeql_analyze_requires_only_its_security_events_write(tmp_path):
+    workflow = _write(
+        tmp_path,
+        "codeql.yml",
+        f"""
+name: codeql
+on: push
+jobs:
+  analyze:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write
+    steps:
+      - uses: actions/checkout@{SHA}
+      - uses: github/codeql-action/analyze@{SHA}
+""",
+    )
+    assert check_workflow_policy.check(workflow) == []
+
+    missing = _write(
+        tmp_path,
+        "missing-codeql.yml",
+        workflow.read_text(encoding="utf-8").replace(
+            "security-events: write", "security-events: read"
+        ),
+    )
+    assert any(
+        "missing required write permission for code-scanning results" in error
+        for error in check_workflow_policy.check(missing)
+    )
+
+
 def test_rejects_wrong_release_dependency_order(tmp_path):
     workflow = _write(
         tmp_path,

@@ -127,6 +127,7 @@ def test_project_metadata_keeps_yaml_dev_only_and_ships_referenced_documents():
         "docs/*.md",
         "docs/payload-schema.json",
         "CHANGELOG.md",
+        "CODE_OF_CONDUCT.md",
         "CONTRIBUTING.md",
         "SECURITY.md",
     } <= includes

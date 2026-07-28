@@ -35,6 +35,7 @@ REQUIRED_SDIST_PATHS = {
     "LICENSE",
     "THIRD_PARTY_LICENSES",
     "CHANGELOG.md",
+    "CODE_OF_CONDUCT.md",
     "CONTRIBUTING.md",
     "SECURITY.md",
     "docs/ADAPTER_GUIDE.md",

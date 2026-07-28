@@ -6,11 +6,15 @@ Only the latest release receives security fixes.
 
 ## Reporting a vulnerability
 
-Report privately via GitHub security advisories:
-https://github.com/brian-a-au/sdr-visualizer/security/advisories/new
+Report privately through
+[GitHub private vulnerability reporting](https://github.com/brian-a-au/sdr-visualizer/security/advisories/new).
+The repository setting is enabled so outside reporters can open a private
+report without repository access.
 
-Do not open a public issue for a vulnerability. You should hear back within
-a week.
+Do not open a public issue for a vulnerability. Include the affected version,
+impact, reproduction steps, and any suggested mitigation, without adding
+customer snapshot data. The maintainer aims to acknowledge a report within one
+week.
 
 ## Threat model notes
 
