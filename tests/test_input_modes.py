@@ -9,6 +9,7 @@ import subprocess
 from pathlib import Path
 
 import pytest
+from conftest import extract_payload
 
 from sdr_visualizer.cli.main import main
 from sdr_visualizer.core.exceptions import InvalidSnapshotError, UnknownPlatformError
@@ -107,11 +108,55 @@ def test_mode3_dataview_shells_to_cja_auto_sdr_and_ignores_at(tmp_path, monkeypa
         ]
     )
     assert rc == 0
-    assert "cja_auto_sdr" in captured["cmd"][0]
-    assert "dv_xyz" in captured["cmd"]
-    assert "--format" in captured["cmd"] and "json" in captured["cmd"]
-    assert output.read_text(encoding="utf-8").startswith("<!doctype html>")
+    assert captured["cmd"] == [
+        "/usr/local/bin/cja_auto_sdr",
+        "dv_xyz",
+        "--format",
+        "json",
+        "--output",
+        "-",
+        "--include-all-inventory",
+        "--quiet",
+    ]
+    html = output.read_text(encoding="utf-8")
+    assert html.startswith("<!doctype html>")
+    report = extract_payload(html)
+    assert report["segments"]
+    assert report["calculated_metrics"]
+    assert any(component["type"] == "derived_field" for component in report["components"])
     assert "--at applies only to snapshot directories; ignoring" in capsys.readouterr().err
+
+
+def test_shell_cja_appends_extra_args_after_complete_inventory_defaults(monkeypatch):
+    payload = json.loads((FIXTURES / "cja_snapshot_clean.json").read_text(encoding="utf-8"))
+    monkeypatch.setattr(
+        "sdr_visualizer.input.shell_out.shutil.which",
+        lambda name: "/usr/local/bin/" + name,
+    )
+    captured = {}
+
+    def fake_subprocess_run(cmd, **kwargs):
+        captured["cmd"] = cmd
+        return subprocess.CompletedProcess(cmd, 0, stdout=json.dumps(payload))
+
+    monkeypatch.setattr("sdr_visualizer.input.shell_out.subprocess.run", fake_subprocess_run)
+
+    shell_cja("dv_xyz", extra_args=["--log-level", "debug"])
+
+    assert captured["cmd"] == [
+        "/usr/local/bin/cja_auto_sdr",
+        "dv_xyz",
+        "--format",
+        "json",
+        "--output",
+        "-",
+        "--include-all-inventory",
+        "--quiet",
+        "--log-level",
+        "debug",
+    ]
+    assert captured["cmd"].count("--include-all-inventory") == 1
+    assert captured["cmd"].count("--quiet") == 1
 
 
 def test_mode3_rsid_shells_to_aa_auto_sdr(tmp_path, monkeypatch):
@@ -138,8 +183,14 @@ def test_mode3_rsid_shells_to_aa_auto_sdr(tmp_path, monkeypatch):
     output = tmp_path / "out.html"
     rc = main(["--rsid", "prod_us", "--output", str(output), "--quiet"])
     assert rc == 0
-    assert "aa_auto_sdr" in captured["cmd"][0]
-    assert "prod_us" in captured["cmd"]
+    assert captured["cmd"] == [
+        "/usr/local/bin/aa_auto_sdr",
+        "prod_us",
+        "--format",
+        "json",
+        "--output",
+        "-",
+    ]
 
 
 def test_mode3_unknown_tool_returns_validation_error(tmp_path, monkeypatch, capsys):

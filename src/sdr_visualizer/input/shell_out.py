@@ -22,7 +22,16 @@ def shell_cja(
     """Shell out to cja_auto_sdr against a CJA data view ID."""
     return _shell_out(
         "cja_auto_sdr",
-        [dataview_id, "--format", "json", "--output", "-", *(extra_args or [])],
+        [
+            dataview_id,
+            "--format",
+            "json",
+            "--output",
+            "-",
+            "--include-all-inventory",
+            "--quiet",
+            *(extra_args or []),
+        ],
         flag="--dataview",
     )
 
