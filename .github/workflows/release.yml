@@ -5,14 +5,13 @@ on:
     tags:
       - 'v*.*.*'
 
-permissions:
-  contents: write
-
 jobs:
   browser-perf:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
       - name: Install uv
         uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
@@ -44,8 +43,10 @@ jobs:
   build:
     needs: browser-perf
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
       - name: Install uv
         uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
@@ -92,23 +93,23 @@ jobs:
                 tests/fixtures/aa_snapshot_large.json
 
       - name: Build distributions
-        run: uv build
+        run: uv build --out-dir dist/packages
 
-      - name: Upload distributions to GitHub release
-        uses: softprops/action-gh-release@v3
-        with:
-          files: |
-            dist/*.whl
-            dist/*.tar.gz
-          generate_release_notes: true
+      - name: Smoke installed artifacts
+        run: uv run python scripts/package_smoke_check.py dist/packages/
 
-      - name: Store distributions for the publish job
-        uses: actions/upload-artifact@v7
+      - name: Generate SHA256SUMS
+        run: cd dist/packages && sha256sum *.whl *.tar.gz > ../SHA256SUMS
+
+      - name: Store verified distributions
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
           name: dist
           path: |
-            dist/*.whl
-            dist/*.tar.gz
+            dist/packages/*.whl
+            dist/packages/*.tar.gz
+            dist/SHA256SUMS
+          if-no-files-found: error
 
   publish:
     needs: build
@@ -121,10 +122,39 @@ jobs:
       id-token: write
     steps:
       - name: Fetch distributions
-        uses: actions/download-artifact@v8
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
         with:
           name: dist
           path: dist
 
+      - name: Verify distribution digests
+        run: cd dist/packages && sha256sum -c ../SHA256SUMS
+
       - name: Upload distributions to PyPI
-        uses: pypa/gh-action-pypi-publish@release/v1
+        uses: pypa/gh-action-pypi-publish@ba38be9e461d3875417946c167d0b5f3d385a247 # release/v1
+        with:
+          packages-dir: dist/packages/
+
+  github-release:
+    needs: publish
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Fetch distributions
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        with:
+          name: dist
+          path: dist
+
+      - name: Verify distribution digests
+        run: cd dist/packages && sha256sum -c ../SHA256SUMS
+
+      - name: Create GitHub release
+        uses: softprops/action-gh-release@3d0d9888cb7fd7b750713d6e236d1fcb99157228 # v3
+        with:
+          files: |
+            dist/packages/*.whl
+            dist/packages/*.tar.gz
+            dist/SHA256SUMS
+          generate_release_notes: true
