@@ -73,6 +73,10 @@ coverage.xml
 /tests/fixtures/cja_snapshot_small.json
 /tests/fixtures/cja_snapshot_medium.json
 
+# Private production SDR snapshots used for compatibility and release gates.
+# Real customer data; never commit this directory.
+/tests/fixtures/private/
+
 # Environment
 .env
 .env.local

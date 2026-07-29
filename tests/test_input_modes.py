@@ -21,6 +21,12 @@ from sdr_visualizer.input.shell_out import shell_cja
 FIXTURES = Path(__file__).parent / "fixtures"
 
 
+def _write_cja_json_output(cmd: list[str], content: str) -> subprocess.CompletedProcess[str]:
+    output_dir = Path(cmd[cmd.index("--output-dir") + 1])
+    (output_dir / "current.json").write_text(content, encoding="utf-8")
+    return subprocess.CompletedProcess(cmd, 0, stdout="SDR JSON written to disk\n")
+
+
 # ---------------------------------------------------------------------------
 # Mode 2: directory
 # ---------------------------------------------------------------------------
@@ -83,16 +89,13 @@ def test_mode3_dataview_shells_to_cja_auto_sdr_and_ignores_at(tmp_path, monkeypa
         lambda name: "/usr/local/bin/" + name,
     )
 
-    class FakeRun:
-        def __init__(self, stdout: str):
-            self.stdout = stdout
-            self.returncode = 0
-
     captured = {}
 
     def fake_subprocess_run(cmd, **kwargs):
         captured["cmd"] = cmd
-        return FakeRun(json.dumps(payload))
+        output_dir = Path(cmd[cmd.index("--output-dir") + 1])
+        captured["output_dir"] = output_dir
+        return _write_cja_json_output(cmd, json.dumps(payload))
 
     monkeypatch.setattr("sdr_visualizer.input.shell_out.subprocess.run", fake_subprocess_run)
 
@@ -114,11 +117,12 @@ def test_mode3_dataview_shells_to_cja_auto_sdr_and_ignores_at(tmp_path, monkeypa
         "dv_xyz",
         "--format",
         "json",
-        "--output",
-        "-",
+        "--output-dir",
+        str(captured["output_dir"]),
         "--include-all-inventory",
         "--quiet",
     ]
+    assert not captured["output_dir"].exists()
     html = output.read_text(encoding="utf-8")
     assert html.startswith("<!doctype html>")
     report = extract_payload(html)
@@ -138,7 +142,9 @@ def test_shell_cja_appends_extra_args_after_complete_inventory_defaults(monkeypa
 
     def fake_subprocess_run(cmd, **kwargs):
         captured["cmd"] = cmd
-        return subprocess.CompletedProcess(cmd, 0, stdout=json.dumps(payload))
+        output_dir = Path(cmd[cmd.index("--output-dir") + 1])
+        captured["output_dir"] = output_dir
+        return _write_cja_json_output(cmd, json.dumps(payload))
 
     monkeypatch.setattr("sdr_visualizer.input.shell_out.subprocess.run", fake_subprocess_run)
 
@@ -149,8 +155,8 @@ def test_shell_cja_appends_extra_args_after_complete_inventory_defaults(monkeypa
         "dv_xyz",
         "--format",
         "json",
-        "--output",
-        "-",
+        "--output-dir",
+        str(captured["output_dir"]),
         "--include-all-inventory",
         "--quiet",
         "--log-level",
@@ -246,13 +252,20 @@ def test_shell_out_invalid_utf8_is_domain_error(monkeypatch):
 
 def test_shell_out_invalid_json_is_domain_error(monkeypatch):
     monkeypatch.setattr("sdr_visualizer.input.shell_out.shutil.which", lambda _name: "/bin/tool")
+    captured = {}
+
+    def write_invalid_json(cmd, **_kwargs):
+        captured["output_dir"] = Path(cmd[cmd.index("--output-dir") + 1])
+        return _write_cja_json_output(cmd, "not json")
+
     monkeypatch.setattr(
         "sdr_visualizer.input.shell_out.subprocess.run",
-        lambda _cmd, **_kwargs: subprocess.CompletedProcess([], 0, stdout="not json"),
+        write_invalid_json,
     )
 
     with pytest.raises(InvalidSnapshotError, match="produced output that is not valid JSON"):
         shell_cja("dv_xyz")
+    assert not captured["output_dir"].exists()
 
 
 def test_shell_out_oversized_integer_is_domain_error(monkeypatch):
@@ -260,7 +273,7 @@ def test_shell_out_oversized_integer_is_domain_error(monkeypatch):
     oversized = '{"value":' + ("9" * 5_000) + "}"
     monkeypatch.setattr(
         "sdr_visualizer.input.shell_out.subprocess.run",
-        lambda cmd, **_kwargs: subprocess.CompletedProcess(cmd, 0, stdout=oversized),
+        lambda cmd, **_kwargs: _write_cja_json_output(cmd, oversized),
     )
 
     with pytest.raises(InvalidSnapshotError, match="not valid JSON"):
@@ -271,7 +284,7 @@ def test_shell_out_json_recursion_error_is_domain_error(monkeypatch):
     monkeypatch.setattr("sdr_visualizer.input.shell_out.shutil.which", lambda _name: "/bin/tool")
     monkeypatch.setattr(
         "sdr_visualizer.input.shell_out.subprocess.run",
-        lambda cmd, **_kwargs: subprocess.CompletedProcess(cmd, 0, stdout="{}"),
+        lambda cmd, **_kwargs: _write_cja_json_output(cmd, "{}"),
     )
 
     def recurse(_value):
@@ -280,6 +293,70 @@ def test_shell_out_json_recursion_error_is_domain_error(monkeypatch):
     monkeypatch.setattr("sdr_visualizer.input.shell_out.json.loads", recurse)
 
     with pytest.raises(InvalidSnapshotError, match="JSON exceeds nesting limits"):
+        shell_cja("dv_xyz")
+
+
+@pytest.mark.parametrize("output_count", [0, 2])
+def test_shell_cja_requires_exactly_one_generated_json(monkeypatch, output_count):
+    monkeypatch.setattr("sdr_visualizer.input.shell_out.shutil.which", lambda _name: "/bin/tool")
+    captured = {}
+
+    def write_outputs(cmd, **_kwargs):
+        output_dir = Path(cmd[cmd.index("--output-dir") + 1])
+        captured["output_dir"] = output_dir
+        for index in range(output_count):
+            (output_dir / f"{index}.json").write_text("{}", encoding="utf-8")
+        return subprocess.CompletedProcess(cmd, 0, stdout="")
+
+    monkeypatch.setattr("sdr_visualizer.input.shell_out.subprocess.run", write_outputs)
+
+    with pytest.raises(InvalidSnapshotError, match=rf"produced {output_count} JSON outputs"):
+        shell_cja("dv_xyz")
+    assert not captured["output_dir"].exists()
+
+
+def test_shell_cja_output_inspection_error_is_domain_error(monkeypatch):
+    monkeypatch.setattr("sdr_visualizer.input.shell_out.shutil.which", lambda _name: "/bin/tool")
+    monkeypatch.setattr(
+        "sdr_visualizer.input.shell_out.subprocess.run",
+        lambda cmd, **_kwargs: subprocess.CompletedProcess(cmd, 0, stdout=""),
+    )
+
+    def fail_glob(_path, _pattern):
+        raise PermissionError("inspection denied")
+
+    monkeypatch.setattr(Path, "glob", fail_glob)
+
+    with pytest.raises(InvalidSnapshotError, match="JSON outputs could not be inspected"):
+        shell_cja("dv_xyz")
+
+
+def test_shell_cja_output_read_error_is_domain_error(monkeypatch):
+    monkeypatch.setattr("sdr_visualizer.input.shell_out.shutil.which", lambda _name: "/bin/tool")
+    monkeypatch.setattr(
+        "sdr_visualizer.input.shell_out.subprocess.run",
+        lambda cmd, **_kwargs: _write_cja_json_output(cmd, "{}"),
+    )
+
+    def fail_read(_path, **_kwargs):
+        raise PermissionError("read denied")
+
+    monkeypatch.setattr(Path, "read_text", fail_read)
+
+    with pytest.raises(InvalidSnapshotError, match="JSON output could not be read"):
+        shell_cja("dv_xyz")
+
+
+def test_shell_cja_temporary_output_error_is_domain_error(monkeypatch):
+    def fail_temporary_directory(**_kwargs):
+        raise PermissionError("temporary directory denied")
+
+    monkeypatch.setattr(
+        "sdr_visualizer.input.shell_out.tempfile.TemporaryDirectory",
+        fail_temporary_directory,
+    )
+
+    with pytest.raises(InvalidSnapshotError, match="temporary output handling failed"):
         shell_cja("dv_xyz")
 
 
@@ -508,14 +585,9 @@ def test_mode3_ignores_platform_with_warning(tmp_path, monkeypatch, capsys):
         lambda name: "/usr/local/bin/" + name,
     )
 
-    class FakeRun:
-        def __init__(self, stdout: str):
-            self.stdout = stdout
-            self.returncode = 0
-
     monkeypatch.setattr(
         "sdr_visualizer.input.shell_out.subprocess.run",
-        lambda cmd, **kwargs: FakeRun(json.dumps(payload)),
+        lambda cmd, **kwargs: _write_cja_json_output(cmd, json.dumps(payload)),
     )
     output = tmp_path / "out.html"
     rc = main(["--dataview", "dv_xyz", "--platform", "aa", "--output", str(output), "--quiet"])
