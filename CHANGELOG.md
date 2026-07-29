@@ -36,7 +36,8 @@ All notable changes to `sdr-visualizer` will be documented here. The format foll
 - Live CJA generation consumes exactly one size-bounded JSON artifact from an
   isolated temporary directory and cleans it on success or failure. The same
   contract is mirrored by
-  [sdr-grader PR #29](https://github.com/brian-a-au/sdr-grader/pull/29).
+  [sdr-grader PR #29](https://github.com/brian-a-au/sdr-grader/pull/29),
+  merged as `4510622e9de846ce42d1dbd001936d97dc42ce79`.
 - Comparison timestamps, derived-field references, UTC trend cutoffs,
   selection-first trend caps, hostile identifiers and diagnostics, graph-limit
   validation, and accepted-structure boundaries now remain consistent across
