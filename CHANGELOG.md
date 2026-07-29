@@ -2,6 +2,49 @@
 
 All notable changes to `sdr-visualizer` will be documented here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.4] - 2026-07-29
+
+### Added
+
+- Public release, product, security, contribution, conduct, and support
+  contracts now make community-release readiness explicit and reviewable.
+- Release gates now verify immutable workflow pins, installed wheel and sdist
+  behavior, runtime dependencies and licenses, Markdown links, payload/schema
+  drift, hostile structure budgets, browser behavior, and artifact contents.
+- CodeQL, dependency review, protected deployment environments, release-tag
+  immutability, and the complete community profile are part of the release
+  contract.
+
+### Changed
+
+- The release workflow builds distributions once, verifies a digest manifest,
+  publishes to PyPI through a protected environment, and creates the GitHub
+  release afterward from those same artifacts.
+- Jinja2 is now the only direct runtime dependency; development-only schema
+  and YAML tooling no longer ships with the package.
+- Changes and Trend render bounded initial result sets, graph work is rejected
+  before unsafe structure recursion, and timing gates include browser layout
+  work.
+- Live CJA input now supports the current generator's output-directory
+  contract while preserving AA's stdout contract.
+- Tested-through compatibility markers now reflect fresh live validation with
+  `cja_auto_sdr` 3.11.7 and `aa_auto_sdr` 1.21.10 plus the full historical
+  private corpus.
+
+### Fixed
+
+- Live CJA generation consumes exactly one size-bounded JSON artifact from an
+  isolated temporary directory and cleans it on success or failure. The same
+  contract is mirrored by
+  [sdr-grader PR #29](https://github.com/brian-a-au/sdr-grader/pull/29),
+  merged as `4510622e9de846ce42d1dbd001936d97dc42ce79`.
+- Comparison timestamps, derived-field references, UTC trend cutoffs,
+  selection-first trend caps, hostile identifiers and diagnostics, graph-limit
+  validation, and accepted-structure boundaries now remain consistent across
+  CLI, payload, browser, and package paths.
+- Default-branch CodeQL findings in browser lifecycle and self-contained-report
+  tests are resolved without suppressing analysis.
+
 ## [1.0.3] - 2026-07-19
 
 ### Added
@@ -429,6 +472,7 @@ The following are explicitly internal and may change without notice:
 - Workspace project visualization (v0.4)
 - Schema map view (v0.5)
 
+[1.0.4]: https://github.com/brian-a-au/sdr-visualizer/releases/tag/v1.0.4
 [1.0.3]: https://github.com/brian-a-au/sdr-visualizer/releases/tag/v1.0.3
 [1.0.2]: https://github.com/brian-a-au/sdr-visualizer/releases/tag/v1.0.2
 [1.0.1]: https://github.com/brian-a-au/sdr-visualizer/releases/tag/v1.0.1

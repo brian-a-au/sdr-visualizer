@@ -302,7 +302,7 @@ def _walk_segment_definition(definition: Any) -> tuple[int, list[str]]:
 # (bundled fixtures + the private real corpus; re-derive at each release:
 # grep -rho '"Tool Version": "[^"]*"|"tool_version": "[^"]*"' over corpus
 # and fixtures, take the max). The compatibility policy warns — never refuses.
-TESTED_THROUGH_GENERATOR_VERSION = "1.18.0"
+TESTED_THROUGH_GENERATOR_VERSION = "1.21.10"
 
 
 def generator_version_warning(adapter_version: str) -> str | None:

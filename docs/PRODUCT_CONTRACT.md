@@ -125,8 +125,8 @@ are:
 
 | Platform | Warning threshold |
 |---|---:|
-| CJA (`cja_auto_sdr`) | 3.5.17 |
-| AA (`aa_auto_sdr`) | 1.18.0 |
+| CJA (`cja_auto_sdr`) | 3.11.7 |
+| AA (`aa_auto_sdr`) | 1.21.10 |
 
 A marker is evidence of exercised compatibility, not a promise about every
 possible snapshot produced by that version. It may advance only after a
