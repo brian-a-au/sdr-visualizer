@@ -413,6 +413,25 @@ def test_aa_tag_decoder_resource_errors_are_invalid_snapshot(monkeypatch, error)
         adapt(snapshot)
 
 
+@pytest.mark.parametrize(
+    "snapshot",
+    [
+        _minimal_aa(dimensions=[{"id": "variables/evar1", "description": "\ud800"}]),
+        _minimal_aa(dimensions=[{"id": "variables/evar1", "\udfff": "value"}]),
+    ],
+)
+def test_aa_snapshot_rejects_surrogate_values_and_mapping_keys(snapshot):
+    with pytest.raises(InvalidSnapshotError, match=r"AA snapshot.*surrogate"):
+        adapt(snapshot)
+
+
+def test_aa_embedded_tags_reject_surrogates_materialized_after_decode():
+    snapshot = _minimal_aa(dimensions=[{"id": "variables/evar1", "tags": '["\\ud800"]'}])
+
+    with pytest.raises(InvalidSnapshotError, match=r"tag list.*surrogate"):
+        adapt(snapshot)
+
+
 def test_valid_polarity_is_normalized_case_insensitively():
     impl = adapt(
         _minimal_aa(metrics=[{"id": "metrics/orders", "polarity": " Positive ", "description": 7}])

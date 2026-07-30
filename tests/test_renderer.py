@@ -243,6 +243,19 @@ def test_nan_in_snapshot_raises_invalid_snapshot_error():
         render(impl)
 
 
+def test_direct_payload_render_rejects_surrogates_before_returning_html():
+    snap = json.loads((FIXTURES / "cja_snapshot_clean.json").read_text(encoding="utf-8"))
+    impl = cja_adapt(snap)
+
+    from sdr_visualizer.render.renderer import build_payload_with_options, render_payload
+
+    payload = build_payload_with_options(impl)
+    payload["meta"]["instance_name"] = "\ud800"
+
+    with pytest.raises(InvalidSnapshotError, match=r"render payload.*surrogate"):
+        render_payload(payload)
+
+
 def test_changes_nav_renders_only_with_changes_payload():
     snap = json.loads((FIXTURES / "cja_snapshot_clean.json").read_text(encoding="utf-8"))
     impl = cja_adapt(snap)

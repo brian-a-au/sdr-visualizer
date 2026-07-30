@@ -395,7 +395,7 @@ def _safe_filename_token(value: str) -> str:
         normalized = f"instance-{normalized}"
         transformed = True
 
-    digest = hashlib.sha256(original.encode("utf-8")).hexdigest()[:8]
+    digest = hashlib.sha256(original.encode("utf-8", errors="surrogatepass")).hexdigest()[:8]
     if len(normalized) > _FILENAME_TOKEN_MAX_LENGTH:
         transformed = True
     if transformed:
@@ -410,9 +410,8 @@ def _visible_terminal_text(value: str) -> str:
     visible = []
     for character in str(value):
         codepoint = ord(character)
-        visible.append(
-            f"\\u{codepoint:04X}" if codepoint < 32 or 127 <= codepoint <= 159 else character
-        )
+        must_escape = codepoint < 32 or 127 <= codepoint <= 159 or 0xD800 <= codepoint <= 0xDFFF
+        visible.append(f"\\u{codepoint:04X}" if must_escape else character)
     return "".join(visible)
 
 

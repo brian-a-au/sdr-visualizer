@@ -23,6 +23,7 @@ from sdr_visualizer.core.models import (
 from sdr_visualizer.core.structure_limits import (
     validate_definition_structure,
     validate_snapshot_structure,
+    validate_unicode_scalars,
 )
 
 
@@ -435,6 +436,7 @@ def _parse_tag_list(value: Any) -> list[str]:
     if value is None or value == "":
         return []
     if isinstance(value, list):
+        validate_unicode_scalars(value, label="tag list")
         return [str(t) for t in value]
     if isinstance(value, str):
         try:
@@ -444,6 +446,7 @@ def _parse_tag_list(value: Any) -> list[str]:
         except (ValueError, RecursionError) as exc:
             raise InvalidSnapshotError("tag list JSON exceeds decoder limits") from exc
         if isinstance(parsed, list):
+            validate_unicode_scalars(parsed, label="tag list")
             return [str(t) for t in parsed]
         return []
     return []
@@ -456,6 +459,7 @@ def _parse_ref_list(value: Any) -> list[str]:
     if value is None or value == "":
         return []
     if isinstance(value, list):
+        validate_unicode_scalars(value, label="reference list")
         return [str(t) for t in value]
     if isinstance(value, str):
         try:
@@ -465,6 +469,7 @@ def _parse_ref_list(value: Any) -> list[str]:
         except (ValueError, RecursionError) as exc:
             raise InvalidSnapshotError("reference list JSON exceeds decoder limits") from exc
         if isinstance(parsed, list):
+            validate_unicode_scalars(parsed, label="reference list")
             return [str(t) for t in parsed]
     return []
 

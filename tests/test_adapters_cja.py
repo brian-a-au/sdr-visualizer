@@ -542,6 +542,50 @@ def test_cja_definition_json_decoder_resource_errors_are_invalid_snapshot(monkey
 
 
 @pytest.mark.parametrize(
+    "snapshot",
+    [
+        _minimal_cja(metrics=[{"id": "metrics/orders", "description": "\ud800"}]),
+        _minimal_cja(metrics=[{"id": "metrics/orders", "\udfff": "value"}]),
+    ],
+)
+def test_cja_snapshot_rejects_surrogate_values_and_mapping_keys(snapshot):
+    with pytest.raises(InvalidSnapshotError, match=r"CJA snapshot.*surrogate"):
+        adapt(snapshot)
+
+
+@pytest.mark.parametrize(
+    "snapshot",
+    [
+        _minimal_cja(metrics=[{"id": "metrics/orders", "tags": '["\\ud800"]'}]),
+        _minimal_cja(
+            calculated_metrics={
+                "metrics": [
+                    {
+                        "metric_id": "cm/orders",
+                        "definition_json": {},
+                        "metric_references": '["\\udfff"]',
+                    }
+                ]
+            }
+        ),
+        _minimal_cja(
+            calculated_metrics={
+                "metrics": [
+                    {
+                        "metric_id": "cm/orders",
+                        "definition_json": '{"\\ud800":"value"}',
+                    }
+                ]
+            }
+        ),
+    ],
+)
+def test_cja_embedded_json_rejects_surrogates_materialized_after_decode(snapshot):
+    with pytest.raises(InvalidSnapshotError, match=r"surrogate"):
+        adapt(snapshot)
+
+
+@pytest.mark.parametrize(
     ("field", "snapshot"),
     [
         ("tag list", _minimal_cja(metrics=[{"id": "metrics/orders", "tags": '["paid"]'}])),
