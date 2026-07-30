@@ -524,7 +524,9 @@ def test_cja_definition_json_recursion_error_is_invalid_snapshot(monkeypatch):
         adapt(snapshot)
 
 
-@pytest.mark.parametrize("error", [ValueError("integer limit"), RecursionError("decoder recursion")])
+@pytest.mark.parametrize(
+    "error", [ValueError("integer limit"), RecursionError("decoder recursion")]
+)
 def test_cja_definition_json_decoder_resource_errors_are_invalid_snapshot(monkeypatch, error):
     snapshot = _minimal_cja(
         calculated_metrics={
@@ -605,7 +607,9 @@ def test_cja_embedded_json_rejects_surrogates_materialized_after_decode(snapshot
         ),
     ],
 )
-@pytest.mark.parametrize("error", [ValueError("integer limit"), RecursionError("decoder recursion")])
+@pytest.mark.parametrize(
+    "error", [ValueError("integer limit"), RecursionError("decoder recursion")]
+)
 def test_cja_embedded_list_decoder_resource_errors_are_invalid_snapshot(
     monkeypatch, field, snapshot, error
 ):

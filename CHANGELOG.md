@@ -2,6 +2,34 @@
 
 All notable changes to `sdr-visualizer` will be documented here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.5] - 2026-07-30
+
+### Added
+
+- CodeQL now analyzes the shipped browser JavaScript as well as Python, and
+  repository policy tests enforce that exact two-language matrix.
+- Release qualification records the exact candidate SHA, both emitted CodeQL
+  contexts, source-only grader parity, authoritative tag-run artifact identity,
+  decision roles, and immutable-version recovery rules.
+
+### Changed
+
+- The shared CJA and AA adapter contract now distinguishes ordinary malformed
+  optional embedded JSON, which retains its empty fallback, from decoder
+  resource-limit failures, which are controlled invalid input. The same
+  behavior is mirrored to `sdr-grader` without coupling its release.
+- Snapshot-controlled strings and mapping keys must contain Unicode scalar
+  values. Trend mode skips invalid members; single-file, direct-render, and
+  default-output paths fail safely without creating artifacts.
+
+### Fixed
+
+- Extremely large integers or excessive nesting in embedded definition, tag,
+  and reference JSON can no longer escape the invalid-input boundary as raw
+  `ValueError` or `RecursionError`.
+- Escaped surrogate code points can no longer crash default filename hashing,
+  terminal diagnostics, or JSON serialization.
+
 ## [1.0.4] - 2026-07-29
 
 ### Added

@@ -400,7 +400,9 @@ def test_invalid_stringified_tags_are_dropped(tags):
     assert impl.dimensions[0].polarity is None
 
 
-@pytest.mark.parametrize("error", [ValueError("integer limit"), RecursionError("decoder recursion")])
+@pytest.mark.parametrize(
+    "error", [ValueError("integer limit"), RecursionError("decoder recursion")]
+)
 def test_aa_tag_decoder_resource_errors_are_invalid_snapshot(monkeypatch, error):
     snapshot = _minimal_aa(dimensions=[{"id": "variables/evar1", "tags": '["paid"]'}])
 

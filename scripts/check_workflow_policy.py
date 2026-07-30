@@ -406,9 +406,7 @@ def _codeql_errors(path: Path, workflow: dict[str, Any]) -> list[str]:
     rows: list[tuple[Any, Any]] = []
     if isinstance(include, list):
         rows = [
-            (row.get("language"), row.get("build-mode"))
-            for row in include
-            if isinstance(row, dict)
+            (row.get("language"), row.get("build-mode")) for row in include if isinstance(row, dict)
         ]
     if (
         len(rows) != len(EXPECTED_CODEQL_MATRIX)
