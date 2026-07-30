@@ -5,6 +5,8 @@ from __future__ import annotations
 import importlib.util
 from pathlib import Path
 
+import pytest
+
 REPO = Path(__file__).resolve().parent.parent
 SCRIPT = REPO / "scripts" / "check_workflow_policy.py"
 SHA = "a" * 40
@@ -31,6 +33,34 @@ jobs:
       {permissions}
     steps:
       - uses: actions/checkout@{action_ref}
+"""
+
+
+def _codeql_workflow(matrix_rows: str) -> str:
+    return f"""
+name: codeql
+on: push
+jobs:
+  analyze:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+{matrix_rows}
+    steps:
+      - uses: actions/checkout@{SHA}
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@{SHA}
+        with:
+          languages: ${{{{ matrix.language }}}}
+          build-mode: ${{{{ matrix.build-mode }}}}
+          queries: security-and-quality
+      - name: Analyze
+        uses: github/codeql-action/analyze@{SHA}
 """
 
 
@@ -168,22 +198,14 @@ def test_rejects_top_level_write_and_unneeded_job_write(tmp_path):
 
 
 def test_codeql_analyze_requires_only_its_security_events_write(tmp_path):
+    rows = """          - language: python
+            build-mode: none
+          - language: javascript-typescript
+            build-mode: none"""
     workflow = _write(
         tmp_path,
         "codeql.yml",
-        f"""
-name: codeql
-on: push
-jobs:
-  analyze:
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      security-events: write
-    steps:
-      - uses: actions/checkout@{SHA}
-      - uses: github/codeql-action/analyze@{SHA}
-""",
+        _codeql_workflow(rows),
     )
     assert check_workflow_policy.check(workflow) == []
 
@@ -198,6 +220,62 @@ jobs:
         "missing required write permission for code-scanning results" in error
         for error in check_workflow_policy.check(missing)
     )
+
+
+def test_codeql_requires_exact_shipped_language_matrix(tmp_path):
+    valid_rows = """          - language: python
+            build-mode: none
+          - language: javascript-typescript
+            build-mode: none"""
+    workflow = _write(tmp_path, "codeql.yml", _codeql_workflow(valid_rows))
+
+    assert check_workflow_policy.check(workflow) == []
+
+    invalid_cases = {
+        "missing-python": valid_rows.replace(
+            "          - language: python\n            build-mode: none\n", ""
+        ),
+        "missing-javascript": valid_rows.replace(
+            "          - language: javascript-typescript\n            build-mode: none", ""
+        ),
+        "duplicate-language": valid_rows
+        + "\n          - language: python\n            build-mode: none",
+        "unknown-language": valid_rows.replace("javascript-typescript", "ruby"),
+        "wrong-build-mode": valid_rows.replace(
+            "language: javascript-typescript\n            build-mode: none",
+            "language: javascript-typescript\n            build-mode: manual",
+        ),
+    }
+    for name, rows in invalid_cases.items():
+        candidate = _write(tmp_path, "codeql.yml", _codeql_workflow(rows))
+        errors = check_workflow_policy.check(candidate)
+        assert any("exact shipped-language matrix" in error for error in errors), name
+
+
+@pytest.mark.parametrize(
+    ("before", "after", "expected"),
+    [
+        ("queries: security-and-quality", "queries: security-extended", "security-and-quality"),
+        (
+            "languages: ${{ matrix.language }}",
+            "languages: python",
+            "matrix.language",
+        ),
+        (
+            "build-mode: ${{ matrix.build-mode }}",
+            "build-mode: none",
+            "matrix.build-mode",
+        ),
+    ],
+)
+def test_codeql_initialization_must_use_policy_matrix(tmp_path, before, after, expected):
+    rows = """          - language: python
+            build-mode: none
+          - language: javascript-typescript
+            build-mode: none"""
+    workflow = _write(tmp_path, "codeql.yml", _codeql_workflow(rows).replace(before, after))
+
+    assert any(expected in error for error in check_workflow_policy.check(workflow))
 
 
 def test_rejects_wrong_release_dependency_order(tmp_path):
