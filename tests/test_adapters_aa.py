@@ -400,6 +400,19 @@ def test_invalid_stringified_tags_are_dropped(tags):
     assert impl.dimensions[0].polarity is None
 
 
+@pytest.mark.parametrize("error", [ValueError("integer limit"), RecursionError("decoder recursion")])
+def test_aa_tag_decoder_resource_errors_are_invalid_snapshot(monkeypatch, error):
+    snapshot = _minimal_aa(dimensions=[{"id": "variables/evar1", "tags": '["paid"]'}])
+
+    def fail(_value):
+        raise error
+
+    monkeypatch.setattr("sdr_visualizer.adapters.aa.json.loads", fail)
+
+    with pytest.raises(InvalidSnapshotError, match=r"tag list.*JSON exceeds decoder limits"):
+        adapt(snapshot)
+
+
 def test_valid_polarity_is_normalized_case_insensitively():
     impl = adapt(
         _minimal_aa(metrics=[{"id": "metrics/orders", "polarity": " Positive ", "description": 7}])

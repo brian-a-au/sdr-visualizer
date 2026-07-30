@@ -520,7 +520,57 @@ def test_cja_definition_json_recursion_error_is_invalid_snapshot(monkeypatch):
 
     monkeypatch.setattr("sdr_visualizer.adapters.cja.json.loads", recurse)
 
-    with pytest.raises(InvalidSnapshotError, match=r"definition.*JSON exceeds nesting limits"):
+    with pytest.raises(InvalidSnapshotError, match=r"definition.*JSON exceeds decoder limits"):
+        adapt(snapshot)
+
+
+@pytest.mark.parametrize("error", [ValueError("integer limit"), RecursionError("decoder recursion")])
+def test_cja_definition_json_decoder_resource_errors_are_invalid_snapshot(monkeypatch, error):
+    snapshot = _minimal_cja(
+        calculated_metrics={
+            "metrics": [{"metric_id": "cm/deep", "definition_json": '{"func":"sum"}'}]
+        }
+    )
+
+    def fail(_value):
+        raise error
+
+    monkeypatch.setattr("sdr_visualizer.adapters.cja.json.loads", fail)
+
+    with pytest.raises(InvalidSnapshotError, match=r"definition.*JSON exceeds decoder limits"):
+        adapt(snapshot)
+
+
+@pytest.mark.parametrize(
+    ("field", "snapshot"),
+    [
+        ("tag list", _minimal_cja(metrics=[{"id": "metrics/orders", "tags": '["paid"]'}])),
+        (
+            "reference list",
+            _minimal_cja(
+                calculated_metrics={
+                    "metrics": [
+                        {
+                            "metric_id": "cm/orders",
+                            "definition_json": {},
+                            "metric_references": '["metrics/orders"]',
+                        }
+                    ]
+                }
+            ),
+        ),
+    ],
+)
+@pytest.mark.parametrize("error", [ValueError("integer limit"), RecursionError("decoder recursion")])
+def test_cja_embedded_list_decoder_resource_errors_are_invalid_snapshot(
+    monkeypatch, field, snapshot, error
+):
+    def fail(_value):
+        raise error
+
+    monkeypatch.setattr("sdr_visualizer.adapters.cja.json.loads", fail)
+
+    with pytest.raises(InvalidSnapshotError, match=rf"{field}.*JSON exceeds decoder limits"):
         adapt(snapshot)
 
 

@@ -160,6 +160,41 @@ def test_overdeep_file_exits_3_without_artifacts_or_traceback(tmp_path, capsys):
     assert "Traceback" not in err
 
 
+def test_embedded_json_decoder_limit_exits_3_without_artifacts_or_hostile_text(tmp_path, capsys):
+    hostile_digits = "9" * 5_000
+    snapshot = _cja_compare_snapshot()
+    snapshot["calculated_metrics"] = {
+        "metrics": [
+            {
+                "metric_id": "cm/decoder-limit",
+                "definition_json": f'{{"value":{hostile_digits}}}',
+            }
+        ]
+    }
+    source = _write_json(tmp_path / "decoder-limit.json", snapshot)
+    output = tmp_path / "out.html"
+    sidecar = tmp_path / "out.json"
+
+    rc = main(
+        [
+            str(source),
+            "--output",
+            str(output),
+            "--json",
+            str(sidecar),
+            "--quiet",
+        ]
+    )
+
+    assert rc == 3
+    assert not output.exists()
+    assert not sidecar.exists()
+    err = capsys.readouterr().err
+    assert "decoder limits" in err
+    assert hostile_digits not in err
+    assert "Traceback" not in err
+
+
 def test_overdeep_live_snapshot_exits_3_without_artifact(tmp_path, monkeypatch, capsys):
     nested = 0
     for _ in range(MAX_STRUCTURE_DEPTH):
