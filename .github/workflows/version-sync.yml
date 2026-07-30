@@ -1,4 +1,4 @@
-name: version-sync
+name: Version Sync
 
 on:
   push:
