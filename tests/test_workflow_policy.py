@@ -252,6 +252,18 @@ def test_codeql_requires_exact_shipped_language_matrix(tmp_path):
         assert any("exact shipped-language matrix" in error for error in errors), name
 
 
+def test_codeql_rejects_non_list_matrix_without_crashing(tmp_path):
+    workflow = _write(
+        tmp_path,
+        "codeql.yml",
+        _codeql_workflow("          scalar").replace("include:\n          scalar", "include: 1"),
+    )
+
+    assert any(
+        "exact shipped-language matrix" in error for error in check_workflow_policy.check(workflow)
+    )
+
+
 @pytest.mark.parametrize(
     ("before", "after", "expected"),
     [

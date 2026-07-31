@@ -64,11 +64,35 @@ def validate_unicode_scalars(value: Any, *, label: str) -> None:
     embedded JSON that has already passed the outer snapshot budget and for
     defensive direct callers such as the renderer.
     """
-    for node, _depth in _iter_structure(value):
+    active_containers: set[int] = set()
+    validated_containers: set[int] = set()
+    stack: list[tuple[Any, bool]] = [(value, False)]
+    while stack:
+        node, exiting = stack.pop()
+        is_container = isinstance(node, (dict, list))
+        if not is_container:
+            _validate_string(node, label=label)
+            continue
+
+        identity = id(node)
+        if exiting:
+            active_containers.remove(identity)
+            validated_containers.add(identity)
+            continue
+        if identity in validated_containers:
+            continue
+        if identity in active_containers:
+            raise InvalidSnapshotError(f"{label} contains a circular container reference")
+
+        active_containers.add(identity)
+        stack.append((node, True))
         _validate_string(node, label=label)
         if isinstance(node, dict):
             for key in node:
                 _validate_string(key, label=label)
+            stack.extend((child, False) for child in node.values())
+        else:
+            stack.extend((child, False) for child in node)
 
 
 def _validate_string(value: Any, *, label: str) -> None:
@@ -84,13 +108,13 @@ def _validate_structure(
     max_nodes: int,
 ) -> None:
     for nodes, (node, depth) in enumerate(_iter_structure(value), start=1):
-        _validate_string(node, label=label)
-        if isinstance(node, dict):
-            for key in node:
-                _validate_string(key, label=label)
         if depth > max_depth:
             raise InvalidSnapshotError(
                 f"{label} exceeds the maximum structure depth of {max_depth}"
             )
         if nodes > max_nodes:
             raise InvalidSnapshotError(f"{label} exceeds the maximum of {max_nodes:,} nodes")
+        _validate_string(node, label=label)
+        if isinstance(node, dict):
+            for key in node:
+                _validate_string(key, label=label)

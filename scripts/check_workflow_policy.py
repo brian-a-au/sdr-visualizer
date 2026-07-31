@@ -403,14 +403,20 @@ def _codeql_errors(path: Path, workflow: dict[str, Any]) -> list[str]:
     strategy = analyze.get("strategy")
     matrix = strategy.get("matrix") if isinstance(strategy, dict) else None
     include = matrix.get("include") if isinstance(matrix, dict) else None
-    rows: list[tuple[Any, Any]] = []
-    if isinstance(include, list):
-        rows = [
-            (row.get("language"), row.get("build-mode")) for row in include if isinstance(row, dict)
+    if not isinstance(include, list):
+        return [
+            _error(
+                path,
+                "CodeQL must use the exact shipped-language matrix: "
+                "python/none and javascript-typescript/none",
+            )
         ]
+    rows: list[tuple[Any, Any]] = [
+        (row.get("language"), row.get("build-mode")) for row in include if isinstance(row, dict)
+    ]
     if (
         len(rows) != len(EXPECTED_CODEQL_MATRIX)
-        or len(rows) != len(include or [])
+        or len(rows) != len(include)
         or set(rows) != EXPECTED_CODEQL_MATRIX
     ):
         return [
