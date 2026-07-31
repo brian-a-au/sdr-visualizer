@@ -1094,7 +1094,7 @@ h1 {
   // load is cheaper than shipping a server-built index (which duplicated
   // name/description/formula text in the payload) and far cheaper than
   // recomputing per keystroke.
-  var byId = {};
+  var byId = Object.create(null);
   catalog.forEach(function (entry) {
     byId[entry.id] = entry;
     entry._search = [
@@ -1132,6 +1132,7 @@ h1 {
   // direction changes. applyFilters() filters it without re-sorting.
   var sortedCatalog = catalog.slice();
   var lastFiltered = [];
+  var rowHtmlCache = new WeakMap();
   // Cap rendered rows — innerHTML parse + layout cost grows linearly and
   // blows the §6 filter budget past a few thousand rows. "Show all" opts out.
   var ROW_RENDER_CAP = 1000;
@@ -1186,26 +1187,26 @@ h1 {
     if (params.get("q")) $search.value = params.get("q");
     var typesParam = params.get("types");
     if (typesParam !== null) {
-      var wanted = {};
+      var wanted = new Set();
       var validCount = 0;
       typesParam.split(",").forEach(function (t) {
-        if (Object.prototype.hasOwnProperty.call(KNOWN_TYPES, t)) { wanted[t] = true; validCount++; }
+        if (KNOWN_TYPES.has(t)) { wanted.add(t); validCount++; }
       });
       // Apply when at least one token is valid, or when the param is the
       // explicit empty state ("types=", every type unchecked). All-garbage
       // tokens still fall back to the default all-checked state.
       if (validCount > 0 || typesParam === "") {
         $typeFilter.querySelectorAll("input").forEach(function (input) {
-          input.checked = !!wanted[input.value];
+          input.checked = wanted.has(input.value);
         });
       }
     }
     setSelectIfValid($descriptionFilter, params.get("desc"));
     setSelectIfValid($referencesFilter, params.get("refs"));
     setSelectIfValid($modifiedFilter, params.get("mod"));
-    var VALID_SORT_KEYS = { name: true, type: true, in_degree: true, modified_at: true };
+    var VALID_SORT_KEYS = new Set(["name", "type", "in_degree", "modified_at"]);
     var sortParam = params.get("sort");
-    if (sortParam && Object.prototype.hasOwnProperty.call(VALID_SORT_KEYS, sortParam)) {
+    if (sortParam && VALID_SORT_KEYS.has(sortParam)) {
       sortKey = sortParam;
       sortDir = params.get("dir") === "desc" ? "desc" : "asc";
     }
@@ -1226,9 +1227,9 @@ h1 {
 
   // Allowed type tokens for URL restore, derived from the rendered
   // checkboxes so the template stays the single source of truth.
-  var KNOWN_TYPES = {};
+  var KNOWN_TYPES = new Set();
   $typeFilter.querySelectorAll("input").forEach(function (input) {
-    KNOWN_TYPES[input.value] = true;
+    KNOWN_TYPES.add(input.value);
   });
 
   /* ----- Helpers ----- */
@@ -1380,8 +1381,8 @@ h1 {
   function rowHtml(entry) {
     // Row HTML is a pure function of the entry — build once, reuse on every
     // subsequent filter/sort render.
-    if (entry._rowHtml === undefined) entry._rowHtml = buildRowHtml(entry);
-    return entry._rowHtml;
+    if (!rowHtmlCache.has(entry)) rowHtmlCache.set(entry, buildRowHtml(entry));
+    return rowHtmlCache.get(entry);
   }
 
   function buildRowHtml(entry) {
@@ -1411,7 +1412,7 @@ h1 {
         '<td class="col-type"><span class="dot dot-' + escapeHtml(entry.type) + '"></span>' + escapeHtml(formatTypeLabel(entry.type, entry.derived_kind)) + "</td>" +
         '<td class="' + descClass + '">' + descHtml + "</td>" +
         '<td class="col-tags">' + tags + "</td>" +
-        '<td class="col-refs num' + (refs === 0 ? " zero" : "") + '">' + refs + "</td>" +
+        '<td class="col-refs num' + (refs === 0 ? " zero" : "") + '">' + escapeHtml(refs) + "</td>" +
         '<td class="col-modified">' + escapeHtml(formatDate(entry.modified_at)) + "</td>" +
         '<td class="col-owner">' + escapeHtml(entry.owner || "—") + "</td>" +
       "</tr>"
@@ -1479,13 +1480,13 @@ h1 {
       calcMeta += "<dt>Attribution</dt><dd>" + escapeHtml(entry.attribution_model || "—") + "</dd>";
       calcMeta += "<dt>Allocation</dt><dd>" + escapeHtml(entry.allocation || "—") + "</dd>";
       if (typeof entry.complexity_score === "number") {
-        calcMeta += "<dt>Complexity</dt><dd>" + entry.complexity_score + "</dd>";
+        calcMeta += "<dt>Complexity</dt><dd>" + escapeHtml(entry.complexity_score) + "</dd>";
       }
       calcMeta += "</dl>";
       pieces.push('<div class="detail-section"><h3>Properties</h3>' + calcMeta + "</div>");
     } else if (entry.type === "segment") {
       var segMeta = '<dl class="detail-grid">';
-      segMeta += "<dt>Nesting depth</dt><dd>" + (entry.nesting_depth || 0) + "</dd>";
+      segMeta += "<dt>Nesting depth</dt><dd>" + escapeHtml(entry.nesting_depth || 0) + "</dd>";
       segMeta += "<dt>Containers</dt><dd>" + escapeHtml((entry.container_types || []).join(", ") || "—") + "</dd>";
       segMeta += "</dl>";
       pieces.push('<div class="detail-section"><h3>Properties</h3>' + segMeta + "</div>");
@@ -1504,8 +1505,8 @@ h1 {
     }
 
     var meta = '<dl class="detail-grid">';
-    meta += "<dt>References in</dt><dd>" + (entry.in_degree || 0) + "</dd>";
-    meta += "<dt>References out</dt><dd>" + (entry.out_degree || 0) + "</dd>";
+    meta += "<dt>References in</dt><dd>" + escapeHtml(entry.in_degree || 0) + "</dd>";
+    meta += "<dt>References out</dt><dd>" + escapeHtml(entry.out_degree || 0) + "</dd>";
     meta += "<dt>Owner</dt><dd>" + escapeHtml(entry.owner || "—") + "</dd>";
     meta += "<dt>Modified</dt><dd>" + escapeHtml(formatDate(entry.modified_at)) + "</dd>";
     meta += "<dt>Created</dt><dd>" + escapeHtml(formatDate(entry.created_at)) + "</dd>";

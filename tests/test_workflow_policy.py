@@ -65,6 +65,7 @@ jobs:
           languages: ${{{{ matrix.language }}}}
           build-mode: ${{{{ matrix.build-mode }}}}
           queries: security-and-quality
+          config-file: ./.github/codeql/codeql-config.yml
       - name: Analyze
         uses: github/codeql-action/analyze@{SHA}
 """
@@ -299,6 +300,7 @@ def test_codeql_requires_exactly_one_initialization_and_analysis_step(tmp_path):
           languages: ${{{{ matrix.language }}}}
           build-mode: ${{{{ matrix.build-mode }}}}
           queries: security-and-quality
+          config-file: ./.github/codeql/codeql-config.yml
 """
 
     cases = {
@@ -337,12 +339,16 @@ def test_codeql_initialization_requires_all_matrix_inputs(tmp_path):
           languages: ${{ matrix.language }}
           build-mode: ${{ matrix.build-mode }}
           queries: security-and-quality
+          config-file: ./.github/codeql/codeql-config.yml
 """,
             "",
         ),
         "missing-languages": valid.replace("          languages: ${{ matrix.language }}\n", ""),
         "missing-build-mode": valid.replace("          build-mode: ${{ matrix.build-mode }}\n", ""),
         "missing-queries": valid.replace("          queries: security-and-quality\n", ""),
+        "missing-config": valid.replace(
+            "          config-file: ./.github/codeql/codeql-config.yml\n", ""
+        ),
     }
     for name, text in cases.items():
         workflow = _write(tmp_path, "codeql.yml", text)
@@ -361,6 +367,7 @@ def test_codeql_analysis_must_follow_initialization_and_fail_closed(tmp_path):
           languages: ${{{{ matrix.language }}}}
           build-mode: ${{{{ matrix.build-mode }}}}
           queries: security-and-quality
+          config-file: ./.github/codeql/codeql-config.yml
 """
     analysis = f"""      - name: Analyze
         uses: github/codeql-action/analyze@{SHA}
@@ -430,6 +437,11 @@ def test_codeql_rejects_malformed_strategy_and_steps(tmp_path):
     [
         ("queries: security-and-quality", "queries: security-extended", "security-and-quality"),
         (
+            "config-file: ./.github/codeql/codeql-config.yml",
+            "config-file: ./.github/codeql/other.yml",
+            "narrow analysis config",
+        ),
+        (
             "languages: ${{ matrix.language }}",
             "languages: python",
             "matrix.language",
@@ -449,6 +461,35 @@ def test_codeql_initialization_must_use_policy_matrix(tmp_path, before, after, e
     workflow = _write(tmp_path, "codeql.yml", _codeql_workflow(rows).replace(before, after))
 
     assert any(expected in error for error in check_workflow_policy.check(workflow))
+
+
+def test_codeql_config_excludes_only_generated_examples(tmp_path):
+    config_dir = tmp_path / ".github" / "codeql"
+    config_dir.mkdir(parents=True)
+    config = _write(
+        config_dir,
+        "codeql-config.yml",
+        'name: "test"\npaths-ignore:\n  - examples/**\n',
+    )
+    assert check_workflow_policy._codeql_config_errors(tmp_path) == []
+
+    config.write_text(
+        'name: "test"\npaths-ignore:\n  - "**"\n',
+        encoding="utf-8",
+    )
+    assert any(
+        "exclude exactly the generated examples path" in error
+        for error in check_workflow_policy._codeql_config_errors(tmp_path)
+    )
+
+    config.write_text(
+        'name: "test"\npaths:\n  - src/**\npaths-ignore:\n  - examples/**\n',
+        encoding="utf-8",
+    )
+    assert any(
+        "unexpected keys: paths" in error
+        for error in check_workflow_policy._codeql_config_errors(tmp_path)
+    )
 
 
 def test_rejects_wrong_release_dependency_order(tmp_path):

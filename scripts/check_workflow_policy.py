@@ -27,6 +27,8 @@ EXPECTED_CODEQL_MATRIX = {
     ("python", "none"),
     ("javascript-typescript", "none"),
 }
+EXPECTED_CODEQL_CONFIG_FILE = "./.github/codeql/codeql-config.yml"
+EXPECTED_CODEQL_IGNORES = ["examples/**"]
 
 
 def _error(path: Path, message: str) -> str:
@@ -447,6 +449,8 @@ def _codeql_errors(path: Path, workflow: dict[str, Any]) -> list[str]:
         errors.append(_error(path, "CodeQL build-mode must use matrix.build-mode"))
     if init_with.get("queries") != "security-and-quality":
         errors.append(_error(path, "CodeQL queries must include security-and-quality"))
+    if init_with.get("config-file") != EXPECTED_CODEQL_CONFIG_FILE:
+        errors.append(_error(path, "CodeQL must use the repository's narrow analysis config"))
 
     analysis_steps = [step for step in steps if _uses_action(step, "github/codeql-action/analyze")]
     if len(analysis_steps) != 1:
@@ -460,6 +464,35 @@ def _codeql_errors(path: Path, workflow: dict[str, Any]) -> list[str]:
         label="CodeQL analysis step",
         item=analysis_steps[0],
     )
+    return errors
+
+
+def _codeql_config_errors(repo: Path) -> list[str]:
+    path = repo / EXPECTED_CODEQL_CONFIG_FILE.removeprefix("./")
+    try:
+        config = yaml.safe_load(path.read_text(encoding="utf-8"))
+    except (OSError, yaml.YAMLError) as exc:
+        return [_error(path, f"could not parse CodeQL config: {exc}")]
+    if not isinstance(config, dict):
+        return [_error(path, "CodeQL config root must be a mapping")]
+
+    errors = []
+    unexpected = sorted(set(config) - {"name", "paths-ignore"})
+    if unexpected:
+        errors.append(
+            _error(
+                path,
+                "CodeQL config may only name the config and exclude generated examples; "
+                f"unexpected keys: {', '.join(unexpected)}",
+            )
+        )
+    if config.get("paths-ignore") != EXPECTED_CODEQL_IGNORES:
+        errors.append(
+            _error(
+                path,
+                "CodeQL config must exclude exactly the generated examples path",
+            )
+        )
     return errors
 
 
@@ -495,6 +528,7 @@ def check_repository(repo: Path) -> list[str]:
                 "codeql.yml or codeql.yaml",
             )
         )
+    errors.extend(_codeql_config_errors(repo))
     return errors
 
 

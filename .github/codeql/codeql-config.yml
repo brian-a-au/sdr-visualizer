@@ -1,0 +1,8 @@
+name: "sdr-visualizer CodeQL configuration"
+
+# These deterministic examples inline the same visualizer.js and vendored D3
+# sources that CodeQL analyzes under src/. Excluding the generated copies
+# avoids duplicate alerts and an extractor parse note on D3's single minified
+# line without excluding any authored or vendored JavaScript source.
+paths-ignore:
+  - "examples/**"
