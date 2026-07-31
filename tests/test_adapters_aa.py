@@ -400,6 +400,41 @@ def test_invalid_stringified_tags_are_dropped(tags):
     assert impl.dimensions[0].polarity is None
 
 
+@pytest.mark.parametrize(
+    "error", [ValueError("integer limit"), RecursionError("decoder recursion")]
+)
+def test_aa_tag_decoder_resource_errors_are_invalid_snapshot(monkeypatch, error):
+    snapshot = _minimal_aa(dimensions=[{"id": "variables/evar1", "tags": '["paid"]'}])
+
+    def fail(_value):
+        raise error
+
+    monkeypatch.setattr("sdr_visualizer.adapters.aa.json.loads", fail)
+
+    with pytest.raises(InvalidSnapshotError, match=r"tag list.*JSON exceeds decoder limits"):
+        adapt(snapshot)
+
+
+@pytest.mark.parametrize(
+    "snapshot",
+    [
+        _minimal_aa(dimensions=[{"id": "variables/evar1", "description": "\ud800"}]),
+        _minimal_aa(dimensions=[{"id": "variables/evar1", "\udfff": "value"}]),
+    ],
+)
+def test_aa_snapshot_rejects_surrogate_values_and_mapping_keys(snapshot):
+    with pytest.raises(InvalidSnapshotError, match=r"AA snapshot.*surrogate"):
+        adapt(snapshot)
+
+
+@pytest.mark.parametrize("tags", ['["\\ud800"]', '{"bad":"\\udfff"}'])
+def test_aa_embedded_tags_reject_surrogates_materialized_after_decode(tags):
+    snapshot = _minimal_aa(dimensions=[{"id": "variables/evar1", "tags": tags}])
+
+    with pytest.raises(InvalidSnapshotError, match=r"tag list.*surrogate"):
+        adapt(snapshot)
+
+
 def test_valid_polarity_is_normalized_case_insensitively():
     impl = adapt(
         _minimal_aa(metrics=[{"id": "metrics/orders", "polarity": " Positive ", "description": 7}])

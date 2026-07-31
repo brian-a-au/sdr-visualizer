@@ -85,6 +85,31 @@ def test_hostile_snapshot_does_not_execute(browser_page, tmp_path):
     assert "window.__xssEscape=true" in body_text  # description shown as text
 
 
+def test_tampered_numeric_payload_fields_do_not_execute(browser_page, tmp_path):
+    """Payload fields remain inert even if their expected numeric shape is tampered."""
+    snap = json.loads((FIXTURES / "cja_snapshot_clean.json").read_text(encoding="utf-8"))
+    payload = build_payload_with_options(cja_adapt(snap))
+    probe = '<img src=x onerror="window.__xssNumeric=true">'
+    payload["components"][0]["in_degree"] = probe
+    payload["components"][0]["out_degree"] = probe
+    segment = payload["segments"][0]
+    segment["in_degree"] = probe
+    segment["out_degree"] = probe
+    segment["nesting_depth"] = probe
+    out = tmp_path / "tampered-numeric.html"
+    out.write_text(render_payload(payload), encoding="utf-8")
+
+    browser_page.goto(out.as_uri())
+    browser_page.wait_for_selector("#catalog-body tr", state="attached", timeout=10_000)
+    assert browser_page.evaluate("window.__xssNumeric") is None
+    assert browser_page.evaluate("document.querySelectorAll('img[src=x]').length") == 0
+
+    browser_page.click(f'#catalog-body tr[data-id="{segment["id"]}"]')
+    browser_page.wait_for_selector("#detail-panel.is-open", state="attached", timeout=10_000)
+    assert browser_page.evaluate("window.__xssNumeric") is None
+    assert browser_page.evaluate("document.querySelectorAll('img[src=x]').length") == 0
+
+
 def test_report_loads_without_subresource_requests(browser_page, tmp_path):
     """The self-contained report must not load any resource beyond itself."""
     out = _render_to(tmp_path, "cja_snapshot_clean.json", "offline.html")

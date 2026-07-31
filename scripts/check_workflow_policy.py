@@ -23,6 +23,12 @@ WRITE_CAPABILITIES = {
     "id-token": "OIDC identity token",
     "security-events": "code-scanning results",
 }
+EXPECTED_CODEQL_MATRIX = {
+    ("python", "none"),
+    ("javascript-typescript", "none"),
+}
+EXPECTED_CODEQL_CONFIG_FILE = "./.github/codeql/codeql-config.yml"
+EXPECTED_CODEQL_IGNORES = ["examples/**"]
 
 
 def _error(path: Path, message: str) -> str:
@@ -386,6 +392,110 @@ def _examples_errors(path: Path, workflow: dict[str, Any]) -> list[str]:
     return errors
 
 
+def _codeql_errors(path: Path, workflow: dict[str, Any]) -> list[str]:
+    if path.name not in {"codeql.yml", "codeql.yaml"}:
+        return []
+    jobs = workflow.get("jobs", {})
+    if not isinstance(jobs, dict):
+        return [_error(path, "CodeQL jobs must be a mapping")]
+    analyze = jobs.get("analyze")
+    if not isinstance(analyze, dict):
+        return [_error(path, "CodeQL workflow must define an 'analyze' job")]
+
+    strategy = analyze.get("strategy")
+    if not isinstance(strategy, dict):
+        return [_error(path, "CodeQL analyze job strategy must be a mapping")]
+    matrix = strategy.get("matrix")
+    include = matrix.get("include") if isinstance(matrix, dict) else None
+    if not isinstance(include, list):
+        return [
+            _error(
+                path,
+                "CodeQL must use the exact shipped-language matrix: "
+                "python/none and javascript-typescript/none",
+            )
+        ]
+    rows: list[tuple[Any, Any]] = [
+        (row.get("language"), row.get("build-mode")) for row in include if isinstance(row, dict)
+    ]
+    if (
+        len(rows) != len(EXPECTED_CODEQL_MATRIX)
+        or len(rows) != len(include)
+        or set(rows) != EXPECTED_CODEQL_MATRIX
+    ):
+        return [
+            _error(
+                path,
+                "CodeQL must use the exact shipped-language matrix: "
+                "python/none and javascript-typescript/none",
+            )
+        ]
+
+    steps = analyze.get("steps")
+    if not isinstance(steps, list) or any(not isinstance(step, dict) for step in steps):
+        return [_error(path, "CodeQL analyze job steps must be a list of mappings")]
+
+    init_steps = [step for step in steps if _uses_action(step, "github/codeql-action/init")]
+    if len(init_steps) != 1:
+        return [_error(path, "CodeQL analyze job must have exactly one initialization step")]
+    init_with = init_steps[0].get("with")
+    if not isinstance(init_with, dict):
+        return [_error(path, "CodeQL initialization must declare matrix inputs")]
+
+    errors = []
+    if init_with.get("languages") != "${{ matrix.language }}":
+        errors.append(_error(path, "CodeQL languages must use matrix.language"))
+    if init_with.get("build-mode") != "${{ matrix.build-mode }}":
+        errors.append(_error(path, "CodeQL build-mode must use matrix.build-mode"))
+    if init_with.get("queries") != "security-and-quality":
+        errors.append(_error(path, "CodeQL queries must include security-and-quality"))
+    if init_with.get("config-file") != EXPECTED_CODEQL_CONFIG_FILE:
+        errors.append(_error(path, "CodeQL must use the repository's narrow analysis config"))
+
+    analysis_steps = [step for step in steps if _uses_action(step, "github/codeql-action/analyze")]
+    if len(analysis_steps) != 1:
+        errors.append(_error(path, "CodeQL analyze job must have exactly one analysis step"))
+        return errors
+    if steps.index(analysis_steps[0]) <= steps.index(init_steps[0]):
+        errors.append(_error(path, "CodeQL analysis step must run after initialization"))
+    _require_default_success(
+        errors,
+        path=path,
+        label="CodeQL analysis step",
+        item=analysis_steps[0],
+    )
+    return errors
+
+
+def _codeql_config_errors(repo: Path) -> list[str]:
+    path = repo / EXPECTED_CODEQL_CONFIG_FILE.removeprefix("./")
+    try:
+        config = yaml.safe_load(path.read_text(encoding="utf-8"))
+    except (OSError, yaml.YAMLError) as exc:
+        return [_error(path, f"could not parse CodeQL config: {exc}")]
+    if not isinstance(config, dict):
+        return [_error(path, "CodeQL config root must be a mapping")]
+
+    errors = []
+    unexpected = sorted(set(config) - {"name", "paths-ignore"})
+    if unexpected:
+        errors.append(
+            _error(
+                path,
+                "CodeQL config may only name the config and exclude generated examples; "
+                f"unexpected keys: {', '.join(unexpected)}",
+            )
+        )
+    if config.get("paths-ignore") != EXPECTED_CODEQL_IGNORES:
+        errors.append(
+            _error(
+                path,
+                "CodeQL config must exclude exactly the generated examples path",
+            )
+        )
+    return errors
+
+
 def check(path: Path) -> list[str]:
     """Return policy violations for one workflow path."""
     try:
@@ -400,6 +510,7 @@ def check(path: Path) -> list[str]:
         *_lock_errors(path, workflow),
         *_release_errors(path, workflow),
         *_examples_errors(path, workflow),
+        *_codeql_errors(path, workflow),
     ]
 
 
@@ -407,7 +518,18 @@ def check_repository(repo: Path) -> list[str]:
     """Return policy violations for every repository workflow."""
     workflow_dir = repo / ".github" / "workflows"
     paths = sorted([*workflow_dir.glob("*.yml"), *workflow_dir.glob("*.yaml")])
-    return [error for path in paths for error in check(path)]
+    errors = [error for path in paths for error in check(path)]
+    codeql_paths = [path for path in paths if path.name in {"codeql.yml", "codeql.yaml"}]
+    if len(codeql_paths) != 1:
+        errors.append(
+            _error(
+                workflow_dir / "codeql.yml",
+                "repository must define exactly one CodeQL workflow named "
+                "codeql.yml or codeql.yaml",
+            )
+        )
+    errors.extend(_codeql_config_errors(repo))
+    return errors
 
 
 def main() -> int:

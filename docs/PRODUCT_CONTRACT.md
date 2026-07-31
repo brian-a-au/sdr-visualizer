@@ -100,6 +100,14 @@ artifact. Default filenames sanitize instance identifiers to prevent path and
 terminal-control injection. `--max-graph-nodes` accepts zero or a positive
 integer; negative values are invalid.
 
+All snapshot-controlled string values and mapping keys must contain Unicode
+scalar values; isolated UTF-16 surrogate code points are invalid input.
+Optional definitions, tags, and references may arrive as JSON-encoded strings.
+Ordinary malformed JSON in those optional fields keeps the documented empty
+fallback, while decoder resource-limit failures are invalid input. Values
+decoded from embedded JSON are checked again because escaped surrogates first
+materialize at that boundary.
+
 The graph includes directed edges only when both source and target exist.
 CJA-derived-field component references are normalized and contribute to those
 edges and degree counts. Dangling references do not create graph edges.
@@ -144,5 +152,7 @@ release cycle as `sdr-grader`. Intentional differences are documented in
 A green pull request is a release candidate, not an announcement. Publication
 requires a separately authorized tag; the release workflow must publish the
 verified wheel and source distribution to PyPI before creating the GitHub
-release. Public announcement remains blocked until the post-publication
-evidence in [`RELEASING.md`](RELEASING.md) is complete.
+release. Candidate qualification includes CodeQL analysis of both shipped
+languages: Python and JavaScript/TypeScript. Public announcement remains
+blocked until the post-publication evidence in
+[`RELEASING.md`](RELEASING.md) is complete.

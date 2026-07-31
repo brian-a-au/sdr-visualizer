@@ -23,6 +23,7 @@ from sdr_visualizer.core.models import (
 from sdr_visualizer.core.structure_limits import (
     validate_definition_structure,
     validate_snapshot_structure,
+    validate_unicode_scalars,
 )
 
 
@@ -428,9 +429,10 @@ def _parse_tag_list(value: Any) -> list[str]:
 
     The naive `list(record.get("tags") or [])` iterates that string as
     characters — producing fake tags like `'['`, `'"'`, `'c'` — so this
-    helper handles both the stringified and native-list shapes and falls back
-    to `[]` for anything unparseable. Kept behavior-identical to sdr-grader's
-    copy so the vendored adapters stay comparable."""
+    helper handles both the stringified and native-list shapes. Ordinary JSON
+    syntax failures fall back to `[]`; decoder resource failures are invalid
+    snapshot input. Kept behavior-identical to sdr-grader's copy so the
+    vendored adapters stay comparable."""
     if value is None or value == "":
         return []
     if isinstance(value, list):
@@ -440,6 +442,9 @@ def _parse_tag_list(value: Any) -> list[str]:
             parsed = json.loads(value)
         except json.JSONDecodeError:
             return []
+        except (ValueError, RecursionError) as exc:
+            raise InvalidSnapshotError("tag list JSON exceeds decoder limits") from exc
+        validate_unicode_scalars(parsed, label="tag list")
         if isinstance(parsed, list):
             return [str(t) for t in parsed]
         return []
@@ -459,6 +464,9 @@ def _parse_ref_list(value: Any) -> list[str]:
             parsed = json.loads(value)
         except json.JSONDecodeError:
             return []
+        except (ValueError, RecursionError) as exc:
+            raise InvalidSnapshotError("reference list JSON exceeds decoder limits") from exc
+        validate_unicode_scalars(parsed, label="reference list")
         if isinstance(parsed, list):
             return [str(t) for t in parsed]
     return []
@@ -550,8 +558,9 @@ def _parse_definition_json(value: Any, *, label: str = "definition") -> dict[str
             parsed = json.loads(value)
         except json.JSONDecodeError:
             return {}
-        except RecursionError as exc:
-            raise InvalidSnapshotError(f"{label} JSON exceeds nesting limits") from exc
+        except (ValueError, RecursionError) as exc:
+            raise InvalidSnapshotError(f"{label} JSON exceeds decoder limits") from exc
+        validate_unicode_scalars(parsed, label=label)
         if not isinstance(parsed, dict):
             return {}
     else:

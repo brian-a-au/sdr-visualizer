@@ -5,6 +5,8 @@ from __future__ import annotations
 import importlib.util
 from pathlib import Path
 
+import pytest
+
 REPO = Path(__file__).resolve().parent.parent
 SCRIPT = REPO / "scripts" / "check_workflow_policy.py"
 SHA = "a" * 40
@@ -20,6 +22,12 @@ def _write(tmp_path: Path, name: str, text: str) -> Path:
     return path
 
 
+def _write_repo_workflow(tmp_path: Path, name: str, text: str) -> Path:
+    workflow_dir = tmp_path / ".github" / "workflows"
+    workflow_dir.mkdir(parents=True, exist_ok=True)
+    return _write(workflow_dir, name, text)
+
+
 def _basic_workflow(action_ref: str, permissions: str = "contents: read") -> str:
     return f"""
 name: basic
@@ -31,6 +39,35 @@ jobs:
       {permissions}
     steps:
       - uses: actions/checkout@{action_ref}
+"""
+
+
+def _codeql_workflow(matrix_rows: str) -> str:
+    return f"""
+name: codeql
+on: push
+jobs:
+  analyze:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+{matrix_rows}
+    steps:
+      - uses: actions/checkout@{SHA}
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@{SHA}
+        with:
+          languages: ${{{{ matrix.language }}}}
+          build-mode: ${{{{ matrix.build-mode }}}}
+          queries: security-and-quality
+          config-file: ./.github/codeql/codeql-config.yml
+      - name: Analyze
+        uses: github/codeql-action/analyze@{SHA}
 """
 
 
@@ -168,22 +205,14 @@ def test_rejects_top_level_write_and_unneeded_job_write(tmp_path):
 
 
 def test_codeql_analyze_requires_only_its_security_events_write(tmp_path):
+    rows = """          - language: python
+            build-mode: none
+          - language: javascript-typescript
+            build-mode: none"""
     workflow = _write(
         tmp_path,
         "codeql.yml",
-        f"""
-name: codeql
-on: push
-jobs:
-  analyze:
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      security-events: write
-    steps:
-      - uses: actions/checkout@{SHA}
-      - uses: github/codeql-action/analyze@{SHA}
-""",
+        _codeql_workflow(rows),
     )
     assert check_workflow_policy.check(workflow) == []
 
@@ -197,6 +226,269 @@ jobs:
     assert any(
         "missing required write permission for code-scanning results" in error
         for error in check_workflow_policy.check(missing)
+    )
+
+
+def test_codeql_requires_exact_shipped_language_matrix(tmp_path):
+    valid_rows = """          - language: python
+            build-mode: none
+          - language: javascript-typescript
+            build-mode: none"""
+    workflow = _write(tmp_path, "codeql.yml", _codeql_workflow(valid_rows))
+
+    assert check_workflow_policy.check(workflow) == []
+
+    invalid_cases = {
+        "missing-python": valid_rows.replace(
+            "          - language: python\n            build-mode: none\n", ""
+        ),
+        "missing-javascript": valid_rows.replace(
+            "          - language: javascript-typescript\n            build-mode: none", ""
+        ),
+        "duplicate-language": valid_rows
+        + "\n          - language: python\n            build-mode: none",
+        "unknown-language": valid_rows.replace("javascript-typescript", "ruby"),
+        "wrong-build-mode": valid_rows.replace(
+            "language: javascript-typescript\n            build-mode: none",
+            "language: javascript-typescript\n            build-mode: manual",
+        ),
+    }
+    for name, rows in invalid_cases.items():
+        candidate = _write(tmp_path, "codeql.yml", _codeql_workflow(rows))
+        errors = check_workflow_policy.check(candidate)
+        assert any("exact shipped-language matrix" in error for error in errors), name
+
+
+def test_codeql_rejects_non_list_matrix_without_crashing(tmp_path):
+    workflow = _write(
+        tmp_path,
+        "codeql.yml",
+        _codeql_workflow("          scalar").replace("include:\n          scalar", "include: 1"),
+    )
+
+    assert any(
+        "exact shipped-language matrix" in error for error in check_workflow_policy.check(workflow)
+    )
+
+
+def test_repository_requires_exactly_one_codeql_workflow(tmp_path):
+    _write_repo_workflow(tmp_path, "basic.yml", _basic_workflow(SHA))
+
+    errors = check_workflow_policy.check_repository(tmp_path)
+    assert any("exactly one CodeQL workflow" in error for error in errors)
+
+    rows = """          - language: python
+            build-mode: none
+          - language: javascript-typescript
+            build-mode: none"""
+    _write_repo_workflow(tmp_path, "codeql.yml", _codeql_workflow(rows))
+    _write_repo_workflow(tmp_path, "codeql.yaml", _codeql_workflow(rows))
+
+    errors = check_workflow_policy.check_repository(tmp_path)
+    assert any("exactly one CodeQL workflow" in error for error in errors)
+
+
+def test_codeql_requires_exactly_one_initialization_and_analysis_step(tmp_path):
+    rows = """          - language: python
+            build-mode: none
+          - language: javascript-typescript
+            build-mode: none"""
+    valid = _codeql_workflow(rows)
+    init_step = f"""      - name: Initialize CodeQL
+        uses: github/codeql-action/init@{SHA}
+        with:
+          languages: ${{{{ matrix.language }}}}
+          build-mode: ${{{{ matrix.build-mode }}}}
+          queries: security-and-quality
+          config-file: ./.github/codeql/codeql-config.yml
+"""
+
+    cases = {
+        "missing-init": (
+            valid.replace(init_step, ""),
+            "exactly one initialization step",
+        ),
+        "duplicate-init": (
+            valid.replace(init_step, init_step * 2),
+            "exactly one initialization step",
+        ),
+        "init-only": (
+            valid.replace(
+                f"""      - name: Analyze
+        uses: github/codeql-action/analyze@{SHA}
+""",
+                "",
+            ),
+            "exactly one analysis step",
+        ),
+    }
+    for name, (text, expected) in cases.items():
+        workflow = _write(tmp_path, "codeql.yml", text)
+        assert any(expected in error for error in check_workflow_policy.check(workflow)), name
+
+
+def test_codeql_initialization_requires_all_matrix_inputs(tmp_path):
+    rows = """          - language: python
+            build-mode: none
+          - language: javascript-typescript
+            build-mode: none"""
+    valid = _codeql_workflow(rows)
+    cases = {
+        "missing-with": valid.replace(
+            """        with:
+          languages: ${{ matrix.language }}
+          build-mode: ${{ matrix.build-mode }}
+          queries: security-and-quality
+          config-file: ./.github/codeql/codeql-config.yml
+""",
+            "",
+        ),
+        "missing-languages": valid.replace("          languages: ${{ matrix.language }}\n", ""),
+        "missing-build-mode": valid.replace("          build-mode: ${{ matrix.build-mode }}\n", ""),
+        "missing-queries": valid.replace("          queries: security-and-quality\n", ""),
+        "missing-config": valid.replace(
+            "          config-file: ./.github/codeql/codeql-config.yml\n", ""
+        ),
+    }
+    for name, text in cases.items():
+        workflow = _write(tmp_path, "codeql.yml", text)
+        assert check_workflow_policy.check(workflow), name
+
+
+def test_codeql_analysis_must_follow_initialization_and_fail_closed(tmp_path):
+    rows = """          - language: python
+            build-mode: none
+          - language: javascript-typescript
+            build-mode: none"""
+    valid = _codeql_workflow(rows)
+    init = f"""      - name: Initialize CodeQL
+        uses: github/codeql-action/init@{SHA}
+        with:
+          languages: ${{{{ matrix.language }}}}
+          build-mode: ${{{{ matrix.build-mode }}}}
+          queries: security-and-quality
+          config-file: ./.github/codeql/codeql-config.yml
+"""
+    analysis = f"""      - name: Analyze
+        uses: github/codeql-action/analyze@{SHA}
+"""
+
+    reordered = _write(
+        tmp_path,
+        "codeql.yml",
+        valid.replace(f"{init}{analysis}", f"{analysis}{init}"),
+    )
+    assert any(
+        "must run after initialization" in error for error in check_workflow_policy.check(reordered)
+    )
+
+    nonblocking = _write(
+        tmp_path,
+        "codeql.yml",
+        valid.replace(
+            analysis,
+            f"""      - name: Analyze
+        continue-on-error: true
+        uses: github/codeql-action/analyze@{SHA}
+""",
+        ),
+    )
+    assert any(
+        "analysis step must use default success gating" in error
+        for error in check_workflow_policy.check(nonblocking)
+    )
+
+
+def test_codeql_rejects_malformed_strategy_and_steps(tmp_path):
+    rows = """          - language: python
+            build-mode: none
+          - language: javascript-typescript
+            build-mode: none"""
+    valid = _codeql_workflow(rows)
+    cases = {
+        "strategy": (
+            valid.replace(
+                """    strategy:
+      fail-fast: false
+      matrix:
+        include:
+""",
+                """    strategy: invalid
+    ignored:
+""",
+            ),
+            "strategy must be a mapping",
+        ),
+        "steps": (
+            valid.replace(
+                "    steps:\n      - uses:",
+                "    steps: invalid\n    ignored:\n      - uses:",
+            ),
+            "steps must be a list of mappings",
+        ),
+    }
+    for name, (text, expected) in cases.items():
+        workflow = _write(tmp_path, "codeql.yml", text)
+        assert any(expected in error for error in check_workflow_policy.check(workflow)), name
+
+
+@pytest.mark.parametrize(
+    ("before", "after", "expected"),
+    [
+        ("queries: security-and-quality", "queries: security-extended", "security-and-quality"),
+        (
+            "config-file: ./.github/codeql/codeql-config.yml",
+            "config-file: ./.github/codeql/other.yml",
+            "narrow analysis config",
+        ),
+        (
+            "languages: ${{ matrix.language }}",
+            "languages: python",
+            "matrix.language",
+        ),
+        (
+            "build-mode: ${{ matrix.build-mode }}",
+            "build-mode: none",
+            "matrix.build-mode",
+        ),
+    ],
+)
+def test_codeql_initialization_must_use_policy_matrix(tmp_path, before, after, expected):
+    rows = """          - language: python
+            build-mode: none
+          - language: javascript-typescript
+            build-mode: none"""
+    workflow = _write(tmp_path, "codeql.yml", _codeql_workflow(rows).replace(before, after))
+
+    assert any(expected in error for error in check_workflow_policy.check(workflow))
+
+
+def test_codeql_config_excludes_only_generated_examples(tmp_path):
+    config_dir = tmp_path / ".github" / "codeql"
+    config_dir.mkdir(parents=True)
+    config = _write(
+        config_dir,
+        "codeql-config.yml",
+        'name: "test"\npaths-ignore:\n  - examples/**\n',
+    )
+    assert check_workflow_policy._codeql_config_errors(tmp_path) == []
+
+    config.write_text(
+        'name: "test"\npaths-ignore:\n  - "**"\n',
+        encoding="utf-8",
+    )
+    assert any(
+        "exclude exactly the generated examples path" in error
+        for error in check_workflow_policy._codeql_config_errors(tmp_path)
+    )
+
+    config.write_text(
+        'name: "test"\npaths:\n  - src/**\npaths-ignore:\n  - examples/**\n',
+        encoding="utf-8",
+    )
+    assert any(
+        "unexpected keys: paths" in error
+        for error in check_workflow_policy._codeql_config_errors(tmp_path)
     )
 
 

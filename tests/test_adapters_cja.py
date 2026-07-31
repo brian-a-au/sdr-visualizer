@@ -520,7 +520,127 @@ def test_cja_definition_json_recursion_error_is_invalid_snapshot(monkeypatch):
 
     monkeypatch.setattr("sdr_visualizer.adapters.cja.json.loads", recurse)
 
-    with pytest.raises(InvalidSnapshotError, match=r"definition.*JSON exceeds nesting limits"):
+    with pytest.raises(InvalidSnapshotError, match=r"definition.*JSON exceeds decoder limits"):
+        adapt(snapshot)
+
+
+@pytest.mark.parametrize(
+    "error", [ValueError("integer limit"), RecursionError("decoder recursion")]
+)
+def test_cja_definition_json_decoder_resource_errors_are_invalid_snapshot(monkeypatch, error):
+    snapshot = _minimal_cja(
+        calculated_metrics={
+            "metrics": [{"metric_id": "cm/deep", "definition_json": '{"func":"sum"}'}]
+        }
+    )
+
+    def fail(_value):
+        raise error
+
+    monkeypatch.setattr("sdr_visualizer.adapters.cja.json.loads", fail)
+
+    with pytest.raises(InvalidSnapshotError, match=r"definition.*JSON exceeds decoder limits"):
+        adapt(snapshot)
+
+
+@pytest.mark.parametrize(
+    "snapshot",
+    [
+        _minimal_cja(metrics=[{"id": "metrics/orders", "description": "\ud800"}]),
+        _minimal_cja(metrics=[{"id": "metrics/orders", "\udfff": "value"}]),
+    ],
+)
+def test_cja_snapshot_rejects_surrogate_values_and_mapping_keys(snapshot):
+    with pytest.raises(InvalidSnapshotError, match=r"CJA snapshot.*surrogate"):
+        adapt(snapshot)
+
+
+@pytest.mark.parametrize(
+    "snapshot",
+    [
+        _minimal_cja(metrics=[{"id": "metrics/orders", "tags": '["\\ud800"]'}]),
+        _minimal_cja(
+            calculated_metrics={
+                "metrics": [
+                    {
+                        "metric_id": "cm/orders",
+                        "definition_json": {},
+                        "metric_references": '["\\udfff"]',
+                    }
+                ]
+            }
+        ),
+        _minimal_cja(
+            calculated_metrics={
+                "metrics": [
+                    {
+                        "metric_id": "cm/orders",
+                        "definition_json": '{"\\ud800":"value"}',
+                    }
+                ]
+            }
+        ),
+        _minimal_cja(metrics=[{"id": "metrics/orders", "tags": '{"bad":"\\ud800"}'}]),
+        _minimal_cja(
+            calculated_metrics={
+                "metrics": [
+                    {
+                        "metric_id": "cm/orders",
+                        "definition_json": {},
+                        "metric_references": '{"bad":"\\udfff"}',
+                    }
+                ]
+            }
+        ),
+        _minimal_cja(
+            calculated_metrics={
+                "metrics": [
+                    {
+                        "metric_id": "cm/orders",
+                        "definition_json": '"\\ud800"',
+                    }
+                ]
+            }
+        ),
+    ],
+)
+def test_cja_embedded_json_rejects_surrogates_materialized_after_decode(snapshot):
+    with pytest.raises(InvalidSnapshotError, match=r"surrogate"):
+        adapt(snapshot)
+
+
+@pytest.mark.parametrize(
+    ("field", "snapshot"),
+    [
+        ("tag list", _minimal_cja(metrics=[{"id": "metrics/orders", "tags": '["paid"]'}])),
+        (
+            "reference list",
+            _minimal_cja(
+                calculated_metrics={
+                    "metrics": [
+                        {
+                            "metric_id": "cm/orders",
+                            "definition_json": {},
+                            "metric_references": '["metrics/orders"]',
+                        }
+                    ]
+                }
+            ),
+        ),
+    ],
+)
+@pytest.mark.parametrize(
+    "error", [ValueError("integer limit"), RecursionError("decoder recursion")]
+)
+def test_cja_embedded_list_decoder_resource_errors_are_invalid_snapshot(
+    monkeypatch, field, snapshot, error
+):
+    def fail(_value):
+        raise error
+
+    monkeypatch.setattr("sdr_visualizer.adapters.cja.json.loads", fail)
+
+    with pytest.raises(InvalidSnapshotError, match=rf"{field}.*JSON exceeds decoder limits"):
         adapt(snapshot)
 
 

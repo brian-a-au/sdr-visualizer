@@ -27,12 +27,28 @@ Candidate version:
 Candidate commit SHA:
 Visualizer PR:
 Sibling sdr-grader PR:
+Sibling sdr-grader commit:
 Date:
 Operator:
 ```
 
 If the candidate commit changes, rerun affected checks and update the record.
 Do not combine results from different candidate SHAs.
+
+Before qualification begins, assign and record these roles with UTC
+timestamps:
+
+```text
+Candidate approver:
+Tag operator / authorization:
+PyPI environment reviewer:
+Release monitor:
+Announcement approver:
+```
+
+Candidate approval does not authorize the tag. Tag authorization does not
+authorize an announcement. One person may fill multiple roles, but every
+decision must still be recorded separately.
 
 ## Local verification
 
@@ -46,6 +62,9 @@ uv run ruff check
 uv run ruff format --check
 uv run python scripts/check_markdown_links.py
 uv run python scripts/check_workflow_policy.py
+uv run pytest tests/test_structure_limits.py tests/test_adapters_cja.py \
+  tests/test_adapters_aa.py tests/test_cli.py tests/test_analysis_trend.py \
+  tests/test_renderer.py -q
 uv run pytest --ignore=tests/test_browser_functional.py \
   --cov=sdr_visualizer --cov-branch --cov-report=term-missing \
   --cov-report=json --cov-fail-under=99
@@ -86,6 +105,10 @@ Record the wheel and source-distribution filenames and SHA-256 digests. Inspect
 their metadata and confirm Jinja2 is the only direct runtime dependency,
 required public documents are in the source distribution, and ignored specs,
 plans, generated fixtures, caches, and repository metadata are absent.
+The focused input-boundary run above must cover decoder-limit failures,
+surrogate-containing string values and mapping keys, surrogates materialized by
+embedded JSON decoding, direct rendering, default output naming, diagnostics,
+and corrupt trend-member skipping.
 
 Export and audit the runtime-only dependency set:
 
@@ -151,6 +174,8 @@ Review changes to `core/models.py`, `adapters/`, and
 - Document and test intentional project-specific differences.
 - Record the sibling commit, pull-request URL, test result, and merge status.
 - Require the sibling change to be green and merged in the same release cycle.
+- Confirm the sibling patch changes no grader version metadata, CodeQL
+  language set, package publication, GitHub release, or announcement surface.
 
 Missing access or an unreviewed sibling change blocks release; it does not turn
 parity into an optional follow-up.
@@ -161,12 +186,16 @@ Inspect repository settings immediately before the go/no-go decision and record
 the result:
 
 - `main` requires pull requests and the expected test/lint checks;
+- the candidate has successful `analyze (python, none)` and
+  `analyze (javascript-typescript, none)` CodeQL checks, and `main` requires
+  both emitted contexts before tag authorization;
 - force pushes and branch deletion are blocked;
 - administrator and bypass behavior is explicitly chosen;
 - Dependabot alerts and security updates are enabled;
 - secret scanning and push protection are enabled where supported;
 - code scanning is enabled where supported, or its compensating control and
-  owner are recorded;
+  owner are recorded, and no applicable open Python or JavaScript/TypeScript
+  alert remains;
 - the PyPI environment has the intended trusted-publisher protection;
 - Pages uses the intended workflow/source and the repository homepage points to
   the live project site;
@@ -207,6 +236,9 @@ settings inspection tied to the candidate SHA.
 | R19 protected/monitored `main` | settings/API inspection | pending |
 | R20 complete community surface | community profile + contact verification | pending |
 | R21 one traced candidate | this matrix + final go/no-go | pending |
+| R22 decoder resource containment | focused adapter/CLI regressions | pending |
+| R23 Unicode-scalar input boundary | structure/adapter/render/trend regressions | pending |
+| R24 all shipped languages scanned | two successful CodeQL contexts + required-check inspection | pending |
 
 Also account explicitly for the original 14 validated findings:
 
@@ -226,11 +258,22 @@ Also account explicitly for the original 14 validated findings:
 | Filesystem time used host-local cutoff semantics | R5 | pending |
 | Trend capped before platform selection | R4 | pending |
 | Deep accepted structures escaped invalid-input handling | R6 | pending |
+| Embedded JSON decoder limits escaped invalid-input handling | R22 | pending |
+| Surrogate code points crashed output and serialization paths | R23 | pending |
+| CodeQL omitted shipped browser JavaScript | R24 | pending |
 
 ## Publication and recovery
 
-After the candidate is approved, explicit tag authorization starts the release
-workflow. Verify that:
+Before tagging, prove the candidate version is absent from remote tags, GitHub
+releases, and PyPI. Record the exact candidate SHA and confirm the annotated
+tag will dereference to that SHA. Any conflicting public state is a stop
+condition.
+
+After the candidate is approved, a separate explicit tag authorization starts
+the release workflow. Record the workflow run ID and attempt, event, tag,
+`headSha`, job conclusions, retained artifact ID, artifact expiry, distribution
+filenames, and authoritative `SHA256SUMS`. Grant the protected PyPI environment
+approval only after those artifacts and their manifest exist. Verify that:
 
 1. browser/performance gates pass;
 2. one build job creates and smoke-tests the wheel and source distribution;
@@ -241,11 +284,24 @@ workflow. Verify that:
 
 Add the tag, workflow-run URL, PyPI project/version URL, GitHub release URL,
 artifact digests, and installation smoke result to the evidence record.
+Verify PyPI provenance identifies this repository, `release.yml`, the
+authorized tag ref, and the exact candidate SHA. Fresh `--no-cache-dir`
+installs on Python 3.11 and 3.12 must render outside the checkout. Download the
+PyPI and GitHub distributions again, compare them with the retained manifest,
+and confirm the GitHub `SHA256SUMS` asset matches that manifest byte-for-byte.
 
-If PyPI fails, no GitHub release may exist. If PyPI succeeds but the GitHub
-release fails, do not rebuild or republish the same version: retry only the
-final GitHub-release stage using the retained verified artifacts. Investigate
-any artifact-retention gap before taking another release action.
+The authoritative workflow artifact must remain available throughout a
+90-day recovery window. Confirm repository retention and the artifact's actual
+expiry before approval; if either is shorter, stop and repair the recovery
+path before tagging.
+
+| Public state | Permitted recovery | Stop condition |
+|---|---|---|
+| Tag exists; PyPI has not published | Retry transient infrastructure failures only against the same immutable tag and SHA. For a code or artifact defect, abandon that version and qualify the next patch. | Moved/reused tag, rebuilt artifact set, or changed SHA. |
+| PyPI published; GitHub release failed | Retry only the failed GitHub-release stage with the original retained artifact and manifest. | Missing, expired, rebuilt, or mismatched retained artifacts; recover forward with the next patch. |
+| Public digest, provenance, or content defect | Block announcement, preserve evidence, and obtain separate incident authorization before any yank or deletion. Correct only in a forward patch. | Any attempt to overwrite assets, move the tag, or silently replace the published version. |
 
 The public announcement is a final, separate go/no-go. It remains blocked until
-every applicable matrix row is passing and both publication links resolve.
+every applicable matrix row is passing, both publication links and the live
+Pages/homepage URLs resolve, public provenance and digests pass, and the
+announcement approver records a UTC-timestamped go decision.

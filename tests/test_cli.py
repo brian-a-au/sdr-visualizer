@@ -108,6 +108,35 @@ def test_visible_terminal_text_escapes_c0_c1_controls():
     )
 
 
+def test_filename_and_terminal_helpers_handle_surrogates_defensively():
+    token = _safe_filename_token("tenant\ud800name")
+    visible = _visible_terminal_text("tenant\udfffname")
+
+    assert token
+    assert token.isascii()
+    assert r"\uDFFF" in visible
+    assert not any(0xD800 <= ord(character) <= 0xDFFF for character in visible)
+
+
+@pytest.mark.parametrize("instance_field", ["Data View ID", "Data View Name"])
+def test_surrogate_instance_identity_exits_3_without_default_artifact(
+    tmp_path, monkeypatch, capsys, instance_field
+):
+    snapshot = _cja_compare_snapshot()
+    snapshot["metadata"][instance_field] = "\ud800"
+    source = _write_json(tmp_path / "surrogate.json", snapshot)
+    monkeypatch.chdir(tmp_path)
+
+    rc = main([str(source), "--quiet"])
+
+    assert rc == 3
+    assert list(tmp_path.glob("visualize-*.html")) == []
+    err = capsys.readouterr().err
+    assert "surrogate" in err
+    assert "Traceback" not in err
+    assert not any(0xD800 <= ord(character) <= 0xDFFF for character in err)
+
+
 def test_compare_instance_mismatch_diagnostic_escapes_controls(tmp_path, capsys):
     hostile_id = "baseline\n\x1b]8;;https://example.test\x07name"
     old = _write_json(tmp_path / "old.json", _cja_compare_snapshot(dv_id=hostile_id))
@@ -157,6 +186,41 @@ def test_overdeep_file_exits_3_without_artifacts_or_traceback(tmp_path, capsys):
     assert not sidecar.exists()
     err = capsys.readouterr().err
     assert "depth" in err
+    assert "Traceback" not in err
+
+
+def test_embedded_json_decoder_limit_exits_3_without_artifacts_or_hostile_text(tmp_path, capsys):
+    hostile_digits = "9" * 5_000
+    snapshot = _cja_compare_snapshot()
+    snapshot["calculated_metrics"] = {
+        "metrics": [
+            {
+                "metric_id": "cm/decoder-limit",
+                "definition_json": f'{{"value":{hostile_digits}}}',
+            }
+        ]
+    }
+    source = _write_json(tmp_path / "decoder-limit.json", snapshot)
+    output = tmp_path / "out.html"
+    sidecar = tmp_path / "out.json"
+
+    rc = main(
+        [
+            str(source),
+            "--output",
+            str(output),
+            "--json",
+            str(sidecar),
+            "--quiet",
+        ]
+    )
+
+    assert rc == 3
+    assert not output.exists()
+    assert not sidecar.exists()
+    err = capsys.readouterr().err
+    assert "decoder limits" in err
+    assert hostile_digits not in err
     assert "Traceback" not in err
 
 
@@ -231,6 +295,31 @@ def test_overdeep_trend_member_is_skipped_as_unusable(tmp_path, capsys):
     err = capsys.readouterr().err
     assert "skipping" in err
     assert "depth" in err
+
+
+def test_surrogate_invalid_trend_member_is_skipped_as_unusable(tmp_path, capsys):
+    series = tmp_path / "series"
+    series.mkdir()
+    _write_json(
+        series / "snapshot_2026-01-01T00-00-00.json",
+        _cja_compare_snapshot("Metric One"),
+    )
+    _write_json(
+        series / "snapshot_2026-02-01T00-00-00.json",
+        _cja_compare_snapshot("Metric Two"),
+    )
+    invalid = _cja_compare_snapshot("Metric Three")
+    invalid["metrics"][0]["description"] = "\ud800"
+    _write_json(series / "snapshot_2026-03-01T00-00-00.json", invalid)
+    output = tmp_path / "out.html"
+
+    rc = main([str(series), "--trend", "--output", str(output), "--quiet"])
+
+    assert rc == 0
+    assert output.exists()
+    err = capsys.readouterr().err
+    assert "skipping" in err
+    assert "surrogate" in err
 
 
 @pytest.mark.parametrize(

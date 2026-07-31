@@ -20,6 +20,7 @@ from sdr_visualizer.core.models import (
 from sdr_visualizer.core.structure_limits import (
     validate_definition_structure,
     validate_snapshot_structure,
+    validate_unicode_scalars,
 )
 
 
@@ -352,7 +353,8 @@ def _parse_tag_list(value: Any) -> list[str]:
     """aa_auto_sdr can ship `tags` as a JSON-encoded list string, same as
     cja_auto_sdr (see cja.py's copy — adapters stay standalone reference
     examples, so this helper is intentionally duplicated). Handles native
-    lists, stringified lists, and falls back to [] for anything else. Kept
+    lists and stringified lists. Ordinary JSON syntax failures fall back to
+    `[]`; decoder resource failures are invalid snapshot input. Kept
     behavior-identical to sdr-grader's copy."""
     if value is None or value == "":
         return []
@@ -363,6 +365,9 @@ def _parse_tag_list(value: Any) -> list[str]:
             parsed = json.loads(value)
         except json.JSONDecodeError:
             return []
+        except (ValueError, RecursionError) as exc:
+            raise InvalidSnapshotError("tag list JSON exceeds decoder limits") from exc
+        validate_unicode_scalars(parsed, label="tag list")
         if isinstance(parsed, list):
             return [str(t) for t in parsed]
     return []

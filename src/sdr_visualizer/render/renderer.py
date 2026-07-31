@@ -16,6 +16,7 @@ from jinja2 import Environment, PackageLoader
 
 from sdr_visualizer.core.exceptions import InvalidSnapshotError
 from sdr_visualizer.core.models import Implementation
+from sdr_visualizer.core.structure_limits import validate_unicode_scalars
 from sdr_visualizer.render.data_payload import build_payload
 from sdr_visualizer.render.trend_charts import build_trend_charts
 
@@ -63,6 +64,7 @@ def render_payload(payload: dict[str, Any], *, title: str | None = None) -> str:
 
 
 def _render_from_payload(payload: dict[str, Any], *, title: str | None) -> str:
+    validate_unicode_scalars(payload, label="render payload")
     template = _env.get_template("index.html.j2")
     css = _read_static("visualizer.css")
     js = _read_static("visualizer.js")
