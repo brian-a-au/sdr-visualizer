@@ -401,7 +401,9 @@ def _codeql_errors(path: Path, workflow: dict[str, Any]) -> list[str]:
         return [_error(path, "CodeQL workflow must define an 'analyze' job")]
 
     strategy = analyze.get("strategy")
-    matrix = strategy.get("matrix") if isinstance(strategy, dict) else None
+    if not isinstance(strategy, dict):
+        return [_error(path, "CodeQL analyze job strategy must be a mapping")]
+    matrix = strategy.get("matrix")
     include = matrix.get("include") if isinstance(matrix, dict) else None
     if not isinstance(include, list):
         return [
@@ -427,9 +429,11 @@ def _codeql_errors(path: Path, workflow: dict[str, Any]) -> list[str]:
             )
         ]
 
-    init_steps = [
-        step for step in _steps(analyze) if _uses_action(step, "github/codeql-action/init")
-    ]
+    steps = analyze.get("steps")
+    if not isinstance(steps, list) or any(not isinstance(step, dict) for step in steps):
+        return [_error(path, "CodeQL analyze job steps must be a list of mappings")]
+
+    init_steps = [step for step in steps if _uses_action(step, "github/codeql-action/init")]
     if len(init_steps) != 1:
         return [_error(path, "CodeQL analyze job must have exactly one initialization step")]
     init_with = init_steps[0].get("with")
@@ -443,6 +447,19 @@ def _codeql_errors(path: Path, workflow: dict[str, Any]) -> list[str]:
         errors.append(_error(path, "CodeQL build-mode must use matrix.build-mode"))
     if init_with.get("queries") != "security-and-quality":
         errors.append(_error(path, "CodeQL queries must include security-and-quality"))
+
+    analysis_steps = [step for step in steps if _uses_action(step, "github/codeql-action/analyze")]
+    if len(analysis_steps) != 1:
+        errors.append(_error(path, "CodeQL analyze job must have exactly one analysis step"))
+        return errors
+    if steps.index(analysis_steps[0]) <= steps.index(init_steps[0]):
+        errors.append(_error(path, "CodeQL analysis step must run after initialization"))
+    _require_default_success(
+        errors,
+        path=path,
+        label="CodeQL analysis step",
+        item=analysis_steps[0],
+    )
     return errors
 
 
@@ -468,7 +485,17 @@ def check_repository(repo: Path) -> list[str]:
     """Return policy violations for every repository workflow."""
     workflow_dir = repo / ".github" / "workflows"
     paths = sorted([*workflow_dir.glob("*.yml"), *workflow_dir.glob("*.yaml")])
-    return [error for path in paths for error in check(path)]
+    errors = [error for path in paths for error in check(path)]
+    codeql_paths = [path for path in paths if path.name in {"codeql.yml", "codeql.yaml"}]
+    if len(codeql_paths) != 1:
+        errors.append(
+            _error(
+                workflow_dir / "codeql.yml",
+                "repository must define exactly one CodeQL workflow named "
+                "codeql.yml or codeql.yaml",
+            )
+        )
+    return errors
 
 
 def main() -> int:
