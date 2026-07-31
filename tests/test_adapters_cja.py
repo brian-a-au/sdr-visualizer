@@ -580,6 +580,28 @@ def test_cja_snapshot_rejects_surrogate_values_and_mapping_keys(snapshot):
                 ]
             }
         ),
+        _minimal_cja(metrics=[{"id": "metrics/orders", "tags": '{"bad":"\\ud800"}'}]),
+        _minimal_cja(
+            calculated_metrics={
+                "metrics": [
+                    {
+                        "metric_id": "cm/orders",
+                        "definition_json": {},
+                        "metric_references": '{"bad":"\\udfff"}',
+                    }
+                ]
+            }
+        ),
+        _minimal_cja(
+            calculated_metrics={
+                "metrics": [
+                    {
+                        "metric_id": "cm/orders",
+                        "definition_json": '"\\ud800"',
+                    }
+                ]
+            }
+        ),
     ],
 )
 def test_cja_embedded_json_rejects_surrogates_materialized_after_decode(snapshot):

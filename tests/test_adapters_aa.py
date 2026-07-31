@@ -427,8 +427,9 @@ def test_aa_snapshot_rejects_surrogate_values_and_mapping_keys(snapshot):
         adapt(snapshot)
 
 
-def test_aa_embedded_tags_reject_surrogates_materialized_after_decode():
-    snapshot = _minimal_aa(dimensions=[{"id": "variables/evar1", "tags": '["\\ud800"]'}])
+@pytest.mark.parametrize("tags", ['["\\ud800"]', '{"bad":"\\udfff"}'])
+def test_aa_embedded_tags_reject_surrogates_materialized_after_decode(tags):
+    snapshot = _minimal_aa(dimensions=[{"id": "variables/evar1", "tags": tags}])
 
     with pytest.raises(InvalidSnapshotError, match=r"tag list.*surrogate"):
         adapt(snapshot)

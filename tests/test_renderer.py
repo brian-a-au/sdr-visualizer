@@ -256,6 +256,19 @@ def test_direct_payload_render_rejects_surrogates_before_returning_html():
         render_payload(payload)
 
 
+def test_direct_payload_render_rejects_surrogate_mapping_key_before_returning_html():
+    snap = json.loads((FIXTURES / "cja_snapshot_clean.json").read_text(encoding="utf-8"))
+    impl = cja_adapt(snap)
+
+    from sdr_visualizer.render.renderer import build_payload_with_options, render_payload
+
+    payload = build_payload_with_options(impl)
+    payload["meta"]["\ud800"] = "value"
+
+    with pytest.raises(InvalidSnapshotError, match=r"render payload.*surrogate"):
+        render_payload(payload)
+
+
 def test_direct_payload_render_rejects_circular_container_without_hanging():
     snap = json.loads((FIXTURES / "cja_snapshot_clean.json").read_text(encoding="utf-8"))
     impl = cja_adapt(snap)
