@@ -34,6 +34,9 @@ Operator:
 
 If the candidate commit changes, rerun affected checks and update the record.
 Do not combine results from different candidate SHAs.
+The candidate must be one merged `main` SHA. Freeze `main` at that commit
+through tag authorization; any intervening merge is a stop condition and the
+resulting SHA must be qualified from the beginning.
 
 Before qualification begins, assign and record these roles with UTC
 timestamps:
@@ -43,12 +46,27 @@ Candidate approver:
 Tag operator / authorization:
 PyPI environment reviewer:
 Release monitor:
+Corpus operator:
+Corpus privacy reviewer:
 Announcement approver:
 ```
 
-Candidate approval does not authorize the tag. Tag authorization does not
-authorize an announcement. One person may fill multiple roles, but every
-decision must still be recorded separately.
+One person may fill multiple roles, but the release pull request must preserve
+four separately timestamped decisions with durable release-PR permalinks:
+
+1. candidate GO after the complete pre-publication matrix and security cutoff;
+2. tag authorization after the exact candidate and absent public version are
+   confirmed;
+3. PyPI publication approval after the authoritative artifact, manifest, and
+   90-day retention are inspected; and
+4. public-verification evidence plus announcement GO after publication,
+   provenance, install, digest, Pages, and URL checks pass.
+
+Candidate GO does not authorize the tag, tag authorization does not authorize
+PyPI approval, and publication does not authorize an announcement. Ignored
+local plans and release-evidence files are supplemental, not authoritative;
+the durable record is the release PR and its linked workflow/settings/public
+evidence. The GitHub release must link that evidence index.
 
 ## Local verification
 
@@ -69,17 +87,16 @@ uv run pytest --ignore=tests/test_browser_functional.py \
   --cov=sdr_visualizer --cov-branch --cov-report=term-missing \
   --cov-report=json --cov-fail-under=99
 
+uv run python scripts/generate_large_fixture.py \
+  --scale 0.083 --output tests/fixtures/cja_snapshot_small.json
+uv run python scripts/generate_large_fixture.py \
+  --scale 0.417 --output tests/fixtures/cja_snapshot_medium.json
 uv run python scripts/generate_large_fixture.py
 uv run python scripts/generate_aa_large_fixture.py
 uv run python scripts/generate_large_fixture.py \
   --scale 1.67 --output tests/fixtures/cja_snapshot_xl.json
 uv run pytest tests/test_browser_functional.py -v
 uv run python scripts/perf_browser_check.py
-
-uv run python scripts/generate_large_fixture.py \
-  --scale 0.083 --output tests/fixtures/cja_snapshot_small.json
-uv run python scripts/generate_large_fixture.py \
-  --scale 0.417 --output tests/fixtures/cja_snapshot_medium.json
 uv run python scripts/perf_check.py
 ```
 
@@ -136,8 +153,9 @@ production compatibility. Before marking a candidate ready:
    `sdr-visualizer --dataview`.
 2. Generate one new production-representative snapshot with the current
    released `aa_auto_sdr`.
-3. Put those samples together with the full historical private snapshot corpus
-   in a private directory.
+3. The assigned corpus operator puts those samples together with the full
+   historical private snapshot corpus in a developer-controlled private
+   directory with restricted permissions and no external telemetry.
 4. Run:
 
    ```bash
@@ -148,7 +166,11 @@ production compatibility. Before marking a candidate ready:
    representative comparison and trend.
 
 Do not commit snapshots, paths, instance IDs, customer names, owners, component
-names, formulas, or other customer data. Record only:
+names, formulas, or other customer data. The corpus operator inspects logs and
+temporary outputs, removes scratch material, and proves before and after the
+run that no snapshot, manifest, local path, identifier, or corpus-derived file
+is tracked or packaged. The privacy reviewer approves only this aggregate
+public record:
 
 ```text
 Candidate SHA:
@@ -207,6 +229,12 @@ the result:
 Unsupported account or plan features must be named with a compensating control
 and owner. An unexplained disabled control is a blocker.
 
+Record a UTC hosted-security cutoff with candidate GO. At that cutoff all
+required controls and the zero-applicable-alert condition must pass. After
+candidate GO, only the four reopen classes below can reverse GO unless evidence
+for the exact candidate SHA is shown to be invalid; a newly surfaced
+non-critical item is backlog.
+
 ## Requirement evidence matrix
 
 Copy this table into the release pull request and replace every `pending` with
@@ -239,6 +267,15 @@ settings inspection tied to the candidate SHA.
 | R22 decoder resource containment | focused adapter/CLI regressions | pending |
 | R23 Unicode-scalar input boundary | structure/adapter/render/trend regressions | pending |
 | R24 all shipped languages scanned | two successful CodeQL contexts + required-check inspection | pending |
+| R25 complete browser tier matrix | required 100/500/1,000/2,000 tier gate + missing-fixture tests | pending |
+| R26 output/input collision safety | lexical/symlink/hard-link/directory-candidate regressions | pending |
+| R27 unambiguous platform detection | hybrid direct/override/compare/trend tests | pending |
+| R28 bounded live generators | exact 600-second CJA/AA timeout and cleanup tests | pending |
+| R29 documented `derived_kind` | guide/schema/payload agreement tests | pending |
+| R30 all-input compatibility warnings | comparison/trend ordering, dedup, and exclusion tests | pending |
+| R31 decoded list structure budgets | exact decoded tag/reference depth and node boundary tests | pending |
+| R32 non-drifting test status | live workflow badge and fixed-count absence test | pending |
+| R33 one frozen announcement candidate | exact-SHA matrix, four decisions, public verification, and reopen rule | pending |
 
 Also account explicitly for the original 14 validated findings:
 
@@ -295,13 +332,34 @@ The authoritative workflow artifact must remain available throughout a
 expiry before approval; if either is shorter, stop and repair the recovery
 path before tagging.
 
+Every retry records its run ID, attempt, artifact ID, and manifest. Evidence
+from different artifact sets may never be combined.
+
 | Public state | Permitted recovery | Stop condition |
 |---|---|---|
-| Tag exists; PyPI has not published | Retry transient infrastructure failures only against the same immutable tag and SHA. For a code or artifact defect, abandon that version and qualify the next patch. | Moved/reused tag, rebuilt artifact set, or changed SHA. |
-| PyPI published; GitHub release failed | Retry only the failed GitHub-release stage with the original retained artifact and manifest. | Missing, expired, rebuilt, or mismatched retained artifacts; recover forward with the next patch. |
-| Public digest, provenance, or content defect | Block announcement, preserve evidence, and obtain separate incident authorization before any yank or deletion. Correct only in a forward patch. | Any attempt to overwrite assets, move the tag, or silently replace the published version. |
+| Tag exists; no authoritative workflow artifact | A transient retry may create the first authoritative set only when tag/SHA are unchanged and no code or artifact defect exists. | Moved/reused tag, changed SHA, or a defect requiring rebuilt content. |
+| Authoritative artifact exists; PyPI has zero files | Retry only downstream publication from that retained artifact and manifest. | Rebuild, changed artifact identity, or mixed evidence. |
+| PyPI has a partial file set | Stop routine release and inventory public filenames and digests. Only separately authorized incident recovery may upload a missing byte-identical retained file. | Any existing or missing-file mismatch requires forward recovery. |
+| PyPI is complete; GitHub release or assets are absent/partial | Inventory existing assets, then retry only from the retained artifact and manifest. | Existing assets are neither absent nor byte-identical, or retained artifacts are missing/expired. |
+| Public digest, provenance, install, or content defect | Block announcement, preserve evidence, and obtain separate incident authorization before any yank or deletion. Correct only in a forward patch. | Any attempt to overwrite assets, move the tag, or silently replace the published version. |
+| Only URL propagation is incomplete | The release monitor retries until the recorded deadline without changing artifacts. | The deadline passes: announcement is NO-GO/rescheduled, not rebuilt or republished. |
 
 The public announcement is a final, separate go/no-go. It remains blocked until
 every applicable matrix row is passing, both publication links and the live
 Pages/homepage URLs resolve, public provenance and digests pass, and the
 announcement approver records a UTC-timestamped go decision.
+
+## Post-matrix stop and reopen rule
+
+After every applicable matrix row passes for the frozen candidate, do not start
+another unconstrained repository-readiness audit for this announcement. New
+information reopens GO only when it identifies:
+
+1. a critical security vulnerability;
+2. data loss on a normal supported path;
+3. broken installation or publication; or
+4. a regression introduced by the v1.0.6 closure patch.
+
+This rule does not waive a matrix row or invalid exact-SHA evidence. All other
+new findings and improvements enter the post-announcement backlog without
+moving the launch bar.

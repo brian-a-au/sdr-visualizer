@@ -16,6 +16,8 @@ from typing import Any
 
 from sdr_visualizer.core.exceptions import InvalidSnapshotError
 
+SHELL_OUT_TIMEOUT_SECONDS = 600
+
 
 def shell_cja(
     dataview_id: str, *, extra_args: list[str] | None = None
@@ -72,7 +74,12 @@ def _shell_out(
             capture_output=True,
             text=True,
             encoding="utf-8",
+            timeout=SHELL_OUT_TIMEOUT_SECONDS,
         )
+    except subprocess.TimeoutExpired as exc:
+        raise InvalidSnapshotError(
+            f"{tool} exceeded {SHELL_OUT_TIMEOUT_SECONDS}-second timeout"
+        ) from exc
     except subprocess.CalledProcessError as exc:
         stderr = exc.stderr or ""
         raise InvalidSnapshotError(

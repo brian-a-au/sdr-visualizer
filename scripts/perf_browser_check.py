@@ -2,8 +2,8 @@
 
 Measures the budgets Python can't: initial render time, cold/warm
 filter/search latency, and the main-thread block when entering the graph
-view, in real Chromium via Playwright. In addition to the ordinary and XL
-tiers, the gate exercises a disjoint-ID comparison, a 60-snapshot
+view, in real Chromium via Playwright. All declared tier fixtures are
+required. The gate also exercises a disjoint-ID comparison, a 60-snapshot
 high-churn trend, and a ~1,000-node/~8,000-edge graph.
 
 Setup + run:
@@ -12,8 +12,8 @@ Setup + run:
     uv run playwright install chromium
     uv run python scripts/perf_browser_check.py
 
-The XL fixture is optional; generate it with
-`generate_large_fixture.py --scale 1.67 --output tests/fixtures/cja_snapshot_xl.json`.
+Generate the small, medium, and XL fixtures with the commands in
+``docs/RELEASING.md`` before running the gate locally.
 """
 
 from __future__ import annotations
@@ -24,17 +24,64 @@ import sys
 import tempfile
 import time
 from pathlib import Path
+from typing import NamedTuple
 
 REPO = Path(__file__).resolve().parent.parent
-# (path, adapter, render budget ms, filter budget ms, expect the
-#  "Render anyway" opt-in — i.e. the fixture exceeds the 1,000-node
-#  graph threshold). The 1,200/900-component fixtures are asserted
-#  against the §6 1,000-component budgets (like the Python gate), the
-#  XL fixture against the 2,000-component budgets.
+
+
+class BrowserFixture(NamedTuple):
+    path: Path
+    adapter: str
+    expected_components: int
+    render_budget_ms: float
+    filter_budget_ms: float
+    expect_opt_in: bool
+
+
+# The 1,200/900-component fixtures are asserted against the published
+# 1,000-component budgets (like the Python gate); the 2,004-component fixture
+# generated at scale 1.67 is asserted against the 2,000-component budgets.
 FIXTURES = [
-    (REPO / "tests" / "fixtures" / "cja_snapshot_large.json", "cja", 1000.0, 150.0, True),
-    (REPO / "tests" / "fixtures" / "aa_snapshot_large.json", "aa", 1000.0, 150.0, False),
-    (REPO / "tests" / "fixtures" / "cja_snapshot_xl.json", "cja", 2000.0, 300.0, True),
+    BrowserFixture(
+        REPO / "tests" / "fixtures" / "cja_snapshot_small.json",
+        "cja",
+        100,
+        200.0,
+        50.0,
+        False,
+    ),
+    BrowserFixture(
+        REPO / "tests" / "fixtures" / "cja_snapshot_medium.json",
+        "cja",
+        500,
+        500.0,
+        100.0,
+        False,
+    ),
+    BrowserFixture(
+        REPO / "tests" / "fixtures" / "cja_snapshot_large.json",
+        "cja",
+        1200,
+        1000.0,
+        150.0,
+        True,
+    ),
+    BrowserFixture(
+        REPO / "tests" / "fixtures" / "aa_snapshot_large.json",
+        "aa",
+        900,
+        1000.0,
+        150.0,
+        False,
+    ),
+    BrowserFixture(
+        REPO / "tests" / "fixtures" / "cja_snapshot_xl.json",
+        "cja",
+        2004,
+        2000.0,
+        300.0,
+        True,
+    ),
 ]
 
 # Main-thread block when entering the graph view: DOM build + time-boxed
@@ -50,6 +97,33 @@ GRAPH_INIT_BUDGET_MS = 700.0
 # the rendered rows. The first sample is reported separately as cold work.
 FILTER_QUERIES = ("dimension 00", "metric 00")
 FILTER_WARM_RUNS = 5
+
+
+def _missing_required_fixtures(fixtures: list[BrowserFixture]) -> list[Path]:
+    return [case.path for case in fixtures if not case.path.is_file()]
+
+
+def _component_count(implementation) -> int:
+    return sum(
+        len(items)
+        for items in (
+            implementation.metrics,
+            implementation.dimensions,
+            implementation.derived_fields,
+            implementation.segments,
+            implementation.calculated_metrics,
+        )
+    )
+
+
+def _component_count_mismatch(case: BrowserFixture, implementation) -> str | None:
+    component_count = _component_count(implementation)
+    if component_count == case.expected_components:
+        return None
+    return (
+        f"[{case.path.stem}] fixture has {component_count} components; "
+        f"expected exactly {case.expected_components}"
+    )
 
 
 def _check(
@@ -220,6 +294,15 @@ def _check_trend(page, html_path: Path) -> list[str]:
 
 
 def main() -> int:
+    missing = _missing_required_fixtures(FIXTURES)
+    if missing:
+        for path in missing:
+            print(
+                f"FAIL: required browser performance fixture is missing: {path.name}",
+                file=sys.stderr,
+            )
+        return 1
+
     try:
         from playwright.sync_api import sync_playwright
     except ImportError:
@@ -260,15 +343,21 @@ def main() -> int:
         browser = pw.chromium.launch(headless=True)
         page = browser.new_page()
         with tempfile.TemporaryDirectory() as tmp:
-            for fixture, adapter_key, render_budget, filter_budget, expect_opt_in in FIXTURES:
-                if not fixture.exists():
-                    print(f"note: {fixture.name} not generated; skipping")
-                    continue
-                snap = json.loads(fixture.read_text(encoding="utf-8"))
-                html_path = Path(tmp) / f"{fixture.stem}.html"
-                html_path.write_text(render(adapters[adapter_key](snap)), encoding="utf-8")
+            for case in FIXTURES:
+                snap = json.loads(case.path.read_text(encoding="utf-8"))
+                implementation = adapters[case.adapter](snap)
+                mismatch = _component_count_mismatch(case, implementation)
+                if mismatch:
+                    failures.append(mismatch)
+                html_path = Path(tmp) / f"{case.path.stem}.html"
+                html_path.write_text(render(implementation), encoding="utf-8")
                 failures += _check(
-                    page, html_path, fixture.stem, render_budget, filter_budget, expect_opt_in
+                    page,
+                    html_path,
+                    case.path.stem,
+                    case.render_budget_ms,
+                    case.filter_budget_ms,
+                    case.expect_opt_in,
                 )
                 checked += 1
 

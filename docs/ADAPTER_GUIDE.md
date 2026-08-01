@@ -92,10 +92,19 @@ The fixtures may diverge from sdr-grader's over time — the visualizer wants mo
 
 **Shared, behavior-identical (keep in sync):**
 
+- `input.loader.list_snapshot_candidates` — owns sorted `*.json` directory
+  discovery for both ordinary directory selection and trend enumeration. It
+  returns every candidate before later timestamp, parseability, platform, or
+  window-cap filtering (including an empty list for an empty directory) and
+  maps discovery failures to `InvalidSnapshotError`.
+  The grader mirrors this loader primitive even though it has no trend mode.
 - `_parse_tag_list` / `_parse_ref_list` — parse `tags` and reference fields
   that `cja_auto_sdr` ships as JSON-encoded list strings (`'["a"]'`) while
   tolerating native lists. Ordinary JSON syntax failures drop to `[]`;
-  decoder resource failures raise `InvalidSnapshotError`.
+  decoder resource failures raise `InvalidSnapshotError`. Every successful
+  decode is limited to depth 100 and 10,000 nodes before shape fallback or
+  coercion; this decoded-structure guard is part of the required sibling
+  parity behavior.
 - Snapshot structure validation rejects surrogate code points in string values
   and mapping keys before normalization. Embedded definition, tag, and
   reference helpers repeat that Unicode-scalar check after decoding, when
@@ -113,3 +122,10 @@ The fixtures may diverge from sdr-grader's over time — the visualizer wants mo
 2. `NaN` / `Infinity` **pass through** to the renderer's `allow_nan=False` guard, which rejects the whole report (audit H2). The grader coerces them to a default. A visualizer report that embeds `NaN` cannot boot in a browser, so rejecting loudly beats substituting `0.0`.
 
 These deltas are pinned by `test_nan_snapshot_exits_3`, `test_nan_in_snapshot_raises_invalid_snapshot_error`, and the trend bad-scalar skip test — a sync that "fixes" the divergence will fail them.
+
+**Visualizer-only output protection — do not port to the grader:** before its
+first write, the visualizer compares both HTML and optional JSON destinations
+with every explicit snapshot and every directory candidate. Resolved paths and
+existing-file identity catch lexical aliases, symlinks, symlinked parents, and
+hard links. The grader does not produce these report artifacts, so only the
+shared candidate-listing primitive belongs in its parity surface.

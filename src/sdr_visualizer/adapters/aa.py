@@ -18,6 +18,7 @@ from sdr_visualizer.core.models import (
     Segment,
 )
 from sdr_visualizer.core.structure_limits import (
+    validate_decoded_structure,
     validate_definition_structure,
     validate_snapshot_structure,
     validate_unicode_scalars,
@@ -367,6 +368,7 @@ def _parse_tag_list(value: Any) -> list[str]:
             return []
         except (ValueError, RecursionError) as exc:
             raise InvalidSnapshotError("tag list JSON exceeds decoder limits") from exc
+        validate_decoded_structure(parsed, label="tag list")
         validate_unicode_scalars(parsed, label="tag list")
         if isinstance(parsed, list):
             return [str(t) for t in parsed]

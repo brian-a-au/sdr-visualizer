@@ -27,9 +27,12 @@ Exactly one input source is required:
 - live CJA inventory through `--dataview`; or
 - live AA inventory through `--rsid`.
 
-CJA and AA auto-detection is based on the top-level snapshot shape.
-`--platform cja|aa` can resolve an ambiguous file or select one platform from a
-mixed trend directory. Live mode fixes the platform itself.
+CJA and AA auto-detection is based on independent top-level snapshot-shape
+signals. A snapshot matching both platforms is invalid unless
+`--platform cja|aa` explicitly selects one; the same flag can select one
+platform from a mixed trend directory. Live mode fixes the platform itself and
+bounds each upstream generator invocation at 600 seconds. A timeout is invalid
+input and produces no report artifact.
 
 A directory normally selects its newest timestamped snapshot. `--at` selects
 the newest snapshot at or before an ISO-8601 cutoff using UTC-consistent
@@ -55,6 +58,13 @@ The primary output is one HTML file with JSON, CSS, JavaScript, and vendored D3
 embedded in it. It makes no network requests and needs no report server, CDN,
 or client-side build step. `--json PATH` can also write the same logical
 payload as a JSON sidecar.
+
+Before the first write, the visualizer verifies that the HTML and optional JSON
+destinations do not alias one another or any filesystem snapshot input. For a
+primary, baseline, or trend directory, every `*.json` candidate is protected,
+including corrupt, skipped, retained, and capped-out members. The check covers
+resolved paths, symlinks, symlinked parents, and existing hard links; a
+collision is invalid input and leaves source bytes unchanged.
 
 Offline is a transport property, not a confidentiality classification.
 Generated reports can contain implementation names, component names and
@@ -91,9 +101,9 @@ enforces these implementation limits:
 
 | Limit | Current bound |
 |---|---:|
-| Native snapshot nesting depth | 100 |
+| Native snapshot or decoded embedded value nesting depth | 100 |
 | Native snapshot scalar/container nodes | 250,000 |
-| Each decoded segment or formula definition | 10,000 nodes |
+| Each segment/formula definition or decoded tag/reference value | 10,000 nodes |
 
 Limit violations are invalid input and produce exit `3` without an output
 artifact. Default filenames sanitize instance identifiers to prevent path and
@@ -104,9 +114,11 @@ All snapshot-controlled string values and mapping keys must contain Unicode
 scalar values; isolated UTF-16 surrogate code points are invalid input.
 Optional definitions, tags, and references may arrive as JSON-encoded strings.
 Ordinary malformed JSON in those optional fields keeps the documented empty
-fallback, while decoder resource-limit failures are invalid input. Values
-decoded from embedded JSON are checked again because escaped surrogates first
-materialize at that boundary.
+fallback. Successfully decoded tag and reference fields receive the same
+depth-100 and 10,000-node embedded-structure validation before shape fallback
+or coercion; decoder resource-limit failures and structure-limit violations
+are invalid input. Values decoded from embedded JSON are checked again because
+escaped surrogates first materialize at that boundary.
 
 The graph includes directed edges only when both source and target exist.
 CJA-derived-field component references are normalized and contribute to those
@@ -128,8 +140,10 @@ disclosure continue to operate on the complete embedded data.
 ## Compatibility policy
 
 The adapters warn, but do not reject, when a snapshot declares a generator
-version newer than the adapter's tested-through marker. The current markers
-are:
+version newer than the adapter's tested-through marker. Warnings inspect every
+accepted contributing implementation: primary then comparison baseline, or
+trend members oldest to newest. A platform/version pair warns once; skipped,
+unusable, and capped-out members do not warn. The current markers are:
 
 | Platform | Warning threshold |
 |---|---:|

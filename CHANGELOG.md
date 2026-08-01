@@ -2,6 +2,34 @@
 
 All notable changes to `sdr-visualizer` will be documented here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.6] - 2026-07-31
+
+### Added
+
+- Real-browser performance checks now require exact 100-, 500-, 1,000-, and
+  2,000-component tier fixtures and fail closed when any declared input is
+  missing.
+- Release qualification now freezes one merged candidate SHA, records four
+  separately authorized decisions, and defines bounded recovery for partial
+  publication plus a four-class rule for reopening announcement readiness.
+
+### Changed
+
+- Compatibility warnings now inspect every accepted comparison and trend
+  implementation, deduplicated by platform and generator version.
+- The embedded payload guide now documents the existing optional
+  `derived_kind` field, and the README relies on live workflow status instead
+  of a drifting fixed test-count badge.
+
+### Fixed
+
+- HTML and JSON destinations can no longer overwrite explicit snapshots or
+  any candidate in primary, baseline, or trend directories, including aliases
+  through symlinks, symlinked parents, and hard links.
+- Dual CJA/AA snapshot shapes now require an explicit platform, live generator
+  calls stop after 600 seconds, and decoded tag/reference structures enforce
+  the documented depth and node budgets before fallback or coercion.
+
 ## [1.0.5] - 2026-07-30
 
 ### Added

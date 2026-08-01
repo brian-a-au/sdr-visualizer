@@ -33,7 +33,7 @@ from sdr_visualizer.core.exceptions import (
 )
 from sdr_visualizer.core.models import Implementation
 from sdr_visualizer.core.visualizer import build_implementation
-from sdr_visualizer.input.loader import STDIN_TOKEN, load_snapshot
+from sdr_visualizer.input.loader import STDIN_TOKEN, list_snapshot_candidates, load_snapshot
 from sdr_visualizer.input.series import list_snapshot_series
 from sdr_visualizer.input.shell_out import shell_aa, shell_cja
 from sdr_visualizer.render.renderer import build_payload_with_options, render_payload
@@ -106,7 +106,7 @@ def main(argv: list[str] | None = None) -> int:
     try:
         trend = None
         if args.trend:
-            impl, trend = _load_trend(args)
+            impl, trend, contributing_impls = _load_trend(args)
             baseline = None
         else:
             snapshot, source = _load(args)
@@ -116,10 +116,8 @@ def main(argv: list[str] | None = None) -> int:
                 platform=args.platform,
             )
             baseline = _load_baseline(args, impl) if args.compare_to else None
-        adapter = cja_adapter if impl.platform == "cja" else aa_adapter
-        compat = adapter.generator_version_warning(impl.adapter_version)
-        if compat:
-            print(f"sdr-visualizer: warning: {compat}", file=sys.stderr)
+            contributing_impls = [impl, *([baseline] if baseline is not None else [])]
+        _emit_compatibility_warnings(contributing_impls)
         payload = build_payload_with_options(
             impl,
             exclude_orphans=args.exclude_orphans,
@@ -139,6 +137,13 @@ def main(argv: list[str] | None = None) -> int:
                 file=sys.stderr,
             )
         html = render_payload(payload, title=args.title)
+        output_path = _resolve_output_path(args.output, impl.instance_id)
+        json_output_path = Path(args.json) if args.json else None
+        _validate_output_destinations(
+            output_path,
+            json_output_path,
+            _protected_input_paths(args),
+        )
     except (InvalidSnapshotError, UnknownPlatformError) as exc:
         print(f"sdr-visualizer: {exc}", file=sys.stderr)
         return INPUT_VALIDATION_ERROR
@@ -146,7 +151,6 @@ def main(argv: list[str] | None = None) -> int:
         print(f"sdr-visualizer: unexpected error: {exc}", file=sys.stderr)
         return RUNTIME_ERROR
 
-    output_path = _resolve_output_path(args.output, impl.instance_id)
     try:
         output_path.write_text(html, encoding="utf-8")
     except OSError as exc:
@@ -165,7 +169,7 @@ def main(argv: list[str] | None = None) -> int:
             )
             return INPUT_VALIDATION_ERROR
         try:
-            Path(args.json).write_text(json_text, encoding="utf-8")
+            json_output_path.write_text(json_text, encoding="utf-8")
         except OSError as exc:
             print(f"sdr-visualizer: could not write {args.json}: {exc}", file=sys.stderr)
             return RUNTIME_ERROR
@@ -178,6 +182,80 @@ def main(argv: list[str] | None = None) -> int:
 def _exactly_one_input_source(args: argparse.Namespace) -> bool:
     sources = [bool(args.path), bool(args.dataview), bool(args.rsid)]
     return sum(sources) == 1
+
+
+def _protected_input_paths(args: argparse.Namespace) -> list[tuple[str, Path]]:
+    """Collect every filesystem input that output writes must preserve."""
+    protected: list[tuple[str, Path]] = []
+    for role, raw_path in (
+        ("primary input", args.path),
+        ("baseline input", args.compare_to),
+    ):
+        if not raw_path or raw_path == STDIN_TOKEN:
+            continue
+        path = Path(raw_path)
+        if path.is_dir():
+            protected.extend((role, candidate) for candidate in list_snapshot_candidates(path))
+        else:
+            protected.append((role, path))
+    return protected
+
+
+def _validate_output_destinations(
+    html_output: Path,
+    json_output: Path | None,
+    protected_inputs: list[tuple[str, Path]],
+) -> None:
+    """Reject output aliases before either destination is written."""
+    outputs = [("HTML output", html_output)]
+    if json_output is not None:
+        if _paths_alias(html_output, json_output):
+            raise InvalidSnapshotError("HTML output aliases JSON output; choose distinct paths")
+        outputs.append(("JSON output", json_output))
+
+    for output_role, output_path in outputs:
+        for input_role, input_path in protected_inputs:
+            if _paths_alias(output_path, input_path):
+                raise InvalidSnapshotError(
+                    f"{output_role} aliases {input_role}; choose distinct paths"
+                )
+
+
+def _paths_alias(left: Path, right: Path) -> bool:
+    """Compare lexical, symlink, and hard-link identities without writing."""
+    try:
+        if left.resolve(strict=False) == right.resolve(strict=False):
+            return True
+        left_exists = _identity_path_exists(left)
+        right_exists = _identity_path_exists(right)
+        return left_exists and right_exists and left.samefile(right)
+    except (OSError, RuntimeError) as exc:
+        raise InvalidSnapshotError("could not verify output destination identity") from exc
+
+
+def _identity_path_exists(path: Path) -> bool:
+    try:
+        path.stat()
+    except (FileNotFoundError, NotADirectoryError):
+        return False
+    return True
+
+
+def _emit_compatibility_warnings(implementations: list[Implementation]) -> None:
+    """Warn once per accepted platform/version pair in caller-provided order."""
+    seen: set[tuple[str, str]] = set()
+    for implementation in implementations:
+        key = (implementation.platform, implementation.adapter_version)
+        if key in seen:
+            continue
+        seen.add(key)
+        adapter = cja_adapter if implementation.platform == "cja" else aa_adapter
+        warning = adapter.generator_version_warning(implementation.adapter_version)
+        if warning:
+            print(
+                f"sdr-visualizer: warning: {_visible_terminal_text(warning)}",
+                file=sys.stderr,
+            )
 
 
 def _load(args: argparse.Namespace) -> tuple[dict, str]:
@@ -227,11 +305,11 @@ def _load_baseline(args: argparse.Namespace, impl: Implementation) -> Implementa
     return baseline
 
 
-def _load_trend(args: argparse.Namespace) -> tuple[Implementation, dict]:
+def _load_trend(args: argparse.Namespace) -> tuple[Implementation, dict, list[Implementation]]:
     """Load, adapt, and validate a single-implementation --trend series.
 
-    Returns (newest usable Implementation, trend payload section). Raised
-    InvalidSnapshotError maps to exit 3 in main()'s except clause."""
+    Returns the newest implementation, trend payload, and accepted series.
+    Raised InvalidSnapshotError maps to exit 3 in main()'s except clause."""
 
     def select_implementation(
         snapshot: dict,
@@ -280,7 +358,7 @@ def _load_trend(args: argparse.Namespace) -> tuple[Implementation, dict]:
             f"suites ({visible_instances}); --allow-instance-mismatch set",
             file=sys.stderr,
         )
-    return impls[-1], build_trend(impls, capped=capped)
+    return impls[-1], build_trend(impls, capped=capped), impls
 
 
 def _build_parser() -> argparse.ArgumentParser:

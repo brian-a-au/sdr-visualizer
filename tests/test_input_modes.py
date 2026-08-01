@@ -16,7 +16,7 @@ from sdr_visualizer.cli.main import main
 from sdr_visualizer.core.exceptions import InvalidSnapshotError, UnknownPlatformError
 from sdr_visualizer.input.detect import detect_platform
 from sdr_visualizer.input.loader import load_snapshot
-from sdr_visualizer.input.shell_out import shell_cja
+from sdr_visualizer.input.shell_out import shell_aa, shell_cja
 
 FIXTURES = Path(__file__).parent / "fixtures"
 
@@ -198,6 +198,64 @@ def test_mode3_rsid_shells_to_aa_auto_sdr(tmp_path, monkeypatch):
         "--output",
         "-",
     ]
+
+
+@pytest.mark.parametrize(
+    ("call", "tool"),
+    [
+        (lambda: shell_cja("dv_timeout"), "cja_auto_sdr"),
+        (lambda: shell_aa("rs_timeout"), "aa_auto_sdr"),
+    ],
+)
+def test_live_shell_timeout_is_bounded_and_content_free(monkeypatch, call, tool):
+    monkeypatch.setattr("sdr_visualizer.input.shell_out.shutil.which", lambda _name: "/bin/tool")
+    captured = {}
+
+    def time_out(cmd, **kwargs):
+        captured["timeout"] = kwargs["timeout"]
+        if "--output-dir" in cmd:
+            captured["output_dir"] = Path(cmd[cmd.index("--output-dir") + 1])
+        raise subprocess.TimeoutExpired(
+            cmd,
+            kwargs["timeout"],
+            output="customer snapshot content",
+            stderr="customer credential content",
+        )
+
+    monkeypatch.setattr("sdr_visualizer.input.shell_out.subprocess.run", time_out)
+
+    with pytest.raises(InvalidSnapshotError, match=rf"^{tool} exceeded 600-second timeout$") as exc:
+        call()
+
+    assert captured["timeout"] == 600
+    assert "customer" not in str(exc.value)
+    if "output_dir" in captured:
+        assert not captured["output_dir"].exists()
+
+
+@pytest.mark.parametrize(
+    "argv",
+    [["--dataview", "dv_timeout"], ["--rsid", "rs_timeout"]],
+)
+def test_live_shell_timeout_exits_3_without_artifacts(tmp_path, monkeypatch, capsys, argv):
+    monkeypatch.setattr("sdr_visualizer.input.shell_out.shutil.which", lambda _name: "/bin/tool")
+
+    def time_out(cmd, **kwargs):
+        raise subprocess.TimeoutExpired(cmd, kwargs["timeout"], stderr="hostile child output")
+
+    monkeypatch.setattr("sdr_visualizer.input.shell_out.subprocess.run", time_out)
+    html_output = tmp_path / "report.html"
+    json_output = tmp_path / "report.json"
+
+    rc = main([*argv, "--output", str(html_output), "--json", str(json_output), "--quiet"])
+
+    assert rc == 3
+    assert not html_output.exists()
+    assert not json_output.exists()
+    err = capsys.readouterr().err
+    assert "600-second timeout" in err
+    assert "hostile child output" not in err
+    assert "Traceback" not in err
 
 
 def test_mode3_unknown_tool_returns_validation_error(tmp_path, monkeypatch, capsys):
@@ -551,6 +609,93 @@ def test_detect_platform_rejects_non_object_and_unknown_shape():
 
 def test_detect_platform_accepts_data_view_shape():
     assert detect_platform({"data_view": {"id": "dv_xyz"}}) == "cja"
+
+
+def _hybrid_snapshot() -> dict:
+    return {
+        "metadata": {"Data View ID": "shared", "Data View Name": "Shared"},
+        "data_view": {"id": "shared"},
+        "report_suite": {"rsid": "shared", "name": "Shared"},
+        "dimensions": [],
+        "metrics": [],
+        "segments": [],
+        "calculated_metrics": [],
+    }
+
+
+def test_detect_platform_rejects_dual_match_but_overrides_remain_explicit():
+    snapshot = _hybrid_snapshot()
+
+    with pytest.raises(UnknownPlatformError, match=r"matches both CJA and AA.*--platform cja\|aa"):
+        detect_platform(snapshot)
+
+    from sdr_visualizer.core.visualizer import build_implementation
+
+    assert build_implementation(snapshot, platform="cja").platform == "cja"
+    assert build_implementation(snapshot, platform="aa").platform == "aa"
+
+
+@pytest.mark.parametrize("platform", ["cja", "aa"])
+def test_hybrid_snapshot_explicit_override_works_for_cli_and_comparison(tmp_path, platform):
+    primary = tmp_path / "primary.json"
+    baseline = tmp_path / "baseline.json"
+    primary.write_text(json.dumps(_hybrid_snapshot()), encoding="utf-8")
+    baseline.write_text(json.dumps(_hybrid_snapshot()), encoding="utf-8")
+    output = tmp_path / f"{platform}.html"
+
+    rc = main(
+        [
+            str(primary),
+            "--compare-to",
+            str(baseline),
+            "--platform",
+            platform,
+            "--output",
+            str(output),
+            "--quiet",
+        ]
+    )
+
+    assert rc == 0
+    assert output.exists()
+
+
+def test_hybrid_snapshot_without_override_exits_3_without_artifacts(tmp_path, capsys):
+    source = tmp_path / "hybrid.json"
+    source.write_text(json.dumps(_hybrid_snapshot()), encoding="utf-8")
+    html_output = tmp_path / "report.html"
+    json_output = tmp_path / "report.json"
+
+    rc = main(
+        [
+            str(source),
+            "--output",
+            str(html_output),
+            "--json",
+            str(json_output),
+            "--quiet",
+        ]
+    )
+
+    assert rc == 3
+    assert not html_output.exists()
+    assert not json_output.exists()
+    assert "matches both CJA and AA" in capsys.readouterr().err
+
+
+@pytest.mark.parametrize("platform", ["cja", "aa"])
+def test_hybrid_snapshot_explicit_override_works_for_directory(tmp_path, platform):
+    directory = tmp_path / "snapshots"
+    directory.mkdir()
+    (directory / "snapshot_2026-01-01T00-00-00.json").write_text(
+        json.dumps(_hybrid_snapshot()), encoding="utf-8"
+    )
+    output = tmp_path / f"directory-{platform}.html"
+
+    rc = main([str(directory), "--platform", platform, "--output", str(output), "--quiet"])
+
+    assert rc == 0
+    assert output.exists()
 
 
 def test_at_on_file_input_warns_and_ignores(tmp_path, capsys):
