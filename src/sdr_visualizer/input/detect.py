@@ -17,15 +17,21 @@ def detect_platform(snapshot: Any) -> str:
     if not isinstance(snapshot, dict):
         raise UnknownPlatformError("snapshot is not a JSON object; cannot auto-detect platform")
     metadata = snapshot.get("metadata")
-    if isinstance(metadata, dict) and any(
+    looks_cja = isinstance(metadata, dict) and any(
         k in metadata for k in ("Data View ID", "data_view_id", "dataViewId")
-    ):
-        return "cja"
+    )
+    looks_cja = looks_cja or "data_view" in snapshot or "dataView" in snapshot
     rs = snapshot.get("report_suite") or snapshot.get("reportSuite")
-    if isinstance(rs, dict) and (rs.get("rsid") or rs.get("RSID")):
-        return "aa"
-    if "data_view" in snapshot or "dataView" in snapshot:
+    looks_aa = isinstance(rs, dict) and bool(rs.get("rsid") or rs.get("RSID"))
+
+    if looks_cja and looks_aa:
+        raise UnknownPlatformError(
+            "snapshot matches both CJA and AA shapes; pass --platform cja|aa to override"
+        )
+    if looks_cja:
         return "cja"
+    if looks_aa:
+        return "aa"
     raise UnknownPlatformError(
         "could not auto-detect platform from snapshot shape; pass --platform cja|aa to override"
     )

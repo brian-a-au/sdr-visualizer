@@ -106,7 +106,7 @@ def main(argv: list[str] | None = None) -> int:
     try:
         trend = None
         if args.trend:
-            impl, trend = _load_trend(args)
+            impl, trend, contributing_impls = _load_trend(args)
             baseline = None
         else:
             snapshot, source = _load(args)
@@ -116,10 +116,8 @@ def main(argv: list[str] | None = None) -> int:
                 platform=args.platform,
             )
             baseline = _load_baseline(args, impl) if args.compare_to else None
-        adapter = cja_adapter if impl.platform == "cja" else aa_adapter
-        compat = adapter.generator_version_warning(impl.adapter_version)
-        if compat:
-            print(f"sdr-visualizer: warning: {compat}", file=sys.stderr)
+            contributing_impls = [impl, *([baseline] if baseline is not None else [])]
+        _emit_compatibility_warnings(contributing_impls)
         payload = build_payload_with_options(
             impl,
             exclude_orphans=args.exclude_orphans,
@@ -243,6 +241,20 @@ def _identity_path_exists(path: Path) -> bool:
     return True
 
 
+def _emit_compatibility_warnings(implementations: list[Implementation]) -> None:
+    """Warn once per accepted platform/version pair in caller-provided order."""
+    seen: set[tuple[str, str]] = set()
+    for implementation in implementations:
+        key = (implementation.platform, implementation.adapter_version)
+        if key in seen:
+            continue
+        seen.add(key)
+        adapter = cja_adapter if implementation.platform == "cja" else aa_adapter
+        warning = adapter.generator_version_warning(implementation.adapter_version)
+        if warning:
+            print(f"sdr-visualizer: warning: {warning}", file=sys.stderr)
+
+
 def _load(args: argparse.Namespace) -> tuple[dict, str]:
     if args.dataview or args.rsid:
         if args.at:
@@ -290,11 +302,11 @@ def _load_baseline(args: argparse.Namespace, impl: Implementation) -> Implementa
     return baseline
 
 
-def _load_trend(args: argparse.Namespace) -> tuple[Implementation, dict]:
+def _load_trend(args: argparse.Namespace) -> tuple[Implementation, dict, list[Implementation]]:
     """Load, adapt, and validate a single-implementation --trend series.
 
-    Returns (newest usable Implementation, trend payload section). Raised
-    InvalidSnapshotError maps to exit 3 in main()'s except clause."""
+    Returns the newest implementation, trend payload, and accepted series.
+    Raised InvalidSnapshotError maps to exit 3 in main()'s except clause."""
 
     def select_implementation(
         snapshot: dict,
@@ -343,7 +355,7 @@ def _load_trend(args: argparse.Namespace) -> tuple[Implementation, dict]:
             f"suites ({visible_instances}); --allow-instance-mismatch set",
             file=sys.stderr,
         )
-    return impls[-1], build_trend(impls, capped=capped)
+    return impls[-1], build_trend(impls, capped=capped), impls
 
 
 def _build_parser() -> argparse.ArgumentParser:

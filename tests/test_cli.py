@@ -980,6 +980,107 @@ def test_newer_generator_version_prints_compat_warning(tmp_path, capsys):
     assert "99.0.0" in err
 
 
+def test_newer_compare_baseline_generator_version_warns_with_tested_primary(tmp_path, capsys):
+    primary_snapshot = _cja_compare_snapshot()
+    primary_snapshot["metadata"]["Tool Version"] = "3.11.7"
+    baseline_snapshot = _cja_compare_snapshot()
+    baseline_snapshot["metadata"]["Tool Version"] = "99.0.0"
+    primary = _write_json(tmp_path / "primary.json", primary_snapshot)
+    baseline = _write_json(tmp_path / "baseline.json", baseline_snapshot)
+
+    rc = main(
+        [
+            str(primary),
+            "--compare-to",
+            str(baseline),
+            "--output",
+            str(tmp_path / "report.html"),
+            "--quiet",
+        ]
+    )
+
+    assert rc == 0
+    err = capsys.readouterr().err
+    assert err.count("snapshot generator version 99.0.0") == 1
+
+
+def test_trend_compatibility_warnings_cover_history_once_in_input_order(tmp_path, capsys):
+    directory = tmp_path / "series"
+    directory.mkdir()
+    for index, version in enumerate(["98.0.0", "99.0.0", "98.0.0", "3.11.7"]):
+        snapshot = _cja_trend_snapshot("dv_cja", [f"metrics/m{index}"])
+        snapshot["metadata"]["Tool Version"] = version
+        _write_json(
+            directory / f"snapshot_2026-01-0{index + 1}T00-00-00.json",
+            snapshot,
+        )
+
+    rc = main([str(directory), "--trend", "--output", str(tmp_path / "report.html"), "--quiet"])
+
+    assert rc == 0
+    err = capsys.readouterr().err
+    assert err.count("snapshot generator version 98.0.0") == 1
+    assert err.count("snapshot generator version 99.0.0") == 1
+    assert err.index("98.0.0") < err.index("99.0.0")
+
+
+def test_trend_ambiguous_member_is_skipped_without_compat_warning(tmp_path, capsys):
+    directory = tmp_path / "series"
+    directory.mkdir()
+    for day in (1, 3):
+        snapshot = _cja_trend_snapshot("dv_cja", [f"metrics/m{day}"])
+        snapshot["metadata"]["Tool Version"] = "3.11.7"
+        _write_json(directory / f"snapshot_2026-01-0{day}T00-00-00.json", snapshot)
+    hybrid = _cja_trend_snapshot("dv_cja", ["metrics/ambiguous"])
+    hybrid["metadata"]["Tool Version"] = "99.0.0"
+    hybrid["report_suite"] = {"rsid": "dv_cja"}
+    _write_json(directory / "snapshot_2026-01-02T00-00-00.json", hybrid)
+
+    rc = main([str(directory), "--trend", "--output", str(tmp_path / "report.html"), "--quiet"])
+
+    assert rc == 0
+    err = capsys.readouterr().err
+    assert "matches both CJA and AA" in err
+    assert "snapshot generator version 99.0.0" not in err
+
+
+def test_trend_ambiguous_member_still_obeys_usable_underflow(tmp_path, capsys):
+    directory = tmp_path / "series"
+    directory.mkdir()
+    valid = _cja_trend_snapshot("dv_cja", ["metrics/valid"])
+    hybrid = _cja_trend_snapshot("dv_cja", ["metrics/ambiguous"])
+    hybrid["report_suite"] = {"rsid": "dv_cja"}
+    _write_json(directory / "snapshot_2026-01-01T00-00-00.json", valid)
+    _write_json(directory / "snapshot_2026-01-02T00-00-00.json", hybrid)
+    output = tmp_path / "report.html"
+
+    rc = main([str(directory), "--trend", "--output", str(output), "--quiet"])
+
+    assert rc == 3
+    assert not output.exists()
+    err = capsys.readouterr().err
+    assert "matches both CJA and AA" in err
+    assert "at least 2 usable snapshots" in err
+
+
+def test_capped_out_trend_member_does_not_emit_compatibility_warning(tmp_path, capsys):
+    directory = tmp_path / "series"
+    directory.mkdir()
+    start = datetime(2026, 1, 1, tzinfo=UTC)
+    for index in range(61):
+        snapshot = _cja_trend_snapshot("dv_cja", [f"metrics/m{index}"])
+        snapshot["metadata"]["Tool Version"] = "99.0.0" if index == 0 else "3.11.7"
+        stamp = (start + timedelta(hours=index)).strftime("%Y-%m-%dT%H-%M-%S")
+        _write_json(directory / f"snapshot_{stamp}.json", snapshot)
+
+    rc = main([str(directory), "--trend", "--output", str(tmp_path / "report.html"), "--quiet"])
+
+    assert rc == 0
+    err = capsys.readouterr().err
+    assert "capped at 60 snapshots" in err
+    assert "snapshot generator version 99.0.0" not in err
+
+
 def test_tested_generator_version_does_not_warn(tmp_path, capsys):
     rc = main(
         [
