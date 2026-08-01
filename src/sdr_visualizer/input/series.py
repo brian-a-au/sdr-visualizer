@@ -20,6 +20,7 @@ from sdr_visualizer.input.loader import (
     _load_from_file,
     _mtime_timestamp,
     _parse_iso_timestamp,
+    list_snapshot_candidates,
 )
 
 # Hard window cap (SPEC 0.5.0): bounds build time and payload size.
@@ -71,9 +72,7 @@ def list_snapshot_series(
         raise InvalidSnapshotError(
             f"--trend requires a snapshot directory; {path_or_token} is not one"
         )
-    candidates = sorted(directory.glob("*.json"))
-    if not candidates:
-        raise InvalidSnapshotError(f"no .json snapshots found in {directory}")
+    candidates = list_snapshot_candidates(directory)
 
     # Same scale rules as the vendored loader's _pick_snapshot: filename
     # timestamps when any file carries one; mtime only when none do.
