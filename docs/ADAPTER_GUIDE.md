@@ -95,7 +95,8 @@ The fixtures may diverge from sdr-grader's over time — the visualizer wants mo
 - `input.loader.list_snapshot_candidates` — owns sorted `*.json` directory
   discovery for both ordinary directory selection and trend enumeration. It
   returns every candidate before later timestamp, parseability, platform, or
-  window-cap filtering and maps discovery failures to `InvalidSnapshotError`.
+  window-cap filtering (including an empty list for an empty directory) and
+  maps discovery failures to `InvalidSnapshotError`.
   The grader mirrors this loader primitive even though it has no trend mode.
 - `_parse_tag_list` / `_parse_ref_list` — parse `tags` and reference fields
   that `cja_auto_sdr` ships as JSON-encoded list strings (`'["a"]'`) while

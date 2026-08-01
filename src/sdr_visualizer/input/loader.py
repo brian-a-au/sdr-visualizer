@@ -88,7 +88,8 @@ def _load_from_file(path: Path) -> tuple[dict[str, Any], str]:
 
 def _load_from_directory(directory: Path, *, at: str | None) -> tuple[dict[str, Any], str]:
     candidates = list_snapshot_candidates(directory)
-
+    if not candidates:
+        raise InvalidSnapshotError(f"no .json snapshots found in {directory}")
     chosen = _pick_snapshot(candidates, at=at)
     return _load_from_file(chosen)
 
@@ -101,8 +102,6 @@ def list_snapshot_candidates(directory: Path) -> list[Path]:
         raise InvalidSnapshotError(
             f"could not inspect snapshot directory {directory}: {exc}"
         ) from exc
-    if not candidates:
-        raise InvalidSnapshotError(f"no .json snapshots found in {directory}")
     return candidates
 
 

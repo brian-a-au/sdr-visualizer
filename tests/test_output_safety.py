@@ -213,6 +213,8 @@ def test_identity_error_is_content_free_domain_error(tmp_path, monkeypatch):
 def test_candidate_listing_returns_every_sorted_json_path(tmp_path):
     directory = tmp_path / "snapshots"
     directory.mkdir()
+    assert list_snapshot_candidates(directory) == []
+
     expected = [directory / "a.json", directory / "b.json"]
     for path in reversed(expected):
         path.write_text("{}", encoding="utf-8")

@@ -73,6 +73,8 @@ def list_snapshot_series(
             f"--trend requires a snapshot directory; {path_or_token} is not one"
         )
     candidates = list_snapshot_candidates(directory)
+    if not candidates:
+        raise InvalidSnapshotError(f"no .json snapshots found in {directory}")
 
     # Same scale rules as the vendored loader's _pick_snapshot: filename
     # timestamps when any file carries one; mtime only when none do.
