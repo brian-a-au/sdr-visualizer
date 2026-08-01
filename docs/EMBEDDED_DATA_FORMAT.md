@@ -57,6 +57,7 @@ versioning boundary and confidentiality warning.
   "name":            "Sessions",
   "description":     "Distinct sessions in the period.",          // omitted when absent
   "data_type":       "integer" | "decimal" | "string",           // omitted when absent
+  "derived_kind":   "dimension" | "metric",                      // omitted when absent
   "polarity":        "positive" | "negative" | "neutral",        // omitted when absent
   "tags":            ["custom", "approved"],
   "owner":           "a.user@example.com",                       // omitted when absent
@@ -67,6 +68,12 @@ versioning boundary and confidentiality warning.
   "out_degree":      0
 }
 ```
+
+`derived_kind` appears only for CJA derived fields whose source record
+explicitly declares a functional kind. Its allowed values are `dimension` and
+`metric`. It is omitted for undeclared or legacy derived fields, and it is
+omitted from every non-derived component. Consumers must not infer a kind when
+the field is absent.
 
 *`platform_specific` was removed in 0.2.0 — consult the original snapshot for platform extras.*
 
