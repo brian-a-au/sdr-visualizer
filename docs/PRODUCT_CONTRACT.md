@@ -91,9 +91,9 @@ enforces these implementation limits:
 
 | Limit | Current bound |
 |---|---:|
-| Native snapshot nesting depth | 100 |
+| Native snapshot or decoded embedded value nesting depth | 100 |
 | Native snapshot scalar/container nodes | 250,000 |
-| Each decoded segment or formula definition | 10,000 nodes |
+| Each segment/formula definition or decoded tag/reference value | 10,000 nodes |
 
 Limit violations are invalid input and produce exit `3` without an output
 artifact. Default filenames sanitize instance identifiers to prevent path and
@@ -104,9 +104,11 @@ All snapshot-controlled string values and mapping keys must contain Unicode
 scalar values; isolated UTF-16 surrogate code points are invalid input.
 Optional definitions, tags, and references may arrive as JSON-encoded strings.
 Ordinary malformed JSON in those optional fields keeps the documented empty
-fallback, while decoder resource-limit failures are invalid input. Values
-decoded from embedded JSON are checked again because escaped surrogates first
-materialize at that boundary.
+fallback. Successfully decoded tag and reference fields receive the same
+depth-100 and 10,000-node embedded-structure validation before shape fallback
+or coercion; decoder resource-limit failures and structure-limit violations
+are invalid input. Values decoded from embedded JSON are checked again because
+escaped surrogates first materialize at that boundary.
 
 The graph includes directed edges only when both source and target exist.
 CJA-derived-field component references are normalized and contribute to those

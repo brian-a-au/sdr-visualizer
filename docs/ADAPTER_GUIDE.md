@@ -95,7 +95,10 @@ The fixtures may diverge from sdr-grader's over time — the visualizer wants mo
 - `_parse_tag_list` / `_parse_ref_list` — parse `tags` and reference fields
   that `cja_auto_sdr` ships as JSON-encoded list strings (`'["a"]'`) while
   tolerating native lists. Ordinary JSON syntax failures drop to `[]`;
-  decoder resource failures raise `InvalidSnapshotError`.
+  decoder resource failures raise `InvalidSnapshotError`. Every successful
+  decode is limited to depth 100 and 10,000 nodes before shape fallback or
+  coercion; this decoded-structure guard is part of the required sibling
+  parity behavior.
 - Snapshot structure validation rejects surrogate code points in string values
   and mapping keys before normalization. Embedded definition, tag, and
   reference helpers repeat that Unicode-scalar check after decoding, when

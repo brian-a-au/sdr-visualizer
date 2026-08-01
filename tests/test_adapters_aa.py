@@ -9,7 +9,7 @@ import pytest
 
 from sdr_visualizer.adapters.aa import adapt
 from sdr_visualizer.core.exceptions import InvalidSnapshotError
-from sdr_visualizer.core.structure_limits import MAX_STRUCTURE_DEPTH
+from sdr_visualizer.core.structure_limits import MAX_DEFINITION_NODES, MAX_STRUCTURE_DEPTH
 from sdr_visualizer.input.detect import detect_platform
 from sdr_visualizer.render.renderer import render
 
@@ -412,6 +412,25 @@ def test_aa_tag_decoder_resource_errors_are_invalid_snapshot(monkeypatch, error)
     monkeypatch.setattr("sdr_visualizer.adapters.aa.json.loads", fail)
 
     with pytest.raises(InvalidSnapshotError, match=r"tag list.*JSON exceeds decoder limits"):
+        adapt(snapshot)
+
+
+def test_aa_encoded_tag_node_budget_accepts_10000_and_rejects_10001():
+    def snapshot_with_nodes(node_count):
+        encoded = json.dumps([0] * (node_count - 1))
+        return _minimal_aa(dimensions=[{"id": "variables/evar1", "tags": encoded}])
+
+    adapt(snapshot_with_nodes(MAX_DEFINITION_NODES))
+
+    with pytest.raises(InvalidSnapshotError, match=r"tag list.*10,000 nodes"):
+        adapt(snapshot_with_nodes(MAX_DEFINITION_NODES + 1))
+
+
+def test_aa_oversized_wrong_shaped_embedded_tags_are_rejected():
+    encoded = json.dumps({"values": [0] * (MAX_DEFINITION_NODES - 1)})
+    snapshot = _minimal_aa(dimensions=[{"id": "variables/evar1", "tags": encoded}])
+
+    with pytest.raises(InvalidSnapshotError, match=r"tag list.*10,000 nodes"):
         adapt(snapshot)
 
 

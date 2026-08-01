@@ -644,6 +644,68 @@ def test_cja_embedded_list_decoder_resource_errors_are_invalid_snapshot(
         adapt(snapshot)
 
 
+def _cja_snapshot_with_encoded_nodes(field: str, node_count: int):
+    encoded = json.dumps([0] * (node_count - 1))
+    if field == "tag list":
+        return _minimal_cja(metrics=[{"id": "metrics/orders", "tags": encoded}])
+    return _minimal_cja(
+        calculated_metrics={
+            "metrics": [
+                {
+                    "metric_id": "cm/orders",
+                    "definition_json": {},
+                    "metric_references": encoded,
+                }
+            ]
+        }
+    )
+
+
+@pytest.mark.parametrize("field", ["tag list", "reference list"])
+def test_cja_encoded_list_node_budget_accepts_10000_and_rejects_10001(field):
+    adapt(_cja_snapshot_with_encoded_nodes(field, MAX_DEFINITION_NODES))
+
+    with pytest.raises(InvalidSnapshotError, match=rf"{field}.*10,000 nodes"):
+        adapt(_cja_snapshot_with_encoded_nodes(field, MAX_DEFINITION_NODES + 1))
+
+
+@pytest.mark.parametrize(
+    ("field", "snapshot"),
+    [
+        (
+            "tag list",
+            _minimal_cja(
+                metrics=[
+                    {
+                        "id": "metrics/orders",
+                        "tags": json.dumps({"values": [0] * (MAX_DEFINITION_NODES - 1)}),
+                    }
+                ]
+            ),
+        ),
+        (
+            "reference list",
+            _minimal_cja(
+                calculated_metrics={
+                    "metrics": [
+                        {
+                            "metric_id": "cm/orders",
+                            "definition_json": {},
+                            "metric_references": json.dumps(
+                                {"values": [0] * (MAX_DEFINITION_NODES - 1)}
+                            ),
+                        }
+                    ]
+                }
+            ),
+        ),
+    ],
+)
+def test_cja_oversized_wrong_shaped_embedded_lists_are_rejected(field, snapshot):
+    with pytest.raises(InvalidSnapshotError, match=rf"{field}.*10,000 nodes"):
+        adapt(snapshot)
+
+
 # ---------------------------------------------------------------------------
 # sdr-grader parity: cja_auto_sdr ships tags/refs as JSON-encoded list strings.
 # Match the grader's _parse_tag_list / _parse_ref_list behavior.
@@ -688,6 +750,23 @@ def test_stringified_reference_lists_are_parsed():
     snap["calculated_metrics"]["metrics"][0]["segment_references"] = []
     impl = adapt(snap)
     assert impl.calculated_metrics[0].references == ["metrics/x"]
+
+
+@pytest.mark.parametrize("references", ["not json", '{"not": "a list"}'])
+def test_invalid_stringified_reference_lists_are_dropped(references):
+    snapshot = _minimal_cja(
+        calculated_metrics={
+            "metrics": [
+                {
+                    "metric_id": "cm/orders",
+                    "definition_json": {},
+                    "metric_references": references,
+                }
+            ]
+        }
+    )
+
+    assert adapt(snapshot).calculated_metrics[0].references == []
 
 
 @pytest.mark.parametrize(
