@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import importlib.util
 from pathlib import Path
+from types import SimpleNamespace
 
 REPO = Path(__file__).resolve().parent.parent
 SCRIPT = REPO / "scripts" / "perf_browser_check.py"
@@ -35,7 +36,7 @@ def test_required_fixture_matrix_covers_every_published_tier_exactly():
     ]
 
 
-def test_any_missing_declared_fixture_fails_preflight(tmp_path):
+def test_any_missing_declared_fixture_fails_preflight(tmp_path, monkeypatch, capsys):
     present = tmp_path / "present.json"
     present.write_text("{}", encoding="utf-8")
     missing = tmp_path / "missing.json"
@@ -44,7 +45,29 @@ def test_any_missing_declared_fixture_fails_preflight(tmp_path):
         perf_browser_check.BrowserFixture(missing, "cja", 500, 500.0, 100.0, False),
     ]
 
-    assert perf_browser_check._missing_required_fixtures(cases) == [missing]
+    monkeypatch.setattr(perf_browser_check, "FIXTURES", cases)
+
+    assert perf_browser_check.main() == 1
+    assert capsys.readouterr().err == (
+        "FAIL: required browser performance fixture is missing: missing.json\n"
+    )
+
+
+def test_component_count_mismatch_fails_case():
+    case = perf_browser_check.BrowserFixture(
+        Path("cja_snapshot_medium.json"), "cja", 500, 500.0, 100.0, False
+    )
+    implementation = SimpleNamespace(
+        metrics=[object()] * 499,
+        dimensions=[],
+        derived_fields=[],
+        segments=[],
+        calculated_metrics=[],
+    )
+
+    assert perf_browser_check._component_count_mismatch(case, implementation) == (
+        "[cja_snapshot_medium] fixture has 499 components; expected exactly 500"
+    )
 
 
 def test_browser_jobs_generate_small_and_medium_fixtures():

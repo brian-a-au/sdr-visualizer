@@ -970,21 +970,22 @@ def test_q4_fires_once_under_trend(tmp_path, capsys):
 
 def test_newer_generator_version_prints_compat_warning(tmp_path, capsys):
     snap = json.loads((FIXTURES / "cja_snapshot_clean.json").read_text(encoding="utf-8"))
-    snap["metadata"]["Tool Version"] = "99.0.0"
+    snap["metadata"]["Tool Version"] = "99.\n0.0"
     src = tmp_path / "newer.json"
     src.write_text(json.dumps(snap), encoding="utf-8")
     rc = main([str(src), "--output", str(tmp_path / "r.html"), "--quiet"])
     assert rc == 0
     err = capsys.readouterr().err
     assert "warning:" in err
-    assert "99.0.0" in err
+    assert "99.\\u000A0.0" in err
+    assert err.count("\n") == 1
 
 
 def test_newer_compare_baseline_generator_version_warns_with_tested_primary(tmp_path, capsys):
     primary_snapshot = _cja_compare_snapshot()
     primary_snapshot["metadata"]["Tool Version"] = "3.11.7"
     baseline_snapshot = _cja_compare_snapshot()
-    baseline_snapshot["metadata"]["Tool Version"] = "99.0.0"
+    baseline_snapshot["metadata"]["Tool Version"] = "99.\r0.0"
     primary = _write_json(tmp_path / "primary.json", primary_snapshot)
     baseline = _write_json(tmp_path / "baseline.json", baseline_snapshot)
 
@@ -1001,13 +1002,14 @@ def test_newer_compare_baseline_generator_version_warns_with_tested_primary(tmp_
 
     assert rc == 0
     err = capsys.readouterr().err
-    assert err.count("snapshot generator version 99.0.0") == 1
+    assert err.count("snapshot generator version 99.\\u000D0.0") == 1
+    assert "\r" not in err
 
 
 def test_trend_compatibility_warnings_cover_history_once_in_input_order(tmp_path, capsys):
     directory = tmp_path / "series"
     directory.mkdir()
-    for index, version in enumerate(["98.0.0", "99.0.0", "98.0.0", "3.11.7"]):
+    for index, version in enumerate(["98.\n0.0", "99.\r0.0", "98.\n0.0", "3.11.7"]):
         snapshot = _cja_trend_snapshot("dv_cja", [f"metrics/m{index}"])
         snapshot["metadata"]["Tool Version"] = version
         _write_json(
@@ -1019,9 +1021,11 @@ def test_trend_compatibility_warnings_cover_history_once_in_input_order(tmp_path
 
     assert rc == 0
     err = capsys.readouterr().err
-    assert err.count("snapshot generator version 98.0.0") == 1
-    assert err.count("snapshot generator version 99.0.0") == 1
-    assert err.index("98.0.0") < err.index("99.0.0")
+    assert err.count("snapshot generator version 98.\\u000A0.0") == 1
+    assert err.count("snapshot generator version 99.\\u000D0.0") == 1
+    assert err.index("98.\\u000A0.0") < err.index("99.\\u000D0.0")
+    assert err.count("\n") == 2
+    assert "\r" not in err
 
 
 def test_trend_ambiguous_member_is_skipped_without_compat_warning(tmp_path, capsys):

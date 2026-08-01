@@ -252,7 +252,10 @@ def _emit_compatibility_warnings(implementations: list[Implementation]) -> None:
         adapter = cja_adapter if implementation.platform == "cja" else aa_adapter
         warning = adapter.generator_version_warning(implementation.adapter_version)
         if warning:
-            print(f"sdr-visualizer: warning: {warning}", file=sys.stderr)
+            print(
+                f"sdr-visualizer: warning: {_visible_terminal_text(warning)}",
+                file=sys.stderr,
+            )
 
 
 def _load(args: argparse.Namespace) -> tuple[dict, str]:

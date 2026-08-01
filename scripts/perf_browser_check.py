@@ -116,6 +116,16 @@ def _component_count(implementation) -> int:
     )
 
 
+def _component_count_mismatch(case: BrowserFixture, implementation) -> str | None:
+    component_count = _component_count(implementation)
+    if component_count == case.expected_components:
+        return None
+    return (
+        f"[{case.path.stem}] fixture has {component_count} components; "
+        f"expected exactly {case.expected_components}"
+    )
+
+
 def _check(
     page,
     html_path: Path,
@@ -336,12 +346,9 @@ def main() -> int:
             for case in FIXTURES:
                 snap = json.loads(case.path.read_text(encoding="utf-8"))
                 implementation = adapters[case.adapter](snap)
-                component_count = _component_count(implementation)
-                if component_count != case.expected_components:
-                    failures.append(
-                        f"[{case.path.stem}] fixture has {component_count} components; "
-                        f"expected exactly {case.expected_components}"
-                    )
+                mismatch = _component_count_mismatch(case, implementation)
+                if mismatch:
+                    failures.append(mismatch)
                 html_path = Path(tmp) / f"{case.path.stem}.html"
                 html_path.write_text(render(implementation), encoding="utf-8")
                 failures += _check(
