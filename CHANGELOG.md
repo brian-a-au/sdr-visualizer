@@ -2,7 +2,17 @@
 
 All notable changes to `sdr-visualizer` will be documented here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [1.0.6] - 2026-07-31
+## [Unreleased]
+
+### Changed
+
+- Public documentation now distinguishes saved and live input, explains
+  browser/display limits in plain language, and keeps repository links usable
+  in the PyPI long description.
+- Platform-extension and embedded-payload guidance now identifies its actual
+  downstream seams and stable boundaries.
+
+## [1.0.6] - 2026-08-01
 
 ### Added
 
@@ -30,7 +40,7 @@ All notable changes to `sdr-visualizer` will be documented here. The format foll
   calls stop after 600 seconds, and decoded tag/reference structures enforce
   the documented depth and node budgets before fallback or coercion.
 
-## [1.0.5] - 2026-07-30
+## [1.0.5] - 2026-07-31
 
 ### Added
 
@@ -528,6 +538,9 @@ The following are explicitly internal and may change without notice:
 - Workspace project visualization (v0.4)
 - Schema map view (v0.5)
 
+[Unreleased]: https://github.com/brian-a-au/sdr-visualizer/compare/v1.0.6...HEAD
+[1.0.6]: https://github.com/brian-a-au/sdr-visualizer/releases/tag/v1.0.6
+[1.0.5]: https://github.com/brian-a-au/sdr-visualizer/releases/tag/v1.0.5
 [1.0.4]: https://github.com/brian-a-au/sdr-visualizer/releases/tag/v1.0.4
 [1.0.3]: https://github.com/brian-a-au/sdr-visualizer/releases/tag/v1.0.3
 [1.0.2]: https://github.com/brian-a-au/sdr-visualizer/releases/tag/v1.0.2

@@ -34,8 +34,8 @@ versioning boundary and confidentiality warning.
   "platform":              "cja" | "aa",
   "snapshot_taken_at":     "2026-04-25 09:14:00" | null,
   "snapshot_source":       "/path/to/snapshot.json" | "stdin" | "shell-out:cja_auto_sdr dv_x",
-  "adapter_version":       "3.5.17",
-  "visualizer_version":    "0.2.0",
+  "adapter_version":       "<generator-version>",
+  "visualizer_version":    "<visualizer-version>",
   "generated_at":          "2026-04-25T09:14:00Z",
   "component_count":       487,
   "exclude_orphans_default": false,
@@ -206,7 +206,11 @@ shipping it doubled the textual payload.
 
 ## `segment_trees`
 
-Each segment's parsed definition. Node `kind`s:
+Each segment's parsed definition. The tree examples below are illustrative:
+fields within a node may evolve, while the documented node `kind` values are stable.
+Consumers should branch on `kind` and tolerate additional fields.
+
+Node `kind`s:
 
 ```jsonc
 // container — a nesting box scoped to a context
@@ -235,7 +239,8 @@ Each segment's parsed definition. Node `kind`s:
 
 ## `formula_trees`
 
-Each calculated metric's parsed formula. Node `kind`s:
+Each calculated metric's parsed formula. As above, the tree examples below are
+illustrative and the documented node `kind` values are stable. Node `kind`s:
 
 ```jsonc
 // operation — divide / multiply / subtract / add / sum / ...

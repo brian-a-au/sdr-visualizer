@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import re
 import tomllib
 from pathlib import Path
@@ -83,6 +84,81 @@ def test_readme_troubleshooting_covers_public_failure_modes_and_safe_sharing():
         assert phrase in readme
 
 
+def test_catalog_and_changes_display_limits_remain_distinct():
+    product = (REPO / "docs" / "PRODUCT_CONTRACT.md").read_text(encoding="utf-8")
+    performance = (REPO / "docs" / "PERFORMANCE.md").read_text(encoding="utf-8")
+
+    for document in (product, performance):
+        normalized = " ".join(document.split())
+        assert "first 1,000 matching rows render initially" in normalized
+        assert "Show all" in normalized
+        assert "no more than 1,000 matching changes render" in normalized
+        assert "refine" in normalized
+
+
+def test_adapter_guide_lists_every_platform_extension_seam_and_payload_boundary():
+    guide = (REPO / "docs" / "ADAPTER_GUIDE.md").read_text(encoding="utf-8")
+
+    for phrase in (
+        "core/models.py",
+        "input/detect.py",
+        "core/visualizer.py",
+        "cli/main.py",
+        "docs/payload-schema.json",
+        "render/data_payload.py",
+        "render/static/visualizer.js",
+        "tests/fixtures/",
+        "tests/test_adapters_<name>.py",
+        "platform_specific is not embedded",
+        "CJA component mappings",
+    ):
+        assert phrase in guide
+    assert "The downstream layers need no changes" not in guide
+
+
+def test_adapter_guide_json_examples_are_strict_json():
+    guide = (REPO / "docs" / "ADAPTER_GUIDE.md").read_text(encoding="utf-8")
+    examples = re.findall(r"```json\n(.*?)\n```", guide, flags=re.DOTALL)
+
+    assert examples
+    for example in examples:
+        json.loads(example)
+
+
+def test_embedded_format_uses_placeholders_and_marks_tree_shapes_illustrative():
+    guide = (REPO / "docs" / "EMBEDDED_DATA_FORMAT.md").read_text(encoding="utf-8")
+    normalized = " ".join(guide.split())
+
+    assert '"adapter_version":       "<generator-version>"' in guide
+    assert '"visualizer_version":    "<visualizer-version>"' in guide
+    assert "tree examples below are illustrative" in normalized
+    assert "node `kind` values are stable" in normalized
+    assert '"visualizer_version":    "0.2.0"' not in guide
+
+
+def test_changelog_uses_unreleased_to_release_convention_and_complete_links():
+    project = tomllib.loads((REPO / "pyproject.toml").read_text(encoding="utf-8"))
+    version = project["project"]["version"]
+    changelog = (REPO / "CHANGELOG.md").read_text(encoding="utf-8")
+    contributing = (REPO / "CONTRIBUTING.md").read_text(encoding="utf-8")
+    normalized_contributing = " ".join(contributing.split())
+
+    assert "## [Unreleased]" in changelog
+    assert "## [1.0.5] - 2026-07-31" in changelog
+    assert "## [1.0.6] - 2026-08-01" in changelog
+    assert (
+        f"[{version}]: https://github.com/brian-a-au/sdr-visualizer/releases/tag/v{version}"
+        in changelog
+    )
+    assert (
+        f"[Unreleased]: https://github.com/brian-a-au/sdr-visualizer/compare/v{version}...HEAD"
+        in changelog
+    )
+    assert "Keep changes under `Unreleased`" in normalized_contributing
+    assert "rename `Unreleased` to the version and release date" in normalized_contributing
+    assert "add a fresh empty `Unreleased` section" in normalized_contributing
+
+
 def test_derived_kind_public_documentation_matches_sparse_contract():
     document = (REPO / "docs" / "EMBEDDED_DATA_FORMAT.md").read_text(encoding="utf-8")
 
@@ -113,12 +189,12 @@ def test_release_rubric_freezes_durable_record_and_four_reopen_classes():
         assert phrase in releasing
 
 
-def test_v106_metadata_lock_and_changelog_are_synchronized():
+def test_current_metadata_lock_and_changelog_are_synchronized():
     project = tomllib.loads((REPO / "pyproject.toml").read_text(encoding="utf-8"))
     lock = (REPO / "uv.lock").read_text(encoding="utf-8")
     changelog = (REPO / "CHANGELOG.md").read_text(encoding="utf-8")
+    version = project["project"]["version"]
 
-    assert project["project"]["version"] == "1.0.6"
-    assert __version__ == "1.0.6"
-    assert 'name = "sdr-visualizer"\nversion = "1.0.6"' in lock
-    assert "## [1.0.6] - 2026-07-31" in changelog
+    assert __version__ == version
+    assert f'name = "sdr-visualizer"\nversion = "{version}"' in lock
+    assert re.search(rf"^## \[{re.escape(version)}] - \d{{4}}-\d{{2}}-\d{{2}}$", changelog, re.M)
