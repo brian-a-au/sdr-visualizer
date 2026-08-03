@@ -113,9 +113,11 @@ its current setup and authentication steps, and confirm `aa_auto_sdr` is on your
 sdr-visualizer --rsid prod_us
 ```
 
-AA live mode asks the generator for its JSON snapshot on stdout and embeds that
-complete inventory in the report. For both live modes, the upstream repository
-is authoritative for credentials, permissions, and generator compatibility.
+AA live mode reads the generator JSON snapshot from stdout and embeds the
+supported normalized component catalog in the report. Retain the original
+generator snapshot when you need platform-specific details that the visualizer
+does not embed. For both live modes, the upstream repository is authoritative
+for credentials, permissions, and generator compatibility.
 
 ## Useful flags
 

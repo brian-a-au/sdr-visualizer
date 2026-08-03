@@ -37,6 +37,17 @@ def test_readme_distinguishes_saved_and_live_input_contracts():
     assert "cja_auto_sdr dv_prod_web --format json --output - | sdr-visualizer -" not in readme
 
 
+def test_readme_scopes_aa_live_mode_to_the_normalized_catalog():
+    readme = (REPO / "README.md").read_text(encoding="utf-8")
+    live_aa = " ".join(readme.split("## Live AA", 1)[1].split("## Useful flags", 1)[0].split())
+
+    assert "reads the generator JSON snapshot from stdout" in live_aa
+    assert "supported normalized component catalog" in live_aa
+    assert "Retain the original generator snapshot" in live_aa
+    assert "platform-specific details that the visualizer does not embed" in live_aa
+    assert "complete inventory" not in live_aa
+
+
 def test_readme_describes_navigation_and_browser_evidence_precisely():
     readme = (REPO / "README.md").read_text(encoding="utf-8")
 

@@ -392,6 +392,20 @@ def _examples_errors(path: Path, workflow: dict[str, Any]) -> list[str]:
     return errors
 
 
+def _pages_errors(path: Path, workflow: dict[str, Any]) -> list[str]:
+    if path.name not in {"pages.yml", "pages.yaml"}:
+        return []
+    jobs = workflow.get("jobs", {})
+    if not isinstance(jobs, dict):
+        return [_error(path, "Pages jobs must be a mapping")]
+    deploy = jobs.get("deploy")
+    if not isinstance(deploy, dict):
+        return [_error(path, "Pages workflow must define a 'deploy' job")]
+    if deploy.get("if") != "github.ref == 'refs/heads/main'":
+        return [_error(path, "Pages deploy job must be restricted to refs/heads/main")]
+    return []
+
+
 def _codeql_errors(path: Path, workflow: dict[str, Any]) -> list[str]:
     if path.name not in {"codeql.yml", "codeql.yaml"}:
         return []
@@ -510,6 +524,7 @@ def check(path: Path) -> list[str]:
         *_lock_errors(path, workflow),
         *_release_errors(path, workflow),
         *_examples_errors(path, workflow),
+        *_pages_errors(path, workflow),
         *_codeql_errors(path, workflow),
     ]
 
