@@ -121,5 +121,80 @@ def test_remote_links_and_fenced_examples_are_ignored(checker, tmp_path):
     assert errors == []
 
 
+def test_canonical_repository_blob_tree_and_anchor_links_are_checked(checker, tmp_path):
+    source = tmp_path / "README.md"
+    guide = tmp_path / "docs" / "guide.md"
+    example = tmp_path / "examples" / "report.html"
+    guide.parent.mkdir()
+    example.parent.mkdir()
+    source.write_text(
+        "[guide](https://github.com/brian-a-au/sdr-visualizer/blob/main/docs/guide.md#setup)\n"
+        "[examples](https://github.com/brian-a-au/sdr-visualizer/tree/main/examples)\n",
+        encoding="utf-8",
+    )
+    guide.write_text("# Setup\n", encoding="utf-8")
+    example.write_text("<!doctype html>\n", encoding="utf-8")
+
+    errors = checker.check_markdown_file(
+        source,
+        repo=tmp_path,
+        tracked_paths=_tracked("README.md", "docs/guide.md", "examples/report.html"),
+    )
+
+    assert errors == []
+
+
+@pytest.mark.parametrize(
+    ("target", "message"),
+    [
+        (
+            "https://github.com/brian-a-au/sdr-visualizer/blob/main/docs/missing.md",
+            "local link target is not tracked",
+        ),
+        (
+            "https://github.com/brian-a-au/sdr-visualizer/blob/main/docs/guide.md#missing",
+            "Markdown anchor does not exist",
+        ),
+        (
+            "https://github.com/brian-a-au/sdr-visualizer/tree/main/missing",
+            "local link target is not tracked",
+        ),
+    ],
+)
+def test_broken_canonical_repository_links_are_reported(checker, tmp_path, target, message):
+    source = tmp_path / "README.md"
+    guide = tmp_path / "docs" / "guide.md"
+    guide.parent.mkdir()
+    source.write_text(f"[target]({target})\n", encoding="utf-8")
+    guide.write_text("# Setup\n", encoding="utf-8")
+
+    errors = checker.check_markdown_file(
+        source,
+        repo=tmp_path,
+        tracked_paths=_tracked("README.md", "docs/guide.md"),
+    )
+
+    assert len(errors) == 1
+    assert message in errors[0]
+    assert target in errors[0]
+
+
+def test_other_repositories_and_refs_remain_remote(checker, tmp_path):
+    source = tmp_path / "README.md"
+    source.write_text(
+        "[other repo](https://github.com/example/project/blob/main/missing.md)\n"
+        "[other ref](https://github.com/brian-a-au/sdr-visualizer/blob/v1.0.6/missing.md)\n",
+        encoding="utf-8",
+    )
+
+    errors = checker.check_markdown_file(
+        source,
+        repo=tmp_path,
+        tracked_paths=_tracked("README.md"),
+    )
+
+    assert errors == []
+
+
 def test_all_repository_markdown_links_are_valid(checker):
     assert checker.check_repository(REPO) == []

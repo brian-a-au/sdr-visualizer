@@ -14,7 +14,7 @@ import sys
 from pathlib import Path
 from urllib.parse import unquote, urlsplit
 
-INLINE_LINK_RE = re.compile(r"!?\[[^\]]*]\(\s*(?:<([^>]+)>|([^)\s]+))(?:\s+['\"].*?['\"])?\s*\)")
+INLINE_LINK_RE = re.compile(r"]\(\s*(?:<([^>]+)>|([^)\s]+))(?:\s+['\"].*?['\"])?\s*\)")
 REFERENCE_DEFINITION_RE = re.compile(
     r"^\s{0,3}\[[^\]]+]:\s*(?:<([^>]+)>|(\S+))",
     re.MULTILINE,
@@ -31,6 +31,10 @@ REMOTE_SCHEMES = {
     "news",
     "tel",
 }
+REPOSITORY_URL_PREFIXES = (
+    "/brian-a-au/sdr-visualizer/blob/main/",
+    "/brian-a-au/sdr-visualizer/tree/main/",
+)
 
 
 def tracked_files(repo: Path) -> set[str]:
@@ -106,6 +110,17 @@ def _is_tracked_target(relative: str, tracked_paths: set[str]) -> bool:
     return any(path.startswith(prefix) for path in tracked_paths)
 
 
+def _canonical_repository_path(raw_target: str) -> str | None:
+    """Map this repository's living ``main`` URLs back to checkout paths."""
+    split = urlsplit(raw_target)
+    if split.scheme.lower() != "https" or split.netloc.lower() != "github.com":
+        return None
+    for prefix in REPOSITORY_URL_PREFIXES:
+        if split.path.startswith(prefix):
+            return unquote(split.path.removeprefix(prefix))
+    return None
+
+
 def check_markdown_file(
     source: Path,
     *,
@@ -125,10 +140,11 @@ def check_markdown_file(
     for match in sorted(matches, key=lambda item: item.start()):
         raw_target = (match.group(1) or match.group(2)).strip()
         split = urlsplit(raw_target)
-        if split.scheme.lower() in REMOTE_SCHEMES or split.netloc:
+        repository_path = _canonical_repository_path(raw_target)
+        if repository_path is None and (split.scheme.lower() in REMOTE_SCHEMES or split.netloc):
             continue
 
-        decoded_path = unquote(split.path)
+        decoded_path = repository_path if repository_path is not None else unquote(split.path)
         if decoded_path.startswith("/"):
             target = repo / decoded_path.lstrip("/")
         elif decoded_path:
