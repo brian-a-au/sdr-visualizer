@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import importlib.util
 from pathlib import Path
+from urllib.parse import urlsplit
 
 import pytest
 
@@ -144,6 +145,25 @@ def test_canonical_repository_blob_tree_and_anchor_links_are_checked(checker, tm
     assert errors == []
 
 
+def test_canonical_repository_link_from_nested_document_starts_at_repo_root(checker, tmp_path):
+    source = tmp_path / "docs" / "nested.md"
+    guide = tmp_path / "docs" / "guide.md"
+    source.parent.mkdir()
+    source.write_text(
+        "[guide](https://github.com/brian-a-au/sdr-visualizer/blob/main/docs/guide.md)\n",
+        encoding="utf-8",
+    )
+    guide.write_text("# Guide\n", encoding="utf-8")
+
+    errors = checker.check_markdown_file(
+        source,
+        repo=tmp_path,
+        tracked_paths=_tracked("docs/nested.md", "docs/guide.md"),
+    )
+
+    assert errors == []
+
+
 @pytest.mark.parametrize(
     ("target", "message"),
     [
@@ -194,6 +214,18 @@ def test_other_repositories_and_refs_remain_remote(checker, tmp_path):
     )
 
     assert errors == []
+
+
+def test_readme_links_are_portable_in_pypi_long_description(checker):
+    text = (REPO / "README.md").read_text(encoding="utf-8")
+
+    relative = []
+    for target in checker.markdown_link_targets(text):
+        split = urlsplit(target)
+        if not split.scheme and not split.netloc and not target.startswith("#"):
+            relative.append(target)
+
+    assert relative == []
 
 
 def test_all_repository_markdown_links_are_valid(checker):

@@ -6,7 +6,8 @@ import json
 import re
 import tomllib
 from pathlib import Path
-from urllib.parse import urlsplit
+
+from conftest import extract_payload
 
 from sdr_visualizer import __version__
 
@@ -18,20 +19,6 @@ def test_readme_keeps_live_test_badge_without_fixed_numeric_count():
 
     assert "actions/workflows/test.yml/badge.svg" in readme
     assert not re.search(r"shields\.io/badge/tests-[0-9]", readme)
-
-
-def test_readme_links_are_portable_in_pypi_long_description():
-    readme = (REPO / "README.md").read_text(encoding="utf-8")
-    targets = re.findall(r"\]\((?:<([^>]+)>|([^\s)]+))", readme)
-
-    relative = []
-    for enclosed, plain in targets:
-        target = enclosed or plain
-        split = urlsplit(target)
-        if not split.scheme and not split.netloc and not target.startswith("#"):
-            relative.append(target)
-
-    assert relative == []
 
 
 def test_readme_distinguishes_saved_and_live_input_contracts():
@@ -258,10 +245,4 @@ def test_generated_examples_embed_the_current_project_version():
 
     for name in ("cja-typical.html", "aa-typical.html"):
         html = (REPO / "examples" / name).read_text(encoding="utf-8")
-        match = re.search(
-            r'<script id="sdr-data" type="application/json">(.*?)</script>',
-            html,
-            flags=re.DOTALL,
-        )
-        assert match is not None, name
-        assert json.loads(match.group(1))["meta"]["visualizer_version"] == version
+        assert extract_payload(html)["meta"]["visualizer_version"] == version, name
