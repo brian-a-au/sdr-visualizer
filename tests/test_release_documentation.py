@@ -204,7 +204,7 @@ def test_derived_kind_public_documentation_matches_sparse_contract():
 def test_release_matrix_has_one_row_for_each_closure_requirement():
     releasing = (REPO / "docs" / "RELEASING.md").read_text(encoding="utf-8")
 
-    for number in range(25, 34):
+    for number in range(25, 38):
         assert len(re.findall(rf"^\| R{number} ", releasing, flags=re.MULTILINE)) == 1
 
 
@@ -215,9 +215,28 @@ def test_release_rubric_freezes_durable_record_and_four_reopen_classes():
         "critical security vulnerability",
         "data loss on a normal supported path",
         "broken installation or publication",
-        "regression introduced by the v1.0.6 closure patch",
+        "regression introduced by the current patch release",
         "supplemental, not authoritative",
         "durable release-PR permalinks",
+    ):
+        assert phrase in releasing
+    assert "v1.0.6 closure patch" not in releasing
+
+
+def test_release_rubric_covers_documentation_patch_public_surfaces_generically():
+    releasing = (REPO / "docs" / "RELEASING.md").read_text(encoding="utf-8")
+
+    for number in range(1, 16):
+        assert len(re.findall(rf"^\| P{number} ", releasing, flags=re.MULTILINE)) == 1
+    for phrase in (
+        "current candidate version",
+        "wheel and source distribution long descriptions",
+        "Warehouse-rendered long description",
+        "project URLs",
+        "Pages deployment SHA",
+        "examples track current `main`",
+        "diff-backed N/A",
+        "upstream-freshness",
     ):
         assert phrase in releasing
 
