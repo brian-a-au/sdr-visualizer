@@ -15,7 +15,10 @@ dependencies = [
 sdr-visualizer = "sdr_visualizer.cli.main:main"
 
 [project.urls]
-Homepage = "https://github.com/brian-a-au/sdr-visualizer"
+Homepage = "https://brian-a-au.github.io/sdr-visualizer/"
+Documentation = "https://github.com/brian-a-au/sdr-visualizer#documentation"
+Repository = "https://github.com/brian-a-au/sdr-visualizer"
+Changelog = "https://github.com/brian-a-au/sdr-visualizer/blob/main/CHANGELOG.md"
 Issues = "https://github.com/brian-a-au/sdr-visualizer/issues"
 
 [dependency-groups]

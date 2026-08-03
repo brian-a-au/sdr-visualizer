@@ -159,6 +159,39 @@ def test_changelog_uses_unreleased_to_release_convention_and_complete_links():
     assert "add a fresh empty `Unreleased` section" in normalized_contributing
 
 
+def test_project_urls_expose_public_discovery_routes():
+    project = tomllib.loads((REPO / "pyproject.toml").read_text(encoding="utf-8"))
+
+    assert project["project"]["urls"] == {
+        "Homepage": "https://brian-a-au.github.io/sdr-visualizer/",
+        "Documentation": "https://github.com/brian-a-au/sdr-visualizer#documentation",
+        "Repository": "https://github.com/brian-a-au/sdr-visualizer",
+        "Changelog": "https://github.com/brian-a-au/sdr-visualizer/blob/main/CHANGELOG.md",
+        "Issues": "https://github.com/brian-a-au/sdr-visualizer/issues",
+    }
+
+
+def test_pages_landing_exposes_install_examples_and_authoritative_routes():
+    pages = (REPO / ".github" / "workflows" / "pages.yml").read_text(encoding="utf-8")
+    normalized = " ".join(pages.split())
+
+    for phrase in (
+        "uv tool install sdr-visualizer",
+        "https://pypi.org/project/sdr-visualizer/",
+        "https://github.com/brian-a-au/sdr-visualizer#documentation",
+        "https://github.com/brian-a-au/sdr-visualizer",
+        "https://github.com/brian-a-au/sdr-visualizer/blob/main/CHANGELOG.md",
+        "https://github.com/brian-a-au/sdr-visualizer/issues",
+        "https://github.com/brian-a-au/sdr-visualizer/blob/main/SECURITY.md",
+        'href="cja-typical.html"',
+        'href="aa-typical.html"',
+        "current <code>main</code>",
+        "may be ahead of the latest PyPI release",
+        "PyPI is the authority for released versions",
+    ):
+        assert phrase in normalized
+
+
 def test_derived_kind_public_documentation_matches_sparse_contract():
     document = (REPO / "docs" / "EMBEDDED_DATA_FORMAT.md").read_text(encoding="utf-8")
 

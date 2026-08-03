@@ -47,22 +47,40 @@ jobs:
           <head>
             <meta charset="utf-8" />
             <meta name="viewport" content="width=device-width, initial-scale=1" />
-            <title>sdr-visualizer — example reports</title>
+            <title>sdr-visualizer — static CJA and AA implementation reports</title>
             <style>
               body { font-family: Georgia, serif; max-width: 640px; margin: 80px auto; padding: 0 24px; color: #1a1a1a; background: #fafaf7; line-height: 1.6; }
               a { color: #1a1a1a; }
               .sub { color: #6b6b66; font-size: 0.9em; }
+              code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; background: #ecece7; padding: 0.15em 0.35em; }
             </style>
           </head>
           <body>
             <h1>sdr-visualizer</h1>
-            <p>Example reports generated from the bundled test fixtures. Each is one
-            self-contained HTML file — what the tool actually ships.</p>
+            <p>Turn Adobe Customer Journey Analytics and Adobe Analytics SDR snapshots
+            into a searchable catalog, reference graph, and optional change or trend
+            report. The result is one self-contained HTML file.</p>
+            <h2>Install</h2>
+            <p><code>uv tool install sdr-visualizer</code></p>
+            <p>See <a href="https://pypi.org/project/sdr-visualizer/">PyPI</a> for the
+            latest released package and supported Python version.</p>
+            <h2>Examples</h2>
+            <p>These reports are generated from bundled synthetic fixtures:</p>
             <ul>
               <li><a href="cja-typical.html">CJA example report</a> <span class="sub">(Customer Journey Analytics)</span></li>
               <li><a href="aa-typical.html">AA example report</a> <span class="sub">(Adobe Analytics)</span></li>
             </ul>
-            <p class="sub"><a href="https://github.com/brian-a-au/sdr-visualizer">Repository</a></p>
+            <p class="sub">Examples track the current <code>main</code> branch and may
+            be ahead of the latest PyPI release. PyPI is the authority for released
+            versions.</p>
+            <h2>Project links</h2>
+            <ul>
+              <li><a href="https://github.com/brian-a-au/sdr-visualizer#documentation">Documentation</a></li>
+              <li><a href="https://github.com/brian-a-au/sdr-visualizer">Repository</a></li>
+              <li><a href="https://github.com/brian-a-au/sdr-visualizer/blob/main/CHANGELOG.md">Changelog</a></li>
+              <li><a href="https://github.com/brian-a-au/sdr-visualizer/issues">Usage help and bug reports</a></li>
+              <li><a href="https://github.com/brian-a-au/sdr-visualizer/blob/main/SECURITY.md">Report a security vulnerability</a></li>
+            </ul>
           </body>
           </html>
           EOF
