@@ -658,6 +658,36 @@ jobs:
     assert any("must not push directly" in error for error in check_workflow_policy.check(workflow))
 
 
+@pytest.mark.parametrize(
+    "guard",
+    ["", "    if: github.ref == 'refs/heads/release'\n"],
+    ids=["missing", "wrong-branch"],
+)
+def test_pages_deploy_job_must_be_restricted_to_main(tmp_path, guard):
+    workflow = _write(
+        tmp_path,
+        "pages.yml",
+        f"""
+name: pages
+on: workflow_dispatch
+jobs:
+  deploy:
+{guard}    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+    steps:
+      - uses: actions/deploy-pages@{SHA}
+""",
+    )
+
+    assert any(
+        "deploy job must be restricted to refs/heads/main" in error
+        for error in check_workflow_policy.check(workflow)
+    )
+
+
 def test_accepts_well_ordered_digest_verified_release(tmp_path):
     workflow = _write(tmp_path, "release.yml", _release_workflow())
     assert check_workflow_policy.check(workflow) == []

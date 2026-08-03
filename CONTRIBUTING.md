@@ -75,9 +75,11 @@ bypass.
 Use the full candidate and publication checklist in
 [`docs/RELEASING.md`](docs/RELEASING.md).
 
-The release commit bumps `pyproject.toml`, `src/sdr_visualizer/__init__.py`,
-and `uv.lock` together, dates the CHANGELOG's Unreleased section, and adds
-the version's link definition at the bottom of the file. Tag the release
+Keep changes under `Unreleased` while they are in development. The release
+commit bumps `pyproject.toml`, `src/sdr_visualizer/__init__.py`, and `uv.lock`
+together. In the same commit, rename `Unreleased` to the version and release date,
+add that version's link definition, update the comparison target, and add a
+fresh empty `Unreleased` section. Tag the release
 commit itself — never a commit whose message contains `[skip ci]` (the
 examples auto-commits), because GitHub skips all workflows for such a tag.
 The release workflow publishes to PyPI before creating the GitHub release and

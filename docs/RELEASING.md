@@ -23,7 +23,7 @@ explicit maintainer authorization after candidate review.
 Record these first and repeat them in the release pull request:
 
 ```text
-Candidate version:
+Candidate version (current candidate version):
 Candidate commit SHA:
 Visualizer PR:
 Sibling sdr-grader PR:
@@ -122,6 +122,11 @@ Record the wheel and source-distribution filenames and SHA-256 digests. Inspect
 their metadata and confirm Jinja2 is the only direct runtime dependency,
 required public documents are in the source distribution, and ignored specs,
 plans, generated fixtures, caches, and repository metadata are absent.
+Extract the wheel and source distribution long descriptions and confirm their
+repository-owned links are absolute, map to tracked content, and match the
+source README. Inspect built metadata for the expected Homepage, Documentation,
+Repository, Changelog, and Issues project URLs. This built-artifact check is
+required even when source-level documentation tests pass.
 The focused input-boundary run above must cover decoder-limit failures,
 surrogate-containing string values and mapping keys, surrogates materialized by
 embedded JSON decoding, direct rendering, default output naming, diagnostics,
@@ -202,6 +207,13 @@ Review changes to `core/models.py`, `adapters/`, and
 Missing access or an unreviewed sibling change blocks release; it does not turn
 parity into an optional follow-up.
 
+When the candidate changes none of the listed shared runtime paths, sibling
+parity may be recorded as a **diff-backed N/A**. The record must include the
+base and candidate SHAs, the complete changed-path output, and a reviewer
+confirmation that no shared runtime surface changed. A documentation-only
+label or commit message is not sufficient evidence. Any shared-path change
+requires the full sibling review above.
+
 ## GitHub and community controls
 
 Inspect repository settings immediately before the go/no-go decision and record
@@ -223,8 +235,8 @@ the result:
   the live project site;
 - the community profile recognizes the license, Code of Conduct, contribution
   guide, security policy, issue templates, and pull-request template; and
-- security-reporting and Code of Conduct enforcement contacts are valid,
-  monitored, and approved for public use.
+- the tracked security and community documents resolve from their advertised
+  public links and do not direct vulnerabilities into public issues.
 
 Unsupported account or plan features must be named with a compensating control
 and owner. An unexplained disabled control is a blocker.
@@ -262,7 +274,7 @@ settings inspection tied to the candidate SHA.
 | R17 current compatibility | privacy-safe fresh/corpus record | pending |
 | R18 sibling parity | linked green sibling PR and commit | pending |
 | R19 protected/monitored `main` | settings/API inspection | pending |
-| R20 complete community surface | community profile + contact verification | pending |
+| R20 complete community surface | community profile + advertised public-link resolution | pending |
 | R21 one traced candidate | this matrix + final go/no-go | pending |
 | R22 decoder resource containment | focused adapter/CLI regressions | pending |
 | R23 Unicode-scalar input boundary | structure/adapter/render/trend regressions | pending |
@@ -276,6 +288,34 @@ settings inspection tied to the candidate SHA.
 | R31 decoded list structure budgets | exact decoded tag/reference depth and node boundary tests | pending |
 | R32 non-drifting test status | live workflow badge and fixed-count absence test | pending |
 | R33 one frozen announcement candidate | exact-SHA matrix, four decisions, public verification, and reopen rule | pending |
+| R34 portable built/public package metadata | wheel and source distribution long descriptions, Warehouse-rendered long description, and project URLs | pending |
+| R35 Pages content and provenance | required landing links, examples track current `main` disclosure, Pages deployment SHA, and both embedded example versions | pending |
+| R36 synchronized current release identity | project/module/lock/changelog/example version checks derived from the current candidate version | pending |
+| R37 reusable patch-release policy | generic release-language regression, upstream-freshness check, and diff-backed sibling-parity applicability | pending |
+
+### Documentation-patch evidence map
+
+The current documentation patch uses P1-P15 to map its implementation contract
+onto the durable release rows above. This table records scope; it does not
+renumber or replace R1-R37.
+
+| Patch requirement | Durable release evidence |
+|---|---|
+| P1 README link portability | R15 and R34 |
+| P2 saved versus live generator onboarding | R1, R17, and R28 |
+| P3 navigation model accuracy | R15 plus functional browser evidence |
+| P4 performance-tier and browser scope | R10 and R25 |
+| P5 end-user troubleshooting and safe sharing | R16 and R28 |
+| P6 Catalog versus Changes display bounds | R9 and R15 |
+| P7 platform-extension seams and payload boundary | R15 and payload-schema evidence |
+| P8 illustrative embedded examples and stable kinds | R15 and R29 |
+| P9 changelog and contributor convention | R15 and R36 |
+| P10 package and Pages discovery | R34 and R35 |
+| P11 conduct-reporting route | Excluded from this patch by maintainer scope; no route is changed or claimed as new evidence. |
+| P12 drift-prevention checks | R15 and R34-R37 |
+| P13 one synchronized candidate | R13 and R36 |
+| P14 generic reusable release rubric | R21 and R34-R37 |
+| P15 pending announcement until public verification | R33 and R37 |
 
 Also account explicitly for the original 14 validated findings:
 
@@ -306,6 +346,13 @@ releases, and PyPI. Record the exact candidate SHA and confirm the annotated
 tag will dereference to that SHA. Any conflicting public state is a stop
 condition.
 
+Immediately before tag authorization, run an **upstream-freshness** check for
+the current released CJA and AA generators. Reconfirm installation guidance,
+authentication/configuration prerequisites, interpreter constraints, reported
+versions, and one live generation path against the frozen candidate. Any drift
+from candidate evidence stops publication and requires complete
+requalification; it is not patched into the release after tagging.
+
 After the candidate is approved, a separate explicit tag authorization starts
 the release workflow. Record the workflow run ID and attempt, event, tag,
 `headSha`, job conclusions, retained artifact ID, artifact expiry, distribution
@@ -326,6 +373,12 @@ authorized tag ref, and the exact candidate SHA. Fresh `--no-cache-dir`
 installs on Python 3.11 and 3.12 must render outside the checkout. Download the
 PyPI and GitHub distributions again, compare them with the retained manifest,
 and confirm the GitHub `SHA256SUMS` asset matches that manifest byte-for-byte.
+Inspect the Warehouse-rendered long description and every published project
+URL, not only the source README and local metadata. Record the Pages deployment
+SHA, verify the landing's current-`main` disclosure and destinations, and
+confirm both deployed examples embed the expected visualizer version. If Pages
+deploys again before announcement GO, repeat those checks against the newer
+deployment SHA.
 
 The authoritative workflow artifact must remain available throughout a
 90-day recovery window. Confirm repository retention and the artifact's actual
@@ -358,7 +411,7 @@ information reopens GO only when it identifies:
 1. a critical security vulnerability;
 2. data loss on a normal supported path;
 3. broken installation or publication; or
-4. a regression introduced by the v1.0.6 closure patch.
+4. a regression introduced by the current patch release.
 
 This rule does not waive a matrix row or invalid exact-SHA evidence. All other
 new findings and improvements enter the post-announcement backlog without

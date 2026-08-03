@@ -1,6 +1,6 @@
 # Adapter guide
 
-Adapters take a parsed JSON snapshot from one of the upstream SDR generators and produce a normalized `Implementation` (see `core/models.py`). The visualizer's downstream layers (analysis, render) operate against the normalized model, so they don't need to know which platform produced the snapshot.
+Adapters take a parsed JSON snapshot from one of the upstream SDR generators and produce a normalized `Implementation` (see `core/models.py`). Most analysis and rendering code operates against that normalized model. Adding a platform still requires updating every dispatch, public-contract, payload, UI, and test seam listed below.
 
 This document covers the two adapters shipped in v0.1 and what to do if you want to add a third.
 
@@ -18,13 +18,15 @@ Reads the JSON output of [`cja_auto_sdr`](https://github.com/brian-a-au/cja_auto
     "Generation Timestamp": "...",
     "Tool Version": "..."
   },
-  "metrics":     [{...}, ...],
-  "dimensions":  [{...}, ...],
-  "calculated_metrics": { "metrics": [...] }   // also accepts a bare list
-  "segments":           { "segments": [...] }, // also accepts a bare list
-  "derived_fields":     { "fields": [...] }
+  "metrics": [{"id": "metrics/orders", "name": "Orders"}],
+  "dimensions": [{"id": "variables/page", "name": "Page"}],
+  "calculated_metrics": {"metrics": []},
+  "segments": {"segments": []},
+  "derived_fields": {"fields": []}
 }
 ```
+
+`calculated_metrics` and `segments` also accept bare lists.
 
 **What it does:**
 
@@ -34,6 +36,20 @@ Reads the JSON output of [`cja_auto_sdr`](https://github.com/brian-a-au/cja_auto
 - Segment `container_types` is computed by walking the definition tree and collecting distinct `func: "container"` `context` values (in CJA: `event` / `session` / `person`).
 - Calc metrics ship `metric_references` and `segment_references` arrays; the adapter merges these and de-dupes.
 - Derived fields appear only in CJA — there's no AA equivalent.
+
+### CJA component mappings
+
+| CJA input | Normalized collection | Embedded type |
+|---|---|---|
+| `metrics` | `Implementation.metrics` | `metric` |
+| `dimensions` | `Implementation.dimensions` | `dimension` |
+| `derived_fields.fields` | `Implementation.derived_fields` | `derived_field` |
+| `segments.segments` | `Implementation.segments` | `segment` |
+| `calculated_metrics.metrics` | `Implementation.calculated_metrics` | `calculated_metric` |
+
+Derived-field `component_references` are normalized into reference edges when
+the target exists. A declared CJA derived-field kind may become the optional
+embedded `derived_kind`; other adapter-only details stay internal.
 
 ## AA (`adapters/aa.py`)
 
@@ -46,12 +62,12 @@ Reads the JSON output of [`aa_auto_sdr`](https://github.com/brian-a-au/aa_auto_s
   "report_suite": {"rsid": "...", "name": "..."},
   "tool_version": "...",
   "captured_at":  "...",
-  "dimensions":         [{...}, ...],   // eVars and props live here
-  "metrics":            [{...}, ...],   // success events
-  "calculated_metrics": [{...}, ...],
-  "segments":           [{...}, ...],
-  "classifications":    [{...}, ...],
-  "virtual_report_suites": [...]
+  "dimensions": [{"id": "variables/evar1", "name": "Site Section"}],
+  "metrics": [{"id": "metrics/event1", "name": "Orders"}],
+  "calculated_metrics": [],
+  "segments": [],
+  "classifications": [],
+  "virtual_report_suites": []
 }
 ```
 
@@ -74,15 +90,32 @@ Reads the JSON output of [`aa_auto_sdr`](https://github.com/brian-a-au/aa_auto_s
 
 ## Adding a new platform
 
-The visualizer is single-platform-per-snapshot, but the architecture doesn't preclude adding new ones. If you want to point it at a different analytics tool (GA4, Amplitude, ...):
+The visualizer currently accepts one platform per snapshot. Supporting another
+analytics tool is a cross-cutting feature, not just a new adapter:
 
-1. Write `adapters/<name>.py` exposing `adapt(snapshot, *, source) -> Implementation`. Stick with the `core/models.py` field set; if your platform has concepts that don't fit, stash them under `Component.platform_specific` rather than extending the model.
-2. Add a detection branch to `input/detect.py` that recognizes the new shape from a top-level key.
-3. Wire the new branch into `core/visualizer.py:build_implementation` so `--platform <name>` reaches the adapter.
-4. Drop sample fixtures into `tests/fixtures/`. At minimum: a clean snapshot that the catalog can render without complaint, and a messy one with several edge cases.
-5. Mirror the existing tests (`tests/test_adapters_<name>.py`) round-tripping every field.
+1. Extend the platform type and normalized fields in `core/models.py`, then add
+   `adapters/<name>.py` with `adapt(snapshot, *, source) -> Implementation`.
+2. Add unambiguous shape recognition in `input/detect.py` and adapter dispatch
+   in `core/visualizer.py`.
+3. Add the public `--platform` choice and relevant live-mode or compatibility
+   warning routing in `cli/main.py`.
+4. Review `docs/payload-schema.json` and `render/data_payload.py`. Normalized
+   fields intended for consumers need an explicit schema and payload mapping.
+   `Component.platform_specific` is adapter-working data:
+   **platform_specific is not embedded** in reports or `--json` output. Keep
+   unsupported platform extras in the original snapshot rather than promising
+   them to payload consumers.
+5. Review labels, filters, and platform-specific assumptions in
+   `render/static/visualizer.js` and the surrounding report UI. Generic code
+   may need no edit, but that conclusion must come from an exercised review.
+6. Add clean, messy, invalid, ambiguous-detection, CLI, schema/payload, and
+   browser fixtures under `tests/fixtures/`. Mirror the adapter coverage in
+   `tests/test_adapters_<name>.py` and extend detection, CLI, payload-schema,
+   and browser tests.
 
-The downstream layers need no changes — `analysis/`, `render/`, the catalog UI, and the graph view all work against the normalized model.
+Use the existing model where it describes the new platform accurately. Do not
+put a consumer-facing concept only in `platform_specific`, because that field
+is deliberately omitted at the payload boundary.
 
 The fixtures may diverge from sdr-grader's over time — the visualizer wants more component variety to exercise rendering; the grader wants more rule-triggering edge cases — but shared defensive behavior follows the parity policy in [`PRODUCT_CONTRACT.md`](PRODUCT_CONTRACT.md#compatibility-policy).
 

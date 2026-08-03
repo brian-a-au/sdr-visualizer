@@ -126,10 +126,13 @@ edges and degree counts. Dangling references do not create graph edges.
 
 Browser rendering is also bounded:
 
-- the catalog and Changes view render at most 1,000 matching rows at once;
+- Catalog search and filters inspect the complete catalog, but only the first
+  1,000 matching rows render initially; “Show all” renders every matching row;
 - the graph requires explicit opt-in above 1,000 nodes (or the configured
   `--max-graph-nodes` value) and above 8,000 reference edges;
-- Changes materializes rows in batches of 250 after filtering the full data;
+- Changes filters the complete comparison, materializes rows in batches of 250,
+  and lets no more than 1,000 matching changes render; users refine the search
+  to reach matches outside that hard display window;
 - Trend emits at most 59 interval summaries for its 60 snapshots; and
 - Trend creates changed-ID chips only when an interval is expanded, in batches
   of 100 per change kind.

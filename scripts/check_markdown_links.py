@@ -12,9 +12,9 @@ import re
 import subprocess
 import sys
 from pathlib import Path
-from urllib.parse import unquote, urlsplit
+from urllib.parse import SplitResult, unquote, urlsplit
 
-INLINE_LINK_RE = re.compile(r"!?\[[^\]]*]\(\s*(?:<([^>]+)>|([^)\s]+))(?:\s+['\"].*?['\"])?\s*\)")
+INLINE_LINK_RE = re.compile(r"]\(\s*(?:<([^>]+)>|([^)\s]+))(?:\s+['\"].*?['\"])?\s*\)")
 REFERENCE_DEFINITION_RE = re.compile(
     r"^\s{0,3}\[[^\]]+]:\s*(?:<([^>]+)>|(\S+))",
     re.MULTILINE,
@@ -31,6 +31,10 @@ REMOTE_SCHEMES = {
     "news",
     "tel",
 }
+REPOSITORY_URL_PREFIXES = (
+    "/brian-a-au/sdr-visualizer/blob/main/",
+    "/brian-a-au/sdr-visualizer/tree/main/",
+)
 
 
 def tracked_files(repo: Path) -> set[str]:
@@ -106,6 +110,28 @@ def _is_tracked_target(relative: str, tracked_paths: set[str]) -> bool:
     return any(path.startswith(prefix) for path in tracked_paths)
 
 
+def _canonical_repository_path(split: SplitResult) -> str | None:
+    """Map this repository's living ``main`` URLs back to checkout paths."""
+    if split.scheme.lower() != "https" or split.netloc.lower() != "github.com":
+        return None
+    for prefix in REPOSITORY_URL_PREFIXES:
+        if split.path.startswith(prefix):
+            return unquote(split.path.removeprefix(prefix))
+    return None
+
+
+def _markdown_link_matches(text: str) -> tuple[str, list[re.Match[str]]]:
+    text = _without_fenced_code(text)
+    matches = list(INLINE_LINK_RE.finditer(text)) + list(REFERENCE_DEFINITION_RE.finditer(text))
+    return text, sorted(matches, key=lambda item: item.start())
+
+
+def markdown_link_targets(text: str) -> list[str]:
+    """Return inline and reference-definition targets outside fenced code."""
+    _, matches = _markdown_link_matches(text)
+    return [(match.group(1) or match.group(2)).strip() for match in matches]
+
+
 def check_markdown_file(
     source: Path,
     *,
@@ -118,18 +144,20 @@ def check_markdown_file(
     source = source.resolve()
     anchor_cache = {} if anchor_cache is None else anchor_cache
     display_source = source.relative_to(repo).as_posix()
-    text = _without_fenced_code(source.read_text(encoding="utf-8"))
-    matches = list(INLINE_LINK_RE.finditer(text)) + list(REFERENCE_DEFINITION_RE.finditer(text))
+    text, matches = _markdown_link_matches(source.read_text(encoding="utf-8"))
     errors: list[str] = []
 
-    for match in sorted(matches, key=lambda item: item.start()):
+    for match in matches:
         raw_target = (match.group(1) or match.group(2)).strip()
         split = urlsplit(raw_target)
-        if split.scheme.lower() in REMOTE_SCHEMES or split.netloc:
+        repository_path = _canonical_repository_path(split)
+        if repository_path is None and (split.scheme.lower() in REMOTE_SCHEMES or split.netloc):
             continue
 
         decoded_path = unquote(split.path)
-        if decoded_path.startswith("/"):
+        if repository_path is not None:
+            target = repo / repository_path
+        elif decoded_path.startswith("/"):
             target = repo / decoded_path.lstrip("/")
         elif decoded_path:
             target = source.parent / decoded_path
