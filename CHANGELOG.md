@@ -4,6 +4,8 @@ All notable changes to `sdr-visualizer` will be documented here. The format foll
 
 ## [Unreleased]
 
+## [1.0.7] - 2026-08-03
+
 ### Changed
 
 - Public documentation now distinguishes saved and live input, explains
@@ -11,6 +13,12 @@ All notable changes to `sdr-visualizer` will be documented here. The format foll
   in the PyPI long description.
 - Platform-extension and embedded-payload guidance now identifies its actual
   downstream seams and stable boundaries.
+- Package metadata and the Pages landing now expose clear documentation,
+  changelog, support, security, installation, and example routes, with Pages
+  identified as current-`main` content rather than release availability.
+- Release qualification now checks built and Warehouse-rendered documentation,
+  public project URLs, Pages provenance, synchronized examples, upstream
+  freshness, and diff-backed sibling-parity applicability.
 
 ## [1.0.6] - 2026-08-01
 
@@ -538,7 +546,8 @@ The following are explicitly internal and may change without notice:
 - Workspace project visualization (v0.4)
 - Schema map view (v0.5)
 
-[Unreleased]: https://github.com/brian-a-au/sdr-visualizer/compare/v1.0.6...HEAD
+[Unreleased]: https://github.com/brian-a-au/sdr-visualizer/compare/v1.0.7...HEAD
+[1.0.7]: https://github.com/brian-a-au/sdr-visualizer/releases/tag/v1.0.7
 [1.0.6]: https://github.com/brian-a-au/sdr-visualizer/releases/tag/v1.0.6
 [1.0.5]: https://github.com/brian-a-au/sdr-visualizer/releases/tag/v1.0.5
 [1.0.4]: https://github.com/brian-a-au/sdr-visualizer/releases/tag/v1.0.4

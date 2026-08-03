@@ -250,3 +250,18 @@ def test_current_metadata_lock_and_changelog_are_synchronized():
     assert __version__ == version
     assert f'name = "sdr-visualizer"\nversion = "{version}"' in lock
     assert re.search(rf"^## \[{re.escape(version)}] - \d{{4}}-\d{{2}}-\d{{2}}$", changelog, re.M)
+
+
+def test_generated_examples_embed_the_current_project_version():
+    project = tomllib.loads((REPO / "pyproject.toml").read_text(encoding="utf-8"))
+    version = project["project"]["version"]
+
+    for name in ("cja-typical.html", "aa-typical.html"):
+        html = (REPO / "examples" / name).read_text(encoding="utf-8")
+        match = re.search(
+            r'<script id="sdr-data" type="application/json">(.*?)</script>',
+            html,
+            flags=re.DOTALL,
+        )
+        assert match is not None, name
+        assert json.loads(match.group(1))["meta"]["visualizer_version"] == version
