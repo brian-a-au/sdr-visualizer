@@ -21,6 +21,7 @@ playwright_sync = pytest.importorskip("playwright.sync_api")
 from sdr_visualizer.adapters.cja import adapt as cja_adapt  # noqa: E402
 from sdr_visualizer.analysis.diff import diff_implementations  # noqa: E402
 from sdr_visualizer.analysis.trend import build_trend  # noqa: E402
+from sdr_visualizer.render.color_packs import COLOR_PACK_CODES  # noqa: E402
 from sdr_visualizer.render.renderer import (  # noqa: E402
     build_payload_with_options,
     render,
@@ -287,9 +288,9 @@ def _tiny_snapshot() -> dict:
     }
 
 
-def _open_tiny_graph(browser_page, tmp_path, name: str):
+def _open_tiny_graph(browser_page, tmp_path, name: str, *, color_pack: str = "default"):
     out = tmp_path / name
-    out.write_text(render(cja_adapt(_tiny_snapshot())), encoding="utf-8")
+    out.write_text(render(cja_adapt(_tiny_snapshot()), color_pack=color_pack), encoding="utf-8")
     browser_page.goto(out.as_uri())
     browser_page.wait_for_selector("#catalog-body tr", state="attached", timeout=10_000)
     browser_page.click('[data-view="graph"]')
@@ -417,6 +418,94 @@ def test_small_graph_uses_radial_layout(browser_page, tmp_path):
     radii = [((p[0] - cx) ** 2 + (p[1] - cy) ** 2) ** 0.5 for p in positions]
     # Radial layout: every node equidistant from the centroid (loose tolerance).
     assert max(radii) - min(radii) < 1.0, f"not a circle: {radii}"
+
+
+@pytest.mark.parametrize("color_pack", COLOR_PACK_CODES)
+def test_graph_uses_pack_colors_distinct_shapes_and_accessible_type_labels(
+    browser_page, tmp_path, color_pack
+):
+    _open_tiny_graph(browser_page, tmp_path, f"graph-{color_pack}.html", color_pack=color_pack)
+
+    observed = browser_page.evaluate(
+        """() => {
+          const root = getComputedStyle(document.documentElement);
+          const roleByType = {
+            metric: 'component-metric',
+            dimension: 'component-dimension',
+            segment: 'component-segment',
+            calculated_metric: 'visualizer-calculated-metric',
+          };
+          const nodes = Array.from(document.querySelectorAll('.graph-node'));
+          const byType = {};
+          for (const node of nodes) {
+            const symbol = node.querySelector('.graph-node-symbol');
+            const type = Array.from(symbol.classList)
+              .find(name => name.startsWith('graph-node-symbol-'))
+              .slice('graph-node-symbol-'.length);
+            byType[type] = {
+              fill: getComputedStyle(symbol).fill,
+              expected: window.d3.color(
+                root.getPropertyValue('--sdr-' + roleByType[type]).trim()
+              ).formatRgb(),
+              path: symbol.getAttribute('d'),
+              label: node.getAttribute('aria-label'),
+            };
+          }
+          const edge = document.querySelector('.graph-edge');
+          return {
+            pack: document.documentElement.dataset.colorPack,
+            byType,
+            edgeStroke: getComputedStyle(edge).stroke,
+            expectedEdge: window.d3.color(
+              root.getPropertyValue('--sdr-visualizer-graph-link').trim()
+            ).formatRgb(),
+          };
+        }"""
+    )
+
+    assert observed["pack"] == color_pack
+    assert set(observed["byType"]) == {
+        "metric",
+        "dimension",
+        "segment",
+        "calculated_metric",
+    }
+    assert len({entry["path"] for entry in observed["byType"].values()}) == 4
+    for component_type, entry in observed["byType"].items():
+        assert entry["fill"] == entry["expected"]
+        assert entry["label"]
+        assert component_type.replace("_", " ").split()[0].title() in entry["label"]
+    assert observed["edgeStroke"] == observed["expectedEdge"]
+
+
+def test_print_media_keeps_only_active_view_on_white_pack_surface(browser_page, tmp_path):
+    _open_tiny_graph(browser_page, tmp_path, "print-ADBE.html", color_pack="ADBE")
+
+    browser_page.emulate_media(media="print")
+    try:
+        observed = browser_page.evaluate(
+            """() => ({
+              nav: getComputedStyle(document.querySelector('.view-nav')).display,
+              catalog: getComputedStyle(document.querySelector('#catalog-view')).display,
+              graph: getComputedStyle(document.querySelector('#graph-view')).display,
+              overlay: getComputedStyle(document.querySelector('#detail-overlay')).display,
+              bodyBackground: getComputedStyle(document.body).backgroundColor,
+              graphBackground: getComputedStyle(document.querySelector('.graph-stage')).backgroundColor,
+              symbols: document.querySelectorAll('.graph-node-symbol').length,
+            })"""
+        )
+    finally:
+        browser_page.emulate_media(media="screen")
+
+    assert observed == {
+        "nav": "none",
+        "catalog": "none",
+        "graph": "block",
+        "overlay": "none",
+        "bodyBackground": "rgb(255, 255, 255)",
+        "graphBackground": "rgb(255, 255, 255)",
+        "symbols": 8,
+    }
 
 
 def test_naive_space_timestamp_renders_date_prefix(browser_page, tmp_path):

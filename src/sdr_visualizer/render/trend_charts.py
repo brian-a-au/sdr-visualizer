@@ -29,7 +29,7 @@ CHART_SPECS = (
 )
 
 
-def sparkline_svg(values: list[float | int]) -> str:
+def sparkline_svg(values: list[float | int], *, stroke: str = "#1a1a1a") -> str:
     """One inline SVG polyline over the value series."""
     if not values:
         return ""
@@ -44,12 +44,12 @@ def sparkline_svg(values: list[float | int]) -> str:
     return (
         f'<svg class="sparkline" viewBox="0 0 {_WIDTH} {_HEIGHT}" '
         f'width="{_WIDTH}" height="{_HEIGHT}" role="img" aria-hidden="true">'
-        f'<polyline points="{points}" fill="none" stroke="#1a1a1a" stroke-width="1.5" />'
+        f'<polyline points="{points}" fill="none" stroke="{stroke}" stroke-width="1.5" />'
         "</svg>"
     )
 
 
-def build_trend_charts(trend: dict[str, Any]) -> list[dict[str, Any]]:
+def build_trend_charts(trend: dict[str, Any], *, stroke: str = "#1a1a1a") -> list[dict[str, Any]]:
     """One chart dict per aggregate: {label, first, last, svg}."""
     rows = [s["aggregates"] for s in trend["snapshots"]]
     charts: list[dict[str, Any]] = []
@@ -62,7 +62,7 @@ def build_trend_charts(trend: dict[str, Any]) -> list[dict[str, Any]]:
                 "label": label,
                 "first": values[0],
                 "last": values[-1],
-                "svg": sparkline_svg(values),
+                "svg": sparkline_svg(values, stroke=stroke),
             }
         )
     return charts

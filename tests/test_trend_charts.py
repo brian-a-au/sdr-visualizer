@@ -17,6 +17,27 @@ def test_sparkline_is_selfcontained_svg_polyline():
     assert "http" not in svg  # no external references, ever
 
 
+def test_sparkline_uses_explicit_semantic_stroke_and_preserves_default():
+    assert 'stroke="#1a1a1a"' in sparkline_svg([1, 2])
+    assert 'stroke="#0043CE"' in sparkline_svg([1, 2], stroke="#0043CE")
+
+
+def test_build_trend_charts_threads_explicit_semantic_stroke():
+    trend = {
+        "snapshots": [
+            {"aggregates": {"total": 1}},
+            {"aggregates": {"total": 2}},
+        ],
+        "intervals": [],
+        "capped": False,
+    }
+
+    charts = build_trend_charts(trend, stroke="#B5121B")
+
+    assert charts
+    assert all('stroke="#B5121B"' in chart["svg"] for chart in charts)
+
+
 def test_sparkline_flat_series_does_not_divide_by_zero():
     svg = sparkline_svg([4, 4, 4])
     assert "<polyline" in svg

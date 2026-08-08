@@ -8,6 +8,7 @@ from pathlib import Path
 from conftest import extract_payload as _embedded_payload
 
 from sdr_visualizer.cli.main import main
+from sdr_visualizer.render.color_packs import COLOR_PACK_CODES
 
 FIXTURES = Path(__file__).parent / "fixtures"
 
@@ -34,6 +35,64 @@ def test_default_does_not_set_exclude_orphans(tmp_path):
     assert rc == 0
     payload = _embedded_payload(output.read_text(encoding="utf-8"))
     assert payload["meta"]["exclude_orphans_default"] is False
+
+
+def test_color_pack_flag_changes_html_identity_but_not_sidecar_payload(tmp_path):
+    source = str(FIXTURES / "cja_snapshot_clean.json")
+    default_html = tmp_path / "default.html"
+    default_json = tmp_path / "default.json"
+    blue_html = tmp_path / "blue.html"
+    blue_json = tmp_path / "blue.json"
+
+    assert (
+        main([source, "--output", str(default_html), "--json", str(default_json), "--quiet"]) == 0
+    )
+    assert (
+        main(
+            [
+                source,
+                "--color-pack",
+                "BLUE",
+                "--output",
+                str(blue_html),
+                "--json",
+                str(blue_json),
+                "--quiet",
+            ]
+        )
+        == 0
+    )
+
+    assert 'data-color-pack="default"' in default_html.read_text(encoding="utf-8")
+    assert 'data-color-pack="BLUE"' in blue_html.read_text(encoding="utf-8")
+    default_payload = json.loads(default_json.read_text(encoding="utf-8"))
+    blue_payload = json.loads(blue_json.read_text(encoding="utf-8"))
+    default_payload["meta"].pop("generated_at")
+    blue_payload["meta"].pop("generated_at")
+    assert default_payload == blue_payload
+
+
+def test_color_pack_help_lists_registry_choices(capsys):
+    import pytest
+
+    with pytest.raises(SystemExit) as exc_info:
+        main(["--help"])
+
+    assert exc_info.value.code == 0
+    help_text = capsys.readouterr().out
+    assert "--color-pack" in help_text
+    assert "{" + ",".join(COLOR_PACK_CODES) + "}" in help_text
+
+
+def test_cli_accepts_every_registry_color_pack(tmp_path):
+    source = str(FIXTURES / "cja_snapshot_clean.json")
+
+    for code in COLOR_PACK_CODES:
+        output = tmp_path / f"{code}.html"
+        assert main([source, "--color-pack", code, "--output", str(output), "--quiet"]) == 0
+        html = output.read_text(encoding="utf-8")
+        assert f'data-color-pack="{code}"' in html
+        assert f"Color pack: {code}" in html
 
 
 def test_max_graph_nodes_threads_to_payload(tmp_path):
@@ -120,7 +179,9 @@ def test_json_flag_rejects_non_finite_payload(tmp_path, monkeypatch, capsys):
     )
     monkeypatch.setattr(
         "sdr_visualizer.cli.main.render_payload",
-        lambda _payload, *, title=None: "<!doctype html><title>report</title>",
+        lambda _payload, *, title=None, color_pack="default": (
+            "<!doctype html><title>report</title>"
+        ),
     )
 
     rc = main(
