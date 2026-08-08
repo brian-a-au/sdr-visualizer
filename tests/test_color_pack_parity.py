@@ -17,11 +17,18 @@ check_color_pack_parity = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(check_color_pack_parity)
 
 
-def _write_grader_contract(root: Path, contract: object) -> None:
+def _write_grader_contract(root: Path, contract: dict[str, object], *, suffix: str = "") -> None:
     module = root / "src" / "sdr_grader" / "render" / "color_packs.py"
     module.parent.mkdir(parents=True)
     module.write_text(
-        f"def color_pack_contract_snapshot():\n    return {contract!r}\n",
+        "\n".join(
+            (
+                f"REQUIRED_COLOR_ROLES = {contract['required_roles']!r}",
+                f"COLOR_PACK_CODES = {contract['catalog']!r}",
+                f"_SOURCE_SWATCHES = {contract['source_swatches']!r}",
+                suffix,
+            )
+        ),
         encoding="utf-8",
     )
 
@@ -61,17 +68,43 @@ def test_missing_grader_checkout_is_a_controlled_failure(tmp_path, capsys):
     assert "grader checkout not found" in capsys.readouterr().err
 
 
+def test_top_level_side_effects_are_not_executed(tmp_path, capsys):
+    sentinel = tmp_path / "executed"
+    suffix = (
+        "from pathlib import Path\n"
+        f"Path({str(sentinel)!r}).write_text('executed', encoding='utf-8')\n"
+        "raise RuntimeError('module code must not execute')"
+    )
+    _write_grader_contract(
+        tmp_path,
+        color_pack_contract_snapshot(),
+        suffix=suffix,
+    )
+
+    assert check_color_pack_parity.main(["--grader-root", str(tmp_path)]) == 0
+    assert "color-pack contracts match" in capsys.readouterr().out
+    assert not sentinel.exists()
+
+
 @pytest.mark.parametrize(
     "source, expected",
     [
-        ("VALUE = 1\n", "does not export color_pack_contract_snapshot"),
+        ("VALUE = 1\n", "missing literal declarations"),
         (
-            "def color_pack_contract_snapshot():\n    return {'catalog': []}\n",
-            "malformed grader color-pack contract",
+            "REQUIRED_COLOR_ROLES = ('role',)\n"
+            "COLOR_PACK_CODES = ('default',)\n"
+            "_SOURCE_SWATCHES = build_swatches()\n",
+            "_SOURCE_SWATCHES must be a literal",
         ),
         (
-            "def color_pack_contract_snapshot():\n    raise RuntimeError('broken')\n",
-            "could not read grader color-pack contract",
+            "REQUIRED_COLOR_ROLES = ('role',)\n"
+            "COLOR_PACK_CODES = ('default',)\n"
+            "_SOURCE_SWATCHES = {'other': ('#000000',)}\n",
+            "source_swatches keys must match catalog order",
+        ),
+        (
+            "REQUIRED_COLOR_ROLES = (\n",
+            "could not parse grader color-pack module",
         ),
     ],
 )

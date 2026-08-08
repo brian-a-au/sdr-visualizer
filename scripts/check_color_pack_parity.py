@@ -1,21 +1,26 @@
-"""Compare the visualizer and grader color-pack source contracts.
+"""Compare visualizer and grader color-pack contracts without executing code.
 
-This script loads each repository's source module directly under an isolated
-module name. It intentionally does not import either installed package.
+Each registry exposes its shared contract as three literal assignments. This
+script parses those declarations from source with :func:`ast.literal_eval`; it
+does not import either package or execute either repository's Python code.
 """
 
 from __future__ import annotations
 
 import argparse
-import importlib.util
+import ast
 import json
 import sys
 from collections.abc import Sequence
 from pathlib import Path
-from types import ModuleType
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 CONTRACT_FIELDS = ("catalog", "source_swatches", "required_roles")
+LITERAL_DECLARATIONS = {
+    "COLOR_PACK_CODES": "catalog",
+    "_SOURCE_SWATCHES": "source_swatches",
+    "REQUIRED_COLOR_ROLES": "required_roles",
+}
 MODULE_PATHS = {
     "visualizer": Path("src/sdr_visualizer/render/color_packs.py"),
     "grader": Path("src/sdr_grader/render/color_packs.py"),
@@ -26,23 +31,44 @@ class ContractCheckError(RuntimeError):
     """The sibling checkout or its exported contract cannot be inspected."""
 
 
-def _load_source_module(path: Path, label: str) -> ModuleType:
-    module_name = f"_sdr_color_pack_contract_{label}"
-    spec = importlib.util.spec_from_file_location(module_name, path)
-    if spec is None or spec.loader is None:
-        raise ContractCheckError(f"could not load {label} color-pack module: {path}")
-
-    module = importlib.util.module_from_spec(spec)
-    sys.modules[module_name] = module
+def _literal_contract(path: Path, label: str) -> dict[str, object]:
+    """Read only the contract's literal assignments from one source file."""
     try:
-        spec.loader.exec_module(module)
-    except Exception as exc:
+        source = path.read_text(encoding="utf-8")
+        tree = ast.parse(source, filename=str(path))
+    except (OSError, UnicodeError, SyntaxError) as exc:
         raise ContractCheckError(
-            f"could not load {label} color-pack module {path}: {type(exc).__name__}: {exc}"
+            f"could not parse {label} color-pack module {path}: {type(exc).__name__}: {exc}"
         ) from exc
-    finally:
-        sys.modules.pop(module_name, None)
-    return module
+
+    declarations: dict[str, ast.expr] = {}
+    for statement in tree.body:
+        if not isinstance(statement, ast.Assign) or len(statement.targets) != 1:
+            continue
+        target = statement.targets[0]
+        if isinstance(target, ast.Name) and target.id in LITERAL_DECLARATIONS:
+            if target.id in declarations:
+                raise ContractCheckError(
+                    f"malformed {label} color-pack contract: duplicate literal "
+                    f"declaration {target.id}"
+                )
+            declarations[target.id] = statement.value
+
+    missing = [name for name in LITERAL_DECLARATIONS if name not in declarations]
+    if missing:
+        raise ContractCheckError(
+            f"malformed {label} color-pack contract: missing literal declarations {missing!r}"
+        )
+
+    raw: dict[str, object] = {}
+    for declaration, field in LITERAL_DECLARATIONS.items():
+        try:
+            raw[field] = ast.literal_eval(declarations[declaration])
+        except (ValueError, TypeError, SyntaxError, MemoryError, RecursionError) as exc:
+            raise ContractCheckError(
+                f"malformed {label} color-pack contract: {declaration} must be a literal"
+            ) from exc
+    return raw
 
 
 def _as_string_sequence(value: object, *, field: str, label: str) -> tuple[str, ...]:
@@ -109,18 +135,7 @@ def _read_contract(root: Path, label: str) -> dict[str, object]:
     if not path.is_file():
         raise ContractCheckError(f"{label} color-pack module not found: {path}")
 
-    module = _load_source_module(path, label)
-    snapshot = getattr(module, "color_pack_contract_snapshot", None)
-    if not callable(snapshot):
-        raise ContractCheckError(
-            f"{label} color-pack module does not export color_pack_contract_snapshot: {path}"
-        )
-    try:
-        raw = snapshot()
-    except Exception as exc:
-        raise ContractCheckError(
-            f"could not read {label} color-pack contract: {type(exc).__name__}: {exc}"
-        ) from exc
+    raw = _literal_contract(path, label)
     return _validate_contract(raw, label=label)
 
 

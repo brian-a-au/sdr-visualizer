@@ -239,7 +239,7 @@ def test_metric_chip_matches_derived_metrics(browser_page, tmp_path):
 
 
 def _tiny_snapshot() -> dict:
-    """8 components with edges — under the 20-node radial threshold."""
+    """9 components with edges — under the 20-node radial threshold."""
     return {
         "metadata": {
             "Data View ID": "dv_tiny",
@@ -256,6 +256,17 @@ def _tiny_snapshot() -> dict:
             {"id": f"variables/evar{i}", "name": f"Dim {i}", "description": "d", "type": "string"}
             for i in range(1, 4)
         ],
+        "derived_fields": {
+            "fields": [
+                {
+                    "component_id": "derived/df1",
+                    "component_name": "Derived 1",
+                    "description": "d",
+                    "component_references": ["metrics/m1"],
+                    "inferred_output_type": "string",
+                }
+            ]
+        },
         "segments": {
             "segments": [
                 {
@@ -331,20 +342,20 @@ def test_graph_hover_highlights_neighbors(browser_page, tmp_path):
     to appear rather than checking synchronously after the event.
     """
     _open_tiny_graph(browser_page, tmp_path, "hover.html")
-    # Metric 1 is referenced by both Seg 1 and Calc 1 — its only neighbors.
+    # Metric 1 is referenced by Seg 1, Calc 1, and Derived 1 — its only neighbors.
     _hover_node(browser_page, "Metric 1")
     unfaded = browser_page.evaluate(
         """Array.from(document.querySelectorAll('#graph-canvas g.graph-node'))
              .filter(n => !n.classList.contains('is-faded'))
              .map(n => n.textContent).sort()"""
     )
-    assert unfaded == ["Calc 1", "Metric 1", "Seg 1"]
+    assert unfaded == ["Calc 1", "Derived 1", "Metric 1", "Seg 1"]
     # Hovered node's edges highlight; unrelated edges fade.
     assert (
         browser_page.evaluate(
             "document.querySelectorAll('#graph-canvas line.is-highlighted').length"
         )
-        == 2
+        == 3
     )
     browser_page.evaluate(
         """document.querySelector('.graph-node.is-hover')
@@ -366,7 +377,7 @@ def test_graph_search_highlights_matches(browser_page, tmp_path):
         browser_page.evaluate(
             """document.querySelectorAll('#graph-canvas g.graph-node.is-faded').length"""
         )
-        == 7
+        == 8
     )
 
 
@@ -412,7 +423,7 @@ def test_small_graph_uses_radial_layout(browser_page, tmp_path):
              return [parseFloat(m[1]), parseFloat(m[2])];
            })"""
     )
-    assert len(positions) == 8
+    assert len(positions) == 9
     cx = sum(p[0] for p in positions) / len(positions)
     cy = sum(p[1] for p in positions) / len(positions)
     radii = [((p[0] - cx) ** 2 + (p[1] - cy) ** 2) ** 0.5 for p in positions]
@@ -432,6 +443,7 @@ def test_graph_uses_pack_colors_distinct_shapes_and_accessible_type_labels(
           const roleByType = {
             metric: 'component-metric',
             dimension: 'component-dimension',
+            derived_field: 'component-derived-field',
             segment: 'component-segment',
             calculated_metric: 'visualizer-calculated-metric',
           };
@@ -467,10 +479,11 @@ def test_graph_uses_pack_colors_distinct_shapes_and_accessible_type_labels(
     assert set(observed["byType"]) == {
         "metric",
         "dimension",
+        "derived_field",
         "segment",
         "calculated_metric",
     }
-    assert len({entry["path"] for entry in observed["byType"].values()}) == 4
+    assert len({entry["path"] for entry in observed["byType"].values()}) == 5
     for component_type, entry in observed["byType"].items():
         assert entry["fill"] == entry["expected"]
         assert entry["label"]
@@ -504,7 +517,7 @@ def test_print_media_keeps_only_active_view_on_white_pack_surface(browser_page, 
         "overlay": "none",
         "bodyBackground": "rgb(255, 255, 255)",
         "graphBackground": "rgb(255, 255, 255)",
-        "symbols": 8,
+        "symbols": 9,
     }
 
 
