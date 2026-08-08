@@ -808,6 +808,10 @@
       segment: d3.symbolTriangle,
       calculated_metric: d3.symbolCross,
     };
+    var symbolGenerator = {};
+    Object.keys(symbolType).forEach(function (type) {
+      symbolGenerator[type] = d3.symbol().type(symbolType[type]);
+    });
     var typeLabel = {
       metric: "Metric",
       dimension: "Dimension",
@@ -840,9 +844,8 @@
       .attr("class", function (d) { return "graph-node-symbol graph-node-symbol-" + d.type; })
       .attr("d", function (d) {
         var radius = Math.max(3, Math.min(14, 3 + Math.sqrt(d.in_degree)));
-        return d3.symbol()
-          .type(symbolType[d.type] || d3.symbolCircle)
-          .size(Math.PI * radius * radius)();
+        var generator = symbolGenerator[d.type] || symbolGenerator.metric;
+        return generator.size(Math.PI * radius * radius)();
       })
       .attr("fill", function (d) { return color[d.type] || semanticColor("text-muted"); });
 
