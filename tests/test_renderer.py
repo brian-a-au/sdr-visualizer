@@ -163,13 +163,15 @@ def test_sequential_color_pack_renders_do_not_leak_state():
     adbe = render_payload(payload, color_pack="ADBE")
     blue = render_payload(payload, color_pack="BLUE")
     final_default = render_payload(payload)
+    adbe_accent = resolve_color_pack("ADBE").roles["accent-primary"]
+    blue_accent = resolve_color_pack("BLUE").roles["accent-primary"]
 
-    assert "--sdr-accent-primary: #B5121B;" in adbe
-    assert "--sdr-accent-primary: #0043CE;" in blue
+    assert f"--sdr-accent-primary: {adbe_accent};" in adbe
+    assert f"--sdr-accent-primary: {blue_accent};" in blue
     assert final_default == render_payload(payload, color_pack="default")
     assert "--sdr-accent-primary: #4A6F6F;" in final_default
-    assert "#B5121B" not in final_default
-    assert "#0043CE" not in final_default
+    assert adbe_accent not in final_default
+    assert blue_accent not in final_default
 
 
 @pytest.mark.parametrize("entrypoint", [render, render_payload])
