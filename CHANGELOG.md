@@ -4,6 +4,15 @@ All notable changes to `sdr-visualizer` will be documented here. The format foll
 
 ## [Unreleased]
 
+### Added
+
+- Built-in `default`, `ADBE`, `OMTR`, and `BLUE` color packs are now documented
+  for CLI and Python API use, including accessibility, offline, print, and
+  non-affiliation boundaries.
+- Release qualification now compares the shared color-pack catalog, source
+  swatches, and required role names against `sdr-grader`; drift or a malformed
+  sibling contract blocks release.
+
 ## [1.0.7] - 2026-08-03
 
 ### Changed

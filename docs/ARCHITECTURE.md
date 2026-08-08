@@ -58,6 +58,7 @@ src/sdr_visualizer/
 └── render/
     ├── data_payload.py       # sparse public payload
     ├── trend_charts.py       # precomputed trend SVG geometry
+    ├── color_packs.py        # immutable semantic HTML color registry
     ├── renderer.py           # JSON guard, templates, and self-contained HTML
     ├── templates/
     │   ├── index.html.j2
@@ -98,6 +99,11 @@ src/sdr_visualizer/
    Payload JSON rejects non-finite numbers, filenames are sanitized, and
    terminal control bytes are rendered visibly.
 
+7. **Color is presentation-only.** `render/color_packs.py` resolves one
+   immutable pack per render and serializes semantic CSS roles. Selection does
+   not enter the embedded payload, so HTML and JSON contracts stay separated.
+   Labels and other non-color cues remain authoritative.
+
 ## Vendoring relationship with sdr-grader
 
 The normalized model, adapters, and parts of the input layer originated in
@@ -106,6 +112,14 @@ small tool install and evolve independently. Shared defensive behavior must be
 evaluated and mirrored in the same release cycle, while intentional
 visualizer-only differences stay documented and tested in
 [`ADAPTER_GUIDE.md`](ADAPTER_GUIDE.md#vendoring-parity-with-sdr-grader).
+
+`render/color_packs.py` is also a shared runtime path. Its
+`color_pack_contract_snapshot()` exposes only the ordered catalog, ordered
+source swatches for every catalog entry, and ordered required-role names. It
+deliberately excludes derived role values so each project can render its own
+presentation while sharing the source contract. Release qualification loads
+both source modules under isolated names with no package dependency and
+compares those fields using `scripts/check_color_pack_parity.py`.
 
 If a third tool creates sustained demand for the same layer, reconsider a
 shared package then; do not introduce one merely to eliminate modest,

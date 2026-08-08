@@ -80,6 +80,7 @@ uv run ruff check
 uv run ruff format --check
 uv run python scripts/check_markdown_links.py
 uv run python scripts/check_workflow_policy.py
+uv run python scripts/check_color_pack_parity.py --grader-root ../sdr-grader
 uv run pytest tests/test_structure_limits.py tests/test_adapters_cja.py \
   tests/test_adapters_aa.py tests/test_cli.py tests/test_analysis_trend.py \
   tests/test_renderer.py -q
@@ -194,8 +195,9 @@ rerun the complete gate.
 
 ## Sibling parity
 
-Review changes to `core/models.py`, `adapters/`, and
-`input/{loader,detect,shell_out}.py` against `sdr-grader`.
+Review changes to `core/models.py`, `adapters/`,
+`input/{loader,detect,shell_out}.py`, and `render/color_packs.py` against
+`sdr-grader`.
 
 - Mirror shared defensive behavior in a linked sibling pull request.
 - Document and test intentional project-specific differences.
@@ -206,6 +208,21 @@ Review changes to `core/models.py`, `adapters/`, and
 
 Missing access or an unreviewed sibling change blocks release; it does not turn
 parity into an optional follow-up.
+
+For `render/color_packs.py`, both repositories must export the same
+source-only contract snapshot: `catalog` (`default`, `ADBE`, `OMTR`, `BLUE` in
+that order), ordered `source_swatches` for all four entries, and ordered
+`required_roles`. Derived role values are intentionally excluded. Record the
+linked sibling PR and commit, then run:
+
+```bash
+uv run python scripts/check_color_pack_parity.py --grader-root ../sdr-grader
+```
+
+The command dynamically loads both source files without requiring either
+package at runtime. Any field drift, missing sibling checkout, missing export,
+or malformed contract is release-blocking. The linked sibling change and a
+passing comparator must be from the same release cycle.
 
 When the candidate changes none of the listed shared runtime paths, sibling
 parity may be recorded as a **diff-backed N/A**. The record must include the
@@ -272,7 +289,7 @@ settings inspection tied to the candidate SHA.
 | R15 shipped, consistent docs | Markdown links + source-distribution check | pending |
 | R16 safe sharing guidance | README review | pending |
 | R17 current compatibility | privacy-safe fresh/corpus record | pending |
-| R18 sibling parity | linked green sibling PR and commit | pending |
+| R18 sibling parity | linked green sibling PR/commit and passing shared-contract comparator when color packs change | pending |
 | R19 protected/monitored `main` | settings/API inspection | pending |
 | R20 complete community surface | community profile + advertised public-link resolution | pending |
 | R21 one traced candidate | this matrix + final go/no-go | pending |

@@ -84,6 +84,18 @@ For releases at or above 1.0.0, semantic versioning covers:
   [`payload-schema.json`](payload-schema.json); and
 - the budgets in [`PERFORMANCE.md`](PERFORMANCE.md).
 
+The built-in color-pack catalog is exactly `default`, `ADBE`, `OMTR`, and
+`BLUE`, in that order, and the identifiers are case-sensitive. The CLI accepts
+them through `--color-pack`; Python callers pass the same value as
+`visualize(..., color_pack="ADBE")`. A pack changes HTML presentation only.
+The embedded JSON and `--json` sidecar are unchanged by the selection.
+
+Pack names identify palette-inspired alternatives only. They are not official
+brand assets, affiliations, or endorsements, and no pack includes a company or
+product logo. The reviewed semantic roles cover declared WCAG text and
+essential-graphics contrast pairs, retain text and other non-color cues, and
+include print-specific colors. All pack CSS remains embedded for offline use.
+
 Removing or repurposing a documented argument, removing or retyping a payload
 field, or loosening a published performance budget is a breaking change.
 Adding an optional argument or payload field is normally additive. Consumers
@@ -160,9 +172,13 @@ the full historical private corpus pass the release checks in
 [`RELEASING.md`](RELEASING.md). Bundled fixtures and CI do not replace that
 evidence.
 
-Shared defensive model, adapter, and input behavior is maintained in the same
-release cycle as `sdr-grader`. Intentional differences are documented in
-[`ADAPTER_GUIDE.md`](ADAPTER_GUIDE.md).
+Shared defensive model, adapter, input, and color-pack source behavior is
+maintained in the same release cycle as `sdr-grader`. Color-pack parity covers
+the ordered catalog, every pack's ordered source swatches, and the ordered
+required semantic-role names; derived role values remain project-local. The
+release-blocking comparator is documented in
+[`RELEASING.md`](RELEASING.md#sibling-parity). Intentional differences are
+documented in [`ADAPTER_GUIDE.md`](ADAPTER_GUIDE.md).
 
 ## Release boundary
 

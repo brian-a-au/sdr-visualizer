@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import re
 from dataclasses import FrozenInstanceError
 
@@ -15,6 +16,7 @@ from sdr_visualizer.render.color_packs import (
     TEXT_CONTRAST_PAIRS,
     ColorPack,
     InvalidColorPackError,
+    color_pack_contract_snapshot,
     resolve_color_pack,
     serialize_color_pack_css,
 )
@@ -54,6 +56,23 @@ EXPECTED_ROLES = (
 )
 
 EXPECTED_SOURCE_SWATCHES = {
+    "default": (
+        "#FAFAF7",
+        "#FFFFFF",
+        "#F5F3EB",
+        "#ECE9E0",
+        "#1A1A1A",
+        "#6B6B66",
+        "#C8C4B8",
+        "#D8D6CF",
+        "#8A8A82",
+        "#4A6F6F",
+        "#5E6B78",
+        "#8A6A4A",
+        "#B8651A",
+        "#3D6B4F",
+        "#8C4A3F",
+    ),
     "ADBE": (
         "#ED2224",
         "#FBB034",
@@ -106,6 +125,31 @@ def test_every_pack_defines_the_complete_shared_role_contract():
 def test_brand_source_swatches_are_exact_and_ordered():
     for code, expected in EXPECTED_SOURCE_SWATCHES.items():
         assert COLOR_PACKS[code].source_swatches == expected
+
+
+def test_contract_snapshot_has_only_shared_source_inputs_in_canonical_order():
+    snapshot = color_pack_contract_snapshot()
+
+    assert tuple(snapshot) == ("catalog", "source_swatches", "required_roles")
+    assert snapshot == {
+        "catalog": ("default", "ADBE", "OMTR", "BLUE"),
+        "source_swatches": EXPECTED_SOURCE_SWATCHES,
+        "required_roles": EXPECTED_ROLES,
+    }
+    assert "roles" not in snapshot
+    json.dumps(snapshot)
+
+
+def test_contract_snapshot_is_fresh_and_mutation_safe_per_call():
+    first = color_pack_contract_snapshot()
+    second = color_pack_contract_snapshot()
+
+    assert first is not second
+    assert first["source_swatches"] is not second["source_swatches"]
+    first["catalog"] = ("changed",)
+    first["source_swatches"]["default"] = ("#000000",)
+
+    assert second == color_pack_contract_snapshot()
 
 
 @pytest.mark.parametrize("code", COLOR_PACK_CODES)
