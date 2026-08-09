@@ -4,6 +4,24 @@ All notable changes to `sdr-visualizer` will be documented here. The format foll
 
 ## [Unreleased]
 
+### Added
+
+- Built-in `default`, `ADBE`, `OMTR`, and `BLUE` color packs are now documented
+  for CLI and Python API use, including accessibility, offline, print, and
+  non-affiliation boundaries.
+- Release qualification now compares the shared color-pack catalog, source
+  swatches, required role names, and text/non-text accessibility pairs against
+  `sdr-grader`; drift or a malformed sibling contract blocks release.
+
+### Fixed
+
+- Color-pack contrast checks now cover rendered status text, control boundaries,
+  graph controls, and renderer-specific operator text; default missing-content
+  text uses the accessible severity role and trend SVG strokes reject markup.
+- The sibling color-pack comparator now reads explicitly supplied visualizer and
+  grader commit blobs, so uncommitted worktree edits cannot qualify release
+  parity.
+
 ## [1.0.7] - 2026-08-03
 
 ### Changed

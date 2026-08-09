@@ -788,15 +788,41 @@
       });
     svg.call(graphState.zoom);
 
+    // Styles are inlined before this script runs, so computed custom
+    // properties are the single color source for both CSS and D3 rendering.
+    var computedColors = getComputedStyle(document.documentElement);
+    function semanticColor(role) {
+      return computedColors.getPropertyValue("--sdr-" + role).trim();
+    }
     var color = {
-      metric: "#2a2a2a",
-      dimension: "#4a6f6f",
-      derived_field: "#5e6b78",
-      segment: "#8a6a4a",
-      calculated_metric: "#a08018",
+      metric: semanticColor("component-metric"),
+      dimension: semanticColor("component-dimension"),
+      derived_field: semanticColor("component-derived-field"),
+      segment: semanticColor("component-segment"),
+      calculated_metric: semanticColor("visualizer-calculated-metric"),
+    };
+    var symbolType = {
+      metric: d3.symbolCircle,
+      dimension: d3.symbolSquare,
+      derived_field: d3.symbolDiamond,
+      segment: d3.symbolTriangle,
+      calculated_metric: d3.symbolCross,
+    };
+    var symbolGenerator = {};
+    Object.keys(symbolType).forEach(function (type) {
+      symbolGenerator[type] = d3.symbol().type(symbolType[type]);
+    });
+    var typeLabel = {
+      metric: "Metric",
+      dimension: "Dimension",
+      derived_field: "Derived field",
+      segment: "Segment",
+      calculated_metric: "Calculated metric",
     };
 
-    var linkSel = g.append("g").attr("stroke", "#c8c4b8").attr("stroke-opacity", 0.6)
+    var linkSel = g.append("g")
+      .attr("stroke", semanticColor("visualizer-graph-link"))
+      .attr("stroke-opacity", 0.6)
       .selectAll("line")
       .data(graphState.links)
       .enter().append("line")
@@ -807,12 +833,21 @@
       .selectAll("g.graph-node")
       .data(graphState.nodes)
       .enter().append("g")
-      .attr("class", "graph-node");
+      .attr("class", "graph-node")
+      .attr("role", "img")
+      .attr("aria-label", function (d) {
+        return d.label + " — " + (typeLabel[d.type] || "Component");
+      });
     graphState.nodeSel = nodeSel;
 
-    nodeSel.append("circle")
-      .attr("r", function (d) { return Math.max(3, Math.min(14, 3 + Math.sqrt(d.in_degree))); })
-      .attr("fill", function (d) { return color[d.type] || "#6b6b66"; });
+    nodeSel.append("path")
+      .attr("class", function (d) { return "graph-node-symbol graph-node-symbol-" + d.type; })
+      .attr("d", function (d) {
+        var radius = Math.max(3, Math.min(14, 3 + Math.sqrt(d.in_degree)));
+        var generator = symbolGenerator[d.type] || symbolGenerator.metric;
+        return generator.size(Math.PI * radius * radius)();
+      })
+      .attr("fill", function (d) { return color[d.type] || semanticColor("text-muted"); });
 
     nodeSel.append("text")
       .attr("dx", function (d) { return Math.max(4, Math.min(16, 4 + Math.sqrt(d.in_degree))); })

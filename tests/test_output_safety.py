@@ -53,6 +53,36 @@ def test_primary_input_cannot_be_overwritten_by_html_output(tmp_path, capsys):
     assert "HTML output aliases primary input" in capsys.readouterr().err
 
 
+def test_invalid_color_pack_preserves_existing_html_and_creates_no_json(tmp_path, capsys):
+    source = tmp_path / "source.json"
+    _write_snapshot(source)
+    html_output = tmp_path / "report.html"
+    original_html = b"existing report"
+    html_output.write_bytes(original_html)
+    json_output = tmp_path / "report.json"
+
+    with pytest.raises(SystemExit) as exc_info:
+        main(
+            [
+                str(source),
+                "--color-pack",
+                "adbe",
+                "--output",
+                str(html_output),
+                "--json",
+                str(json_output),
+                "--quiet",
+            ]
+        )
+
+    assert exc_info.value.code == 3
+    assert html_output.read_bytes() == original_html
+    assert not json_output.exists()
+    err = capsys.readouterr().err
+    assert "invalid choice" in err
+    assert "default" in err and "ADBE" in err and "OMTR" in err and "BLUE" in err
+
+
 def test_primary_input_cannot_be_overwritten_by_json_output(tmp_path, capsys):
     source = tmp_path / "source.json"
     original = _write_snapshot(source)

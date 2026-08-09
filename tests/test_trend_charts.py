@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import pytest
+
 from sdr_visualizer.render.trend_charts import build_trend_charts, sparkline_svg
 
 
@@ -15,6 +17,47 @@ def test_sparkline_is_selfcontained_svg_polyline():
     assert svg.endswith("</svg>")
     assert "<polyline" in svg
     assert "http" not in svg  # no external references, ever
+
+
+def test_sparkline_uses_explicit_semantic_stroke_and_preserves_default():
+    assert 'stroke="#1a1a1a"' in sparkline_svg([1, 2])
+    assert 'stroke="#0043CE"' in sparkline_svg([1, 2], stroke="#0043CE")
+
+
+@pytest.mark.parametrize(
+    "stroke",
+    ['"><script>alert(1)</script>', "url(javascript:alert(1))", "#12345", "red"],
+)
+def test_sparkline_rejects_non_hex_stroke_before_building_markup(stroke):
+    with pytest.raises(ValueError, match="normalized #RRGGBB"):
+        sparkline_svg([1, 2], stroke=stroke)
+
+
+def test_build_trend_charts_threads_explicit_semantic_stroke():
+    trend = {
+        "snapshots": [
+            {"aggregates": {"total": 1}},
+            {"aggregates": {"total": 2}},
+        ],
+        "intervals": [],
+        "capped": False,
+    }
+
+    charts = build_trend_charts(trend, stroke="#B5121B")
+
+    assert charts
+    assert all('stroke="#B5121B"' in chart["svg"] for chart in charts)
+
+
+def test_build_trend_charts_rejects_hostile_stroke_at_public_boundary():
+    trend = {
+        "snapshots": [{"aggregates": {"total": 1}}],
+        "intervals": [],
+        "capped": False,
+    }
+
+    with pytest.raises(ValueError, match="normalized #RRGGBB"):
+        build_trend_charts(trend, stroke='"><script>alert(1)</script>')
 
 
 def test_sparkline_flat_series_does_not_divide_by_zero():

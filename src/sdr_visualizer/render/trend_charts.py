@@ -7,11 +7,13 @@ them safe to inline into the template with |safe. The client draws nothing.
 
 from __future__ import annotations
 
+import re
 from typing import Any
 
 _WIDTH = 220
 _HEIGHT = 48
 _PAD = 6
+_HEX_COLOR = re.compile(r"#[0-9A-Fa-f]{6}\Z")
 
 # (aggregate key, chart label) in display order. Labels are fixed English
 # strings; the derived-fields chart is skipped when the series is all zero
@@ -29,8 +31,10 @@ CHART_SPECS = (
 )
 
 
-def sparkline_svg(values: list[float | int]) -> str:
+def sparkline_svg(values: list[float | int], *, stroke: str = "#1a1a1a") -> str:
     """One inline SVG polyline over the value series."""
+    if not isinstance(stroke, str) or _HEX_COLOR.fullmatch(stroke) is None:
+        raise ValueError("sparkline stroke must be a normalized #RRGGBB value")
     if not values:
         return ""
     lo = min(values)
@@ -44,12 +48,12 @@ def sparkline_svg(values: list[float | int]) -> str:
     return (
         f'<svg class="sparkline" viewBox="0 0 {_WIDTH} {_HEIGHT}" '
         f'width="{_WIDTH}" height="{_HEIGHT}" role="img" aria-hidden="true">'
-        f'<polyline points="{points}" fill="none" stroke="#1a1a1a" stroke-width="1.5" />'
+        f'<polyline points="{points}" fill="none" stroke="{stroke}" stroke-width="1.5" />'
         "</svg>"
     )
 
 
-def build_trend_charts(trend: dict[str, Any]) -> list[dict[str, Any]]:
+def build_trend_charts(trend: dict[str, Any], *, stroke: str = "#1a1a1a") -> list[dict[str, Any]]:
     """One chart dict per aggregate: {label, first, last, svg}."""
     rows = [s["aggregates"] for s in trend["snapshots"]]
     charts: list[dict[str, Any]] = []
@@ -62,7 +66,7 @@ def build_trend_charts(trend: dict[str, Any]) -> list[dict[str, Any]]:
                 "label": label,
                 "first": values[0],
                 "last": values[-1],
-                "svg": sparkline_svg(values),
+                "svg": sparkline_svg(values, stroke=stroke),
             }
         )
     return charts

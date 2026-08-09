@@ -36,6 +36,7 @@ from sdr_visualizer.core.visualizer import build_implementation
 from sdr_visualizer.input.loader import STDIN_TOKEN, list_snapshot_candidates, load_snapshot
 from sdr_visualizer.input.series import list_snapshot_series
 from sdr_visualizer.input.shell_out import shell_aa, shell_cja
+from sdr_visualizer.render.color_packs import COLOR_PACK_CODES
 from sdr_visualizer.render.renderer import build_payload_with_options, render_payload
 
 # Q4 (1.0.0): above this the report is still valid but visibly degraded
@@ -136,7 +137,7 @@ def main(argv: list[str] | None = None) -> int:
                 "opt-in (--max-graph-nodes)",
                 file=sys.stderr,
             )
-        html = render_payload(payload, title=args.title)
+        html = render_payload(payload, title=args.title, color_pack=args.color_pack)
         output_path = _resolve_output_path(args.output, impl.instance_id)
         json_output_path = Path(args.json) if args.json else None
         _validate_output_destinations(
@@ -424,6 +425,12 @@ def _build_parser() -> argparse.ArgumentParser:
         help="HTML output path. Default: ./visualize-{instance_id}-{timestamp}.html",
     )
     p.add_argument("--title", help="Override the document title.")
+    p.add_argument(
+        "--color-pack",
+        choices=COLOR_PACK_CODES,
+        default="default",
+        help="Built-in color pack for HTML output (default: %(default)s).",
+    )
     p.add_argument(
         "--exclude-orphans",
         action="store_true",

@@ -42,3 +42,19 @@ def test_generate_example_is_byte_deterministic_and_path_independent(tmp_path):
     assert meta["snapshot_source"] == "tests/fixtures/cja_snapshot_messy.json"
     assert meta["generated_at"] == generate_examples.EXAMPLE_GENERATED_AT
     assert str(REPO) not in first.read_text(encoding="utf-8")
+
+
+def test_tracked_examples_are_fresh(tmp_path):
+    examples = [
+        ("cja_snapshot_messy.json", "cja-typical.html"),
+        ("aa_snapshot_messy.json", "aa-typical.html"),
+    ]
+
+    for fixture, output_name in examples:
+        generated = generate_examples._generate(
+            fixture,
+            output_name,
+            output_dir=tmp_path,
+        )
+
+        assert generated.read_bytes() == (REPO / "examples" / output_name).read_bytes()

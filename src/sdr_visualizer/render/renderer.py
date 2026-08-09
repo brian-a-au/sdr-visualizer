@@ -17,6 +17,7 @@ from jinja2 import Environment, PackageLoader
 from sdr_visualizer.core.exceptions import InvalidSnapshotError
 from sdr_visualizer.core.models import Implementation
 from sdr_visualizer.core.structure_limits import validate_unicode_scalars
+from sdr_visualizer.render.color_packs import resolve_color_pack, serialize_color_pack_css
 from sdr_visualizer.render.data_payload import build_payload
 from sdr_visualizer.render.trend_charts import build_trend_charts
 
@@ -35,13 +36,14 @@ def render(
     title: str | None = None,
     exclude_orphans: bool = False,
     max_graph_nodes: int | None = None,
+    color_pack: str = "default",
 ) -> str:
     """Build the HTML for an Implementation."""
     payload = build_payload(impl)
     payload["meta"]["exclude_orphans_default"] = bool(exclude_orphans)
     if max_graph_nodes is not None:
         payload["meta"]["max_graph_nodes"] = int(max_graph_nodes)
-    return _render_from_payload(payload, title=title)
+    return _render_from_payload(payload, title=title, color_pack=color_pack)
 
 
 def build_payload_with_options(
@@ -58,12 +60,15 @@ def build_payload_with_options(
     return payload
 
 
-def render_payload(payload: dict[str, Any], *, title: str | None = None) -> str:
+def render_payload(
+    payload: dict[str, Any], *, title: str | None = None, color_pack: str = "default"
+) -> str:
     """Render directly from a pre-built payload (used by tests)."""
-    return _render_from_payload(payload, title=title)
+    return _render_from_payload(payload, title=title, color_pack=color_pack)
 
 
-def _render_from_payload(payload: dict[str, Any], *, title: str | None) -> str:
+def _render_from_payload(payload: dict[str, Any], *, title: str | None, color_pack: str) -> str:
+    pack = resolve_color_pack(color_pack)
     validate_unicode_scalars(payload, label="render payload")
     template = _env.get_template("index.html.j2")
     css = _read_static("visualizer.css")
@@ -92,12 +97,21 @@ def _render_from_payload(payload: dict[str, Any], *, title: str | None) -> str:
         title=document_title,
         meta=payload["meta"],
         css=css,
+        color_pack_css=serialize_color_pack_css(pack),
+        color_pack=pack.code,
         js=js,
         d3_js=d3_js,
         payload_json=payload_json.replace("<", "\\u003c"),
         has_changes="changes" in payload,
         has_trend="trend" in payload,
-        trend_charts=build_trend_charts(payload["trend"]) if "trend" in payload else [],
+        trend_charts=(
+            build_trend_charts(
+                payload["trend"],
+                stroke=("#1a1a1a" if pack.code == "default" else pack.roles["chart-primary"]),
+            )
+            if "trend" in payload
+            else []
+        ),
         # Snapshot stats for the header strip.
         component_count=payload["meta"]["component_count"],
         metric_count=sum(1 for c in payload["components"] if c["type"] == "metric"),

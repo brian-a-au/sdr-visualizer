@@ -24,10 +24,11 @@ def visualize(
     source: str = "<unknown>",
     platform: str | None = None,
     title: str | None = None,
+    color_pack: str = "default",
 ) -> str:
     """Adapt a parsed snapshot and return the rendered HTML string."""
     impl = build_implementation(snapshot, source=source, platform=platform)
-    return render(impl, title=title)
+    return render(impl, title=title, color_pack=color_pack)
 
 
 def build_implementation(

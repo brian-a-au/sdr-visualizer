@@ -21,6 +21,7 @@ playwright_sync = pytest.importorskip("playwright.sync_api")
 from sdr_visualizer.adapters.cja import adapt as cja_adapt  # noqa: E402
 from sdr_visualizer.analysis.diff import diff_implementations  # noqa: E402
 from sdr_visualizer.analysis.trend import build_trend  # noqa: E402
+from sdr_visualizer.render.color_packs import COLOR_PACK_CODES  # noqa: E402
 from sdr_visualizer.render.renderer import (  # noqa: E402
     build_payload_with_options,
     render,
@@ -238,7 +239,7 @@ def test_metric_chip_matches_derived_metrics(browser_page, tmp_path):
 
 
 def _tiny_snapshot() -> dict:
-    """8 components with edges — under the 20-node radial threshold."""
+    """9 components with edges — under the 20-node radial threshold."""
     return {
         "metadata": {
             "Data View ID": "dv_tiny",
@@ -255,6 +256,17 @@ def _tiny_snapshot() -> dict:
             {"id": f"variables/evar{i}", "name": f"Dim {i}", "description": "d", "type": "string"}
             for i in range(1, 4)
         ],
+        "derived_fields": {
+            "fields": [
+                {
+                    "component_id": "derived/df1",
+                    "component_name": "Derived 1",
+                    "description": "d",
+                    "component_references": ["metrics/m1"],
+                    "inferred_output_type": "string",
+                }
+            ]
+        },
         "segments": {
             "segments": [
                 {
@@ -287,9 +299,9 @@ def _tiny_snapshot() -> dict:
     }
 
 
-def _open_tiny_graph(browser_page, tmp_path, name: str):
+def _open_tiny_graph(browser_page, tmp_path, name: str, *, color_pack: str = "default"):
     out = tmp_path / name
-    out.write_text(render(cja_adapt(_tiny_snapshot())), encoding="utf-8")
+    out.write_text(render(cja_adapt(_tiny_snapshot()), color_pack=color_pack), encoding="utf-8")
     browser_page.goto(out.as_uri())
     browser_page.wait_for_selector("#catalog-body tr", state="attached", timeout=10_000)
     browser_page.click('[data-view="graph"]')
@@ -330,20 +342,20 @@ def test_graph_hover_highlights_neighbors(browser_page, tmp_path):
     to appear rather than checking synchronously after the event.
     """
     _open_tiny_graph(browser_page, tmp_path, "hover.html")
-    # Metric 1 is referenced by both Seg 1 and Calc 1 — its only neighbors.
+    # Metric 1 is referenced by Seg 1, Calc 1, and Derived 1 — its only neighbors.
     _hover_node(browser_page, "Metric 1")
     unfaded = browser_page.evaluate(
         """Array.from(document.querySelectorAll('#graph-canvas g.graph-node'))
              .filter(n => !n.classList.contains('is-faded'))
              .map(n => n.textContent).sort()"""
     )
-    assert unfaded == ["Calc 1", "Metric 1", "Seg 1"]
+    assert unfaded == ["Calc 1", "Derived 1", "Metric 1", "Seg 1"]
     # Hovered node's edges highlight; unrelated edges fade.
     assert (
         browser_page.evaluate(
             "document.querySelectorAll('#graph-canvas line.is-highlighted').length"
         )
-        == 2
+        == 3
     )
     browser_page.evaluate(
         """document.querySelector('.graph-node.is-hover')
@@ -365,7 +377,7 @@ def test_graph_search_highlights_matches(browser_page, tmp_path):
         browser_page.evaluate(
             """document.querySelectorAll('#graph-canvas g.graph-node.is-faded').length"""
         )
-        == 7
+        == 8
     )
 
 
@@ -411,12 +423,140 @@ def test_small_graph_uses_radial_layout(browser_page, tmp_path):
              return [parseFloat(m[1]), parseFloat(m[2])];
            })"""
     )
-    assert len(positions) == 8
+    assert len(positions) == 9
     cx = sum(p[0] for p in positions) / len(positions)
     cy = sum(p[1] for p in positions) / len(positions)
     radii = [((p[0] - cx) ** 2 + (p[1] - cy) ** 2) ** 0.5 for p in positions]
     # Radial layout: every node equidistant from the centroid (loose tolerance).
     assert max(radii) - min(radii) < 1.0, f"not a circle: {radii}"
+
+
+@pytest.mark.parametrize("color_pack", COLOR_PACK_CODES)
+def test_graph_uses_pack_colors_distinct_shapes_and_accessible_type_labels(
+    browser_page, tmp_path, color_pack
+):
+    _open_tiny_graph(browser_page, tmp_path, f"graph-{color_pack}.html", color_pack=color_pack)
+
+    observed = browser_page.evaluate(
+        """() => {
+          const root = getComputedStyle(document.documentElement);
+          const roleByType = {
+            metric: 'component-metric',
+            dimension: 'component-dimension',
+            derived_field: 'component-derived-field',
+            segment: 'component-segment',
+            calculated_metric: 'visualizer-calculated-metric',
+          };
+          const nodes = Array.from(document.querySelectorAll('.graph-node'));
+          const byType = {};
+          for (const node of nodes) {
+            const symbol = node.querySelector('.graph-node-symbol');
+            const type = Array.from(symbol.classList)
+              .find(name => name.startsWith('graph-node-symbol-'))
+              .slice('graph-node-symbol-'.length);
+            byType[type] = {
+              fill: getComputedStyle(symbol).fill,
+              expected: window.d3.color(
+                root.getPropertyValue('--sdr-' + roleByType[type]).trim()
+              ).formatRgb(),
+              path: symbol.getAttribute('d'),
+              label: node.getAttribute('aria-label'),
+            };
+          }
+          const edge = document.querySelector('.graph-edge');
+          return {
+            pack: document.documentElement.dataset.colorPack,
+            byType,
+            edgeStroke: getComputedStyle(edge).stroke,
+            expectedEdge: window.d3.color(
+              root.getPropertyValue('--sdr-visualizer-graph-link').trim()
+            ).formatRgb(),
+          };
+        }"""
+    )
+
+    assert observed["pack"] == color_pack
+    assert set(observed["byType"]) == {
+        "metric",
+        "dimension",
+        "derived_field",
+        "segment",
+        "calculated_metric",
+    }
+    assert len({entry["path"] for entry in observed["byType"].values()}) == 5
+    for component_type, entry in observed["byType"].items():
+        assert entry["fill"] == entry["expected"]
+        assert entry["label"]
+        assert component_type.replace("_", " ").split()[0].title() in entry["label"]
+    assert observed["edgeStroke"] == observed["expectedEdge"]
+
+
+@pytest.mark.parametrize("color_pack", COLOR_PACK_CODES)
+def test_graph_control_boundaries_meet_non_text_contrast(browser_page, tmp_path, color_pack):
+    _open_tiny_graph(
+        browser_page,
+        tmp_path,
+        f"graph-controls-{color_pack}.html",
+        color_pack=color_pack,
+    )
+
+    ratios = browser_page.evaluate(
+        r"""() => {
+          function luminance(rgb) {
+            const channels = rgb.match(/[\d.]+/g).slice(0, 3).map(value => {
+              const channel = Number(value) / 255;
+              return channel <= 0.04045
+                ? channel / 12.92
+                : Math.pow((channel + 0.055) / 1.055, 2.4);
+            });
+            return 0.2126 * channels[0] + 0.7152 * channels[1] + 0.0722 * channels[2];
+          }
+          function contrast(first, second) {
+            const values = [luminance(first), luminance(second)].sort((a, b) => b - a);
+            return (values[0] + 0.05) / (values[1] + 0.05);
+          }
+          return ['#graph-search', '.ghost-button'].map(selector => {
+            const style = getComputedStyle(document.querySelector(selector));
+            return {
+              selector,
+              ratio: contrast(style.borderTopColor, style.backgroundColor),
+            };
+          });
+        }"""
+    )
+
+    assert {item["selector"] for item in ratios} == {"#graph-search", ".ghost-button"}
+    assert all(item["ratio"] >= 3.0 for item in ratios), (color_pack, ratios)
+
+
+def test_print_media_keeps_only_active_view_on_white_pack_surface(browser_page, tmp_path):
+    _open_tiny_graph(browser_page, tmp_path, "print-ADBE.html", color_pack="ADBE")
+
+    browser_page.emulate_media(media="print")
+    try:
+        observed = browser_page.evaluate(
+            """() => ({
+              nav: getComputedStyle(document.querySelector('.view-nav')).display,
+              catalog: getComputedStyle(document.querySelector('#catalog-view')).display,
+              graph: getComputedStyle(document.querySelector('#graph-view')).display,
+              overlay: getComputedStyle(document.querySelector('#detail-overlay')).display,
+              bodyBackground: getComputedStyle(document.body).backgroundColor,
+              graphBackground: getComputedStyle(document.querySelector('.graph-stage')).backgroundColor,
+              symbols: document.querySelectorAll('.graph-node-symbol').length,
+            })"""
+        )
+    finally:
+        browser_page.emulate_media(media="screen")
+
+    assert observed == {
+        "nav": "none",
+        "catalog": "none",
+        "graph": "block",
+        "overlay": "none",
+        "bodyBackground": "rgb(255, 255, 255)",
+        "graphBackground": "rgb(255, 255, 255)",
+        "symbols": 9,
+    }
 
 
 def test_naive_space_timestamp_renders_date_prefix(browser_page, tmp_path):

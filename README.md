@@ -126,11 +126,41 @@ for credentials, permissions, and generator compatibility.
 | `--output PATH`           | Write HTML somewhere specific. |
 | `--json PATH`             | Also emit the embedded payload as a separate JSON file (useful for downstream tooling). |
 | `--title TEXT`            | Override the document title. |
+| `--color-pack CODE`       | Select `default`, `ADBE`, `OMTR`, or `BLUE` for HTML presentation (case-sensitive). |
 | `--exclude-orphans`       | Default the catalog's references filter to "Referenced" — hides components nothing depends on. |
 | `--max-graph-nodes N`     | Override the 1,000-node graph-rendering threshold. |
 | `--platform cja\|aa`      | Override platform auto-detection. |
 | `--at TIMESTAMP`          | When path is a directory, pick the snapshot closest to (and not after) this timestamp. |
 | `--quiet`                 | Suppress informational stderr output. |
+
+## Color packs
+
+Every report uses one built-in color pack. The exact catalog, in CLI order, is
+`default`, `ADBE`, `OMTR`, and `BLUE`; identifiers are case-sensitive. Select a
+pack on the command line:
+
+```bash
+sdr-visualizer snapshot.json --color-pack ADBE
+```
+
+Or pass the same identifier through the Python rendering API:
+
+```python
+from sdr_visualizer.core.visualizer import visualize
+
+html = visualize(snapshot, source="snapshot.json", color_pack="BLUE")
+```
+
+Color-pack selection changes HTML presentation only. It does not add to or
+alter the embedded JSON or a `--json` sidecar. The pack CSS, report data, and
+runtime remain embedded in the single offline HTML file.
+
+The named packs are palette-inspired alternatives, not official brand assets
+or claims of affiliation or endorsement, and they contain no company or
+product logos. Each pack is checked against the project's declared WCAG text
+and essential-graphics contrast pairs. Text labels and other non-color cues
+continue to communicate state, and reviewed print colors keep reports legible
+when printed.
 
 ## What's in the output
 
@@ -207,7 +237,7 @@ synthetic reproduction in a public issue.
 
 From 1.0.0, [semantic versioning](https://semver.org) covers the surface below. Anything not listed is internal and may change in any release.
 
-**CLI.** The argument set: the positional `path` (snapshot file, snapshot directory, or `-` for stdin), `--dataview`, `--rsid`, `--platform`, `--at`, `--compare-to`, `--trend`, `--allow-instance-mismatch`, `--output`, `--title`, `--exclude-orphans`, `--max-graph-nodes`, `--json`, `--quiet`, `--version`. Removing or repurposing any of these is a major bump; adding flags is a minor one.
+**CLI.** The argument set: the positional `path` (snapshot file, snapshot directory, or `-` for stdin), `--dataview`, `--rsid`, `--platform`, `--at`, `--compare-to`, `--trend`, `--allow-instance-mismatch`, `--output`, `--title`, `--color-pack`, `--exclude-orphans`, `--max-graph-nodes`, `--json`, `--quiet`, `--version`. Removing or repurposing any of these is a major bump; adding flags is a minor one.
 
 **Exit codes.** `0` success, `1` runtime error, `3` invalid input. `2` is never used.
 
@@ -236,6 +266,9 @@ uv run ruff check      # Lint
 uv run ruff format     # Auto-format
 
 uv run python scripts/generate_examples.py   # Regenerate examples/
+uv run python scripts/check_color_pack_parity.py \\
+  --visualizer-sha <candidate-commit-sha> \\
+  --grader-root ../sdr-grader --grader-sha <linked-grader-commit-sha>
 uv run python scripts/perf_check.py          # Run the perf gate
 uv run python scripts/check_markdown_links.py
 uv run python scripts/check_workflow_policy.py
