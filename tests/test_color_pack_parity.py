@@ -1,8 +1,9 @@
-"""Cross-repository parity checks for the shared color-pack source contract."""
+"""Cross-repository parity checks for color-pack commits, never worktrees."""
 
 from __future__ import annotations
 
 import importlib.util
+import subprocess
 from pathlib import Path
 
 import pytest
@@ -17,9 +18,39 @@ check_color_pack_parity = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(check_color_pack_parity)
 
 
-def _write_grader_contract(root: Path, contract: dict[str, object], *, suffix: str = "") -> None:
-    module = root / "src" / "sdr_grader" / "render" / "color_packs.py"
-    module.parent.mkdir(parents=True)
+def _module_path(root: Path, label: str) -> Path:
+    package = "sdr_visualizer" if label == "visualizer" else "sdr_grader"
+    return root / "src" / package / "render" / "color_packs.py"
+
+
+def _git(root: Path, *args: str) -> str:
+    completed = subprocess.run(
+        ["git", "-C", str(root), *args],
+        check=True,
+        capture_output=True,
+        encoding="utf-8",
+    )
+    return completed.stdout.strip()
+
+
+def _init_repo(root: Path) -> None:
+    root.mkdir()
+    _git(root, "init", "-q")
+    _git(root, "config", "user.name", "Parity Test")
+    _git(root, "config", "user.email", "parity@example.invalid")
+
+
+def _commit(root: Path, message: str) -> str:
+    _git(root, "add", ".")
+    _git(root, "commit", "-qm", message)
+    return _git(root, "rev-parse", "HEAD")
+
+
+def _write_contract(
+    root: Path, label: str, contract: dict[str, object], *, suffix: str = ""
+) -> None:
+    module = _module_path(root, label)
+    module.parent.mkdir(parents=True, exist_ok=True)
     module.write_text(
         "\n".join(
             (
@@ -33,15 +64,54 @@ def _write_grader_contract(root: Path, contract: dict[str, object], *, suffix: s
     )
 
 
-def test_matching_local_and_fake_grader_contracts_pass(tmp_path, capsys):
-    _write_grader_contract(tmp_path, color_pack_contract_snapshot())
+def _matching_repos(tmp_path: Path) -> tuple[Path, str, Path, str]:
+    visualizer = tmp_path / "visualizer"
+    grader = tmp_path / "grader"
+    _init_repo(visualizer)
+    _init_repo(grader)
+    contract = color_pack_contract_snapshot()
+    _write_contract(visualizer, "visualizer", contract)
+    _write_contract(grader, "grader", contract)
+    return (
+        visualizer,
+        _commit(visualizer, "visualizer contract"),
+        grader,
+        _commit(grader, "grader contract"),
+    )
 
-    assert check_color_pack_parity.main(["--grader-root", str(tmp_path)]) == 0
+
+def _args(visualizer: Path, visualizer_sha: str, grader: Path, grader_sha: str) -> list[str]:
+    return [
+        "--visualizer-root",
+        str(visualizer),
+        "--visualizer-sha",
+        visualizer_sha,
+        "--grader-root",
+        str(grader),
+        "--grader-sha",
+        grader_sha,
+    ]
+
+
+def test_matching_commit_blobs_pass_even_when_worktrees_drift(tmp_path, capsys):
+    visualizer, visualizer_sha, grader, grader_sha = _matching_repos(tmp_path)
+    _write_contract(
+        grader,
+        "grader",
+        {
+            "catalog": ("drift",),
+            "source_swatches": {"drift": ("#000000",)},
+            "required_roles": ("role",),
+        },
+    )
+
+    assert check_color_pack_parity.main(_args(visualizer, visualizer_sha, grader, grader_sha)) == 0
     assert "color-pack contracts match" in capsys.readouterr().out
 
 
 @pytest.mark.parametrize("field", ["catalog", "source_swatches", "required_roles"])
-def test_each_shared_field_drift_is_reported_by_name(tmp_path, capsys, field):
+def test_each_shared_field_drift_is_reported_from_the_pinned_blobs(tmp_path, capsys, field):
+    visualizer, visualizer_sha, grader, _grader_sha = _matching_repos(tmp_path)
     contract = color_pack_contract_snapshot()
     if field == "catalog":
         contract[field] = ("ADBE", "default", "OMTR", "BLUE")
@@ -52,36 +122,66 @@ def test_each_shared_field_drift_is_reported_by_name(tmp_path, capsys, field):
         contract[field]["default"] = ("#000000",)
     else:
         contract[field] = (*contract[field][:-1], "replacement-role")
-    _write_grader_contract(tmp_path, contract)
+    _write_contract(grader, "grader", contract)
+    grader_sha = _commit(grader, f"drift {field}")
 
-    assert check_color_pack_parity.main(["--grader-root", str(tmp_path)]) == 1
+    assert check_color_pack_parity.main(_args(visualizer, visualizer_sha, grader, grader_sha)) == 1
     error = capsys.readouterr().err
     assert f"color-pack parity mismatch: {field}" in error
     assert "visualizer:" in error
     assert "grader:" in error
 
 
-def test_missing_grader_checkout_is_a_controlled_failure(tmp_path, capsys):
-    missing = tmp_path / "not-checked-out"
+def test_non_git_checkout_is_a_controlled_failure(tmp_path, capsys):
+    visualizer, visualizer_sha, grader, grader_sha = _matching_repos(tmp_path)
+    non_git = tmp_path / "not-a-git-repository"
+    non_git.mkdir()
 
-    assert check_color_pack_parity.main(["--grader-root", str(missing)]) == 2
+    assert check_color_pack_parity.main(_args(non_git, visualizer_sha, grader, grader_sha)) == 2
+    assert "visualizer checkout is not a Git repository" in capsys.readouterr().err
+
+
+def test_missing_sibling_checkout_is_a_controlled_failure(tmp_path, capsys):
+    visualizer, visualizer_sha, _grader, grader_sha = _matching_repos(tmp_path)
+    missing = tmp_path / "missing-grader-checkout"
+
+    assert check_color_pack_parity.main(_args(visualizer, visualizer_sha, missing, grader_sha)) == 2
     assert "grader checkout not found" in capsys.readouterr().err
 
 
-def test_top_level_side_effects_are_not_executed(tmp_path, capsys):
-    sentinel = tmp_path / "executed"
-    suffix = (
-        "from pathlib import Path\n"
-        f"Path({str(sentinel)!r}).write_text('executed', encoding='utf-8')\n"
-        "raise RuntimeError('module code must not execute')"
-    )
-    _write_grader_contract(
-        tmp_path,
-        color_pack_contract_snapshot(),
-        suffix=suffix,
-    )
+@pytest.mark.parametrize("sha", ["short", "f" * 40])
+def test_bad_or_missing_commit_sha_is_a_controlled_failure(tmp_path, capsys, sha):
+    visualizer, visualizer_sha, grader, grader_sha = _matching_repos(tmp_path)
 
-    assert check_color_pack_parity.main(["--grader-root", str(tmp_path)]) == 0
+    assert check_color_pack_parity.main(_args(visualizer, visualizer_sha, grader, sha)) == 2
+    assert "grader" in capsys.readouterr().err
+
+
+def test_missing_registry_blob_is_a_controlled_failure(tmp_path, capsys):
+    visualizer, visualizer_sha, grader, _grader_sha = _matching_repos(tmp_path)
+    _module_path(grader, "grader").unlink()
+    grader_sha = _commit(grader, "remove registry")
+
+    assert check_color_pack_parity.main(_args(visualizer, visualizer_sha, grader, grader_sha)) == 2
+    assert "grader color-pack module not found in commit" in capsys.readouterr().err
+
+
+def test_pinned_blob_never_executes_top_level_side_effects(tmp_path, capsys):
+    visualizer, visualizer_sha, grader, _grader_sha = _matching_repos(tmp_path)
+    sentinel = tmp_path / "executed"
+    _write_contract(
+        grader,
+        "grader",
+        color_pack_contract_snapshot(),
+        suffix=(
+            "from pathlib import Path\n"
+            f"Path({str(sentinel)!r}).write_text('executed', encoding='utf-8')\n"
+            "raise RuntimeError('module code must not execute')"
+        ),
+    )
+    grader_sha = _commit(grader, "side effect")
+
+    assert check_color_pack_parity.main(_args(visualizer, visualizer_sha, grader, grader_sha)) == 0
     assert "color-pack contracts match" in capsys.readouterr().out
     assert not sentinel.exists()
 
@@ -102,16 +202,15 @@ def test_top_level_side_effects_are_not_executed(tmp_path, capsys):
             "_SOURCE_SWATCHES = {'other': ('#000000',)}\n",
             "source_swatches keys must match catalog order",
         ),
-        (
-            "REQUIRED_COLOR_ROLES = (\n",
-            "could not parse grader color-pack module",
-        ),
     ],
 )
-def test_malformed_contract_is_a_controlled_failure(tmp_path, capsys, source, expected):
-    module = tmp_path / "src" / "sdr_grader" / "render" / "color_packs.py"
-    module.parent.mkdir(parents=True)
+def test_nonliteral_or_malformed_pinned_blob_is_a_controlled_failure(
+    tmp_path, capsys, source, expected
+):
+    visualizer, visualizer_sha, grader, _grader_sha = _matching_repos(tmp_path)
+    module = _module_path(grader, "grader")
     module.write_text(source, encoding="utf-8")
+    grader_sha = _commit(grader, "malformed registry")
 
-    assert check_color_pack_parity.main(["--grader-root", str(tmp_path)]) == 2
+    assert check_color_pack_parity.main(_args(visualizer, visualizer_sha, grader, grader_sha)) == 2
     assert expected in capsys.readouterr().err

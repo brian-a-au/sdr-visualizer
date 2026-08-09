@@ -74,6 +74,19 @@ def _non_embedded_resource_urls(html: str) -> list[str]:
     ]
 
 
+def _contrast_ratio(first: str, second: str) -> float:
+    def luminance(hex_color: str) -> float:
+        channels = [int(hex_color[index : index + 2], 16) / 255 for index in (1, 3, 5)]
+        linear = [
+            channel / 12.92 if channel <= 0.04045 else ((channel + 0.055) / 1.055) ** 2.4
+            for channel in channels
+        ]
+        return 0.2126 * linear[0] + 0.7152 * linear[1] + 0.0722 * linear[2]
+
+    lighter, darker = sorted((luminance(first), luminance(second)), reverse=True)
+    return (lighter + 0.05) / (darker + 0.05)
+
+
 @pytest.fixture(scope="module")
 def messy_html():
     snap = json.loads((FIXTURES / "cja_snapshot_messy.json").read_text(encoding="utf-8"))
@@ -216,6 +229,31 @@ def test_visible_css_colors_use_semantic_variables_or_documented_fixed_neutrals(
 
     assert re.findall(r"#[0-9A-Fa-f]{3,8}|rgba?\([^)]*\)", visible_rules) == []
     assert "legacy neutrals deliberately stay pack-independent" in css
+
+
+def test_visible_css_uses_text_roles_for_text_and_strong_roles_for_control_boundaries():
+    css = (STATIC / "visualizer.css").read_text(encoding="utf-8")
+
+    textual_roles = re.findall(r"(?<![-\w])color:\s*var\(--sdr-([a-z0-9-]+)\)", css)
+    assert "border-strong" not in textual_roles
+    assert "--sdr-visualizer-missing-content: #B8651A;" not in css
+    assert "--sdr-visualizer-missing-content: var(--sdr-severity-high);" in css
+    assert "--sdr-visualizer-operator-text: var(--sdr-text-muted);" in css
+    assert "--sdr-visualizer-operator-text: #6A4F30;" in css
+    assert "color: var(--sdr-visualizer-operator-text);" in css
+
+    for selector in ("#search-input", ".filter-group select", ".chip"):
+        rule = re.search(rf"{re.escape(selector)} \{{(.*?)\n\}}", css, re.DOTALL)
+        assert rule is not None
+        assert "border: 1px solid var(--sdr-border-strong);" in rule.group(1)
+
+
+@pytest.mark.parametrize("code", COLOR_PACK_CODES)
+def test_renderer_specific_operator_text_meets_normal_text_contrast(code):
+    pack = resolve_color_pack(code)
+    operator_text = "#6A4F30" if code == "default" else pack.roles["text-muted"]
+
+    assert _contrast_ratio(operator_text, "#F5DBB5") >= 4.5
 
 
 def test_visualizer_js_uses_computed_semantic_colors_and_d3_symbol_shapes():

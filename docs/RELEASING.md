@@ -80,7 +80,9 @@ uv run ruff check
 uv run ruff format --check
 uv run python scripts/check_markdown_links.py
 uv run python scripts/check_workflow_policy.py
-uv run python scripts/check_color_pack_parity.py --grader-root ../sdr-grader
+uv run python scripts/check_color_pack_parity.py \\
+  --visualizer-sha <candidate-commit-sha> \\
+  --grader-root ../sdr-grader --grader-sha <linked-grader-commit-sha>
 uv run pytest tests/test_structure_limits.py tests/test_adapters_cja.py \
   tests/test_adapters_aa.py tests/test_cli.py tests/test_analysis_trend.py \
   tests/test_renderer.py -q
@@ -216,12 +218,15 @@ that order), ordered `source_swatches` for all four entries, and ordered
 linked sibling PR and commit, then run:
 
 ```bash
-uv run python scripts/check_color_pack_parity.py --grader-root ../sdr-grader
+uv run python scripts/check_color_pack_parity.py \\
+  --visualizer-sha <candidate-commit-sha> \\
+  --grader-root ../sdr-grader --grader-sha <linked-grader-commit-sha>
 ```
 
-The command dynamically loads both source files without requiring either
-package at runtime. Any field drift, missing sibling checkout, missing export,
-or malformed contract is release-blocking. The linked sibling change and a
+The command reads only `git show` blobs at the supplied full commit SHAs; it
+does not import either package or inspect working-tree files. Any field drift,
+missing/non-Git sibling checkout, bad or missing commit, missing export, or
+malformed contract is release-blocking. The linked sibling change and a
 passing comparator must be from the same release cycle.
 
 When the candidate changes none of the listed shared runtime paths, sibling

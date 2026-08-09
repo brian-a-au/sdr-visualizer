@@ -118,8 +118,9 @@ visualizer-only differences stay documented and tested in
 source swatches for every catalog entry, and ordered required-role names. It
 deliberately excludes derived role values so each project can render its own
 presentation while sharing the source contract. Release qualification loads
-both source modules under isolated names with no package dependency and
-compares those fields using `scripts/check_color_pack_parity.py`.
+both registry blobs from explicit visualizer and grader commit SHAs with no
+package dependency or working-tree read, then compares those fields using
+`scripts/check_color_pack_parity.py`.
 
 If a third tool creates sustained demand for the same layer, reconsider a
 shared package then; do not introduce one merely to eliminate modest,

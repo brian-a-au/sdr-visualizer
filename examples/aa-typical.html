@@ -24,15 +24,16 @@
   --sdr-visualizer-missing-content: var(--sdr-severity-high);
   --sdr-visualizer-change-modified: var(--sdr-change-modified);
   --sdr-visualizer-graph-link: var(--sdr-chart-grid);
+  --sdr-visualizer-operator-text: var(--sdr-text-muted);
 }
 /* Renderer-specific aliases preserve pre-feature default pixels where the
  * shared accessible role uses a reviewed replacement. Non-default packs
  * inherit the shared semantic roles above. */
 :root[data-color-pack="default"] {
   --sdr-visualizer-calculated-metric: #A08018;
-  --sdr-visualizer-missing-content: #B8651A;
   --sdr-visualizer-change-modified: #8A6D2F;
   --sdr-visualizer-graph-link: #C8C4B8;
+  --sdr-visualizer-operator-text: #6A4F30;
 }
 
 /* ---------- Reset & base ---------- */
@@ -118,7 +119,7 @@ h1 {
   font-size: 10px;
   letter-spacing: 0.12em;
   text-transform: uppercase;
-  color: var(--sdr-border-strong);
+  color: var(--sdr-text-muted);
   font-weight: 500;
 }
 .meta-value { font-size: 18px; color: var(--sdr-text-primary); font-weight: 500; }
@@ -173,7 +174,7 @@ h1 {
   font-size: 10px;
   letter-spacing: 0.14em;
   text-transform: uppercase;
-  color: var(--sdr-border-strong);
+  color: var(--sdr-text-muted);
   font-weight: 500;
 }
 #search-input {
@@ -183,7 +184,7 @@ h1 {
   font-family: "Söhne", "Inter", system-ui, sans-serif;
   font-size: 14px;
   padding: 8px 12px;
-  border: 1px solid var(--sdr-border-default);
+  border: 1px solid var(--sdr-border-strong);
   border-radius: 2px;
   background: var(--sdr-surface-panel);
   color: var(--sdr-text-primary);
@@ -214,7 +215,7 @@ h1 {
   font-size: 10px;
   letter-spacing: 0.12em;
   text-transform: uppercase;
-  color: var(--sdr-border-strong);
+  color: var(--sdr-text-muted);
   font-weight: 500;
   padding: 0;
   margin-bottom: 2px;
@@ -224,7 +225,7 @@ h1 {
   font-family: "Söhne", "Inter", system-ui, sans-serif;
   font-size: 13px;
   padding: 5px 28px 5px 10px;
-  border: 1px solid var(--sdr-border-default);
+  border: 1px solid var(--sdr-border-strong);
   border-radius: 2px;
   background: var(--sdr-surface-panel);
   color: var(--sdr-text-primary);
@@ -243,7 +244,7 @@ h1 {
   font-size: 12px;
   font-family: "Söhne", "Inter", system-ui, sans-serif;
   padding: 4px 10px;
-  border: 1px solid var(--sdr-border-default);
+  border: 1px solid var(--sdr-border-strong);
   border-radius: 999px;
   cursor: pointer;
   user-select: none;
@@ -323,7 +324,7 @@ h1 {
 .catalog-table .row-id {
   font-family: "JetBrains Mono", "SF Mono", "Menlo", monospace;
   font-size: 11px;
-  color: var(--sdr-border-strong);
+  color: var(--sdr-text-muted);
   display: block;
   margin-top: 2px;
   overflow: hidden;
@@ -376,7 +377,7 @@ h1 {
 .catalog-empty {
   padding: 56px 0;
   text-align: center;
-  color: var(--sdr-border-strong);
+  color: var(--sdr-text-muted);
   font-size: 14px;
 }
 
@@ -455,7 +456,7 @@ h1 {
   font-size: 11px;
   letter-spacing: 0.12em;
   text-transform: uppercase;
-  color: var(--sdr-border-strong);
+  color: var(--sdr-text-muted);
   font-weight: 500;
   margin: 0 0 8px;
 }
@@ -562,7 +563,7 @@ h1 {
   margin-bottom: 4px;
 }
 .anatomy-op-and { background: var(--sdr-fixed-neutral-and-background); color: var(--sdr-fixed-neutral-strong-text); }
-.anatomy-op-or  { background: var(--sdr-fixed-neutral-warm-background); color: var(--sdr-accent-secondary); }
+.anatomy-op-or  { background: var(--sdr-fixed-neutral-warm-background); color: var(--sdr-visualizer-operator-text); }
 .anatomy-op-not, .anatomy-op-without { background: var(--sdr-fixed-neutral-negative-background); color: var(--sdr-fixed-neutral-negative-text); }
 
 .anatomy-children { padding-left: 4px; }
@@ -617,7 +618,7 @@ h1 {
   letter-spacing: 0.14em;
   text-transform: uppercase;
   font-weight: 500;
-  color: var(--sdr-accent-secondary);
+  color: var(--sdr-visualizer-operator-text);
   background: var(--sdr-fixed-neutral-warm-background);
   padding: 1px 6px;
   border-radius: 2px;
@@ -773,7 +774,7 @@ h1 {
   padding: 32px;
   border-top: 1px solid var(--sdr-surface-emphasis);
   font-size: 11px;
-  color: var(--sdr-border-strong);
+  color: var(--sdr-text-muted);
   display: flex;
   flex-wrap: wrap;
   align-items: center;

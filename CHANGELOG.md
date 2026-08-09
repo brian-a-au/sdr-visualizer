@@ -13,6 +13,15 @@ All notable changes to `sdr-visualizer` will be documented here. The format foll
   swatches, and required role names against `sdr-grader`; drift or a malformed
   sibling contract blocks release.
 
+### Fixed
+
+- Color-pack contrast checks now cover rendered status text, control boundaries,
+  and renderer-specific operator text; default missing-content text uses the
+  accessible severity role.
+- The sibling color-pack comparator now reads explicitly supplied visualizer and
+  grader commit blobs, so uncommitted worktree edits cannot qualify release
+  parity.
+
 ## [1.0.7] - 2026-08-03
 
 ### Changed

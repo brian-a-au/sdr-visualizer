@@ -180,6 +180,10 @@ release-blocking comparator is documented in
 [`RELEASING.md`](RELEASING.md#sibling-parity). Intentional differences are
 documented in [`ADAPTER_GUIDE.md`](ADAPTER_GUIDE.md).
 
+The comparator accepts only explicit full candidate SHAs for both repositories
+and reads each registry from the corresponding committed Git blob. Working-tree
+contents are never parity evidence.
+
 ## Release boundary
 
 A green pull request is a release candidate, not an announcement. Publication

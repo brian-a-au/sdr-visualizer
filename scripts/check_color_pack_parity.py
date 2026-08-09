@@ -1,8 +1,8 @@
-"""Compare visualizer and grader color-pack contracts without executing code.
+"""Compare color-pack contracts from explicit, immutable sibling commits.
 
-Each registry exposes its shared contract as three literal assignments. This
-script parses those declarations from source with :func:`ast.literal_eval`; it
-does not import either package or execute either repository's Python code.
+The comparator reads only ``git show <sha>:<path>`` blobs. It never imports a
+registry or reads either checkout's working tree, so local edits cannot make a
+release parity check pass accidentally.
 """
 
 from __future__ import annotations
@@ -10,6 +10,8 @@ from __future__ import annotations
 import argparse
 import ast
 import json
+import re
+import subprocess
 import sys
 from collections.abc import Sequence
 from pathlib import Path
@@ -25,20 +27,20 @@ MODULE_PATHS = {
     "visualizer": Path("src/sdr_visualizer/render/color_packs.py"),
     "grader": Path("src/sdr_grader/render/color_packs.py"),
 }
+_FULL_COMMIT_SHA = re.compile(r"[0-9a-f]{40}\Z")
 
 
 class ContractCheckError(RuntimeError):
     """The sibling checkout or its exported contract cannot be inspected."""
 
 
-def _literal_contract(path: Path, label: str) -> dict[str, object]:
-    """Read only the contract's literal assignments from one source file."""
+def _literal_contract(source: str, label: str, *, source_name: str) -> dict[str, object]:
+    """Read only the contract's literal assignments from one source blob."""
     try:
-        source = path.read_text(encoding="utf-8")
-        tree = ast.parse(source, filename=str(path))
-    except (OSError, UnicodeError, SyntaxError) as exc:
+        tree = ast.parse(source, filename=source_name)
+    except SyntaxError as exc:
         raise ContractCheckError(
-            f"could not parse {label} color-pack module {path}: {type(exc).__name__}: {exc}"
+            f"could not parse {label} color-pack module {source_name}: {type(exc).__name__}: {exc}"
         ) from exc
 
     declarations: dict[str, ast.expr] = {}
@@ -130,25 +132,82 @@ def _validate_contract(raw: object, *, label: str) -> dict[str, object]:
     }
 
 
-def _read_contract(root: Path, label: str) -> dict[str, object]:
-    path = root / MODULE_PATHS[label]
-    if not path.is_file():
-        raise ContractCheckError(f"{label} color-pack module not found: {path}")
+def _run_git(root: Path, label: str, *args: str) -> str:
+    try:
+        completed = subprocess.run(
+            ["git", "-C", str(root), *args],
+            check=False,
+            capture_output=True,
+            encoding="utf-8",
+        )
+    except OSError as exc:
+        raise ContractCheckError(f"could not run git for {label} checkout: {exc}") from exc
+    if completed.returncode:
+        detail = (
+            completed.stderr.strip().splitlines()[0] if completed.stderr.strip() else "git failed"
+        )
+        raise ContractCheckError(f"git failed for {label} checkout: {detail}")
+    return completed.stdout
 
-    raw = _literal_contract(path, label)
+
+def _validate_checkout_and_sha(root: Path, revision: str, label: str) -> None:
+    if not root.is_dir():
+        raise ContractCheckError(f"{label} checkout not found: {root}")
+    try:
+        is_worktree = _run_git(root, label, "rev-parse", "--is-inside-work-tree").strip()
+    except ContractCheckError as exc:
+        raise ContractCheckError(f"{label} checkout is not a Git repository: {root}") from exc
+    if is_worktree != "true":
+        raise ContractCheckError(f"{label} checkout is not a Git repository: {root}")
+    if _FULL_COMMIT_SHA.fullmatch(revision) is None:
+        raise ContractCheckError(
+            f"{label} commit SHA must be a full 40-character lowercase hex SHA"
+        )
+    try:
+        _run_git(root, label, "cat-file", "-e", f"{revision}^{{commit}}")
+    except ContractCheckError as exc:
+        raise ContractCheckError(f"{label} commit SHA not found: {revision}") from exc
+
+
+def _read_contract(root: Path, revision: str, label: str) -> dict[str, object]:
+    _validate_checkout_and_sha(root, revision, label)
+    module_path = MODULE_PATHS[label].as_posix()
+    try:
+        source = _run_git(root, label, "show", f"{revision}:{module_path}")
+    except ContractCheckError as exc:
+        raise ContractCheckError(
+            f"{label} color-pack module not found in commit {revision}: {module_path}"
+        ) from exc
+    raw = _literal_contract(source, label, source_name=f"{label}@{revision}:{module_path}")
     return _validate_contract(raw, label=label)
 
 
-def check_color_pack_parity(visualizer_root: Path, grader_root: Path) -> list[str]:
-    """Return the names of well-formed contract fields that differ."""
-    visualizer = _read_contract(visualizer_root, "visualizer")
-    grader = _read_contract(grader_root, "grader")
+def check_color_pack_parity(
+    visualizer_root: Path,
+    visualizer_sha: str,
+    grader_root: Path,
+    grader_sha: str,
+) -> list[str]:
+    """Return the names of well-formed commit-pinned contract fields that differ."""
+    visualizer = _read_contract(visualizer_root, visualizer_sha, "visualizer")
+    grader = _read_contract(grader_root, grader_sha, "grader")
     return [field for field in CONTRACT_FIELDS if visualizer[field] != grader[field]]
 
 
 def _parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
-        description="Compare shared color-pack contracts with a sibling sdr-grader checkout."
+        description="Compare color-pack contracts from explicit sibling Git commits."
+    )
+    parser.add_argument(
+        "--visualizer-root",
+        default=REPO_ROOT,
+        type=Path,
+        help="Path to the visualizer checkout (defaults to this checkout).",
+    )
+    parser.add_argument(
+        "--visualizer-sha",
+        required=True,
+        help="Full visualizer commit SHA to inspect.",
     )
     parser.add_argument(
         "--grader-root",
@@ -156,19 +215,22 @@ def _parser() -> argparse.ArgumentParser:
         type=Path,
         help="Path to the sibling sdr-grader checkout.",
     )
+    parser.add_argument(
+        "--grader-sha",
+        required=True,
+        help="Full sdr-grader commit SHA to inspect.",
+    )
     return parser
 
 
 def main(argv: list[str] | None = None) -> int:
     args = _parser().parse_args(argv)
+    visualizer_root = args.visualizer_root.resolve()
     grader_root = args.grader_root.resolve()
-    if not grader_root.is_dir():
-        print(f"grader checkout not found: {grader_root}", file=sys.stderr)
-        return 2
 
     try:
-        visualizer = _read_contract(REPO_ROOT, "visualizer")
-        grader = _read_contract(grader_root, "grader")
+        visualizer = _read_contract(visualizer_root, args.visualizer_sha, "visualizer")
+        grader = _read_contract(grader_root, args.grader_sha, "grader")
     except ContractCheckError as exc:
         print(str(exc), file=sys.stderr)
         return 2

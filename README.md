@@ -266,7 +266,9 @@ uv run ruff check      # Lint
 uv run ruff format     # Auto-format
 
 uv run python scripts/generate_examples.py   # Regenerate examples/
-uv run python scripts/check_color_pack_parity.py --grader-root ../sdr-grader
+uv run python scripts/check_color_pack_parity.py \\
+  --visualizer-sha <candidate-commit-sha> \\
+  --grader-root ../sdr-grader --grader-sha <linked-grader-commit-sha>
 uv run python scripts/perf_check.py          # Run the perf gate
 uv run python scripts/check_markdown_links.py
 uv run python scripts/check_workflow_policy.py
