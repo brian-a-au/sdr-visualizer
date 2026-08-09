@@ -7,11 +7,13 @@ them safe to inline into the template with |safe. The client draws nothing.
 
 from __future__ import annotations
 
+import re
 from typing import Any
 
 _WIDTH = 220
 _HEIGHT = 48
 _PAD = 6
+_HEX_COLOR = re.compile(r"#[0-9A-Fa-f]{6}\Z")
 
 # (aggregate key, chart label) in display order. Labels are fixed English
 # strings; the derived-fields chart is skipped when the series is all zero
@@ -31,6 +33,8 @@ CHART_SPECS = (
 
 def sparkline_svg(values: list[float | int], *, stroke: str = "#1a1a1a") -> str:
     """One inline SVG polyline over the value series."""
+    if not isinstance(stroke, str) or _HEX_COLOR.fullmatch(stroke) is None:
+        raise ValueError("sparkline stroke must be a normalized #RRGGBB value")
     if not values:
         return ""
     lo = min(values)

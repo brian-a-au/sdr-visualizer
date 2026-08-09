@@ -211,11 +211,12 @@ Review changes to `core/models.py`, `adapters/`,
 Missing access or an unreviewed sibling change blocks release; it does not turn
 parity into an optional follow-up.
 
-For `render/color_packs.py`, both repositories must export the same
-source-only contract snapshot: `catalog` (`default`, `ADBE`, `OMTR`, `BLUE` in
+For `render/color_packs.py`, both repositories must export the same shared
+contract snapshot: `catalog` (`default`, `ADBE`, `OMTR`, `BLUE` in
 that order), ordered `source_swatches` for all four entries, and ordered
-`required_roles`. Derived role values are intentionally excluded. Record the
-linked sibling PR and commit, then run:
+`required_roles`, `text_contrast_pairs`, and `non_text_contrast_pairs`. Derived
+role values are intentionally excluded. Record the linked sibling PR and
+commit, then run:
 
 ```bash
 uv run python scripts/check_color_pack_parity.py \\

@@ -175,8 +175,8 @@ evidence.
 Shared defensive model, adapter, input, and color-pack source behavior is
 maintained in the same release cycle as `sdr-grader`. Color-pack parity covers
 the ordered catalog, every pack's ordered source swatches, and the ordered
-required semantic-role names; derived role values remain project-local. The
-release-blocking comparator is documented in
+required semantic-role names plus the ordered text and non-text accessibility
+pairs; derived role values remain project-local. The release-blocking comparator is documented in
 [`RELEASING.md`](RELEASING.md#sibling-parity). Intentional differences are
 documented in [`ADAPTER_GUIDE.md`](ADAPTER_GUIDE.md).
 

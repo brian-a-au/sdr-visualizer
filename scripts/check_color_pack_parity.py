@@ -17,11 +17,19 @@ from collections.abc import Sequence
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
-CONTRACT_FIELDS = ("catalog", "source_swatches", "required_roles")
+CONTRACT_FIELDS = (
+    "catalog",
+    "source_swatches",
+    "required_roles",
+    "text_contrast_pairs",
+    "non_text_contrast_pairs",
+)
 LITERAL_DECLARATIONS = {
     "COLOR_PACK_CODES": "catalog",
     "_SOURCE_SWATCHES": "source_swatches",
     "REQUIRED_COLOR_ROLES": "required_roles",
+    "TEXT_CONTRAST_PAIRS": "text_contrast_pairs",
+    "NON_TEXT_CONTRAST_PAIRS": "non_text_contrast_pairs",
 }
 MODULE_PATHS = {
     "visualizer": Path("src/sdr_visualizer/render/color_packs.py"),
@@ -85,6 +93,38 @@ def _as_string_sequence(value: object, *, field: str, label: str) -> tuple[str, 
     return tuple(value)
 
 
+def _as_role_pairs(
+    value: object,
+    *,
+    field: str,
+    label: str,
+    required_roles: tuple[str, ...],
+) -> tuple[tuple[str, str], ...]:
+    if not isinstance(value, Sequence) or isinstance(value, (str, bytes)):
+        raise ContractCheckError(
+            f"malformed {label} color-pack contract: {field} must be a role-pair list"
+        )
+    pairs: list[tuple[str, str]] = []
+    for item in value:
+        if (
+            not isinstance(item, Sequence)
+            or isinstance(item, (str, bytes))
+            or len(item) != 2
+            or not all(isinstance(role, str) for role in item)
+        ):
+            raise ContractCheckError(
+                f"malformed {label} color-pack contract: {field} must be a role-pair list"
+            )
+        pairs.append((item[0], item[1]))
+    unknown_roles = sorted({role for pair in pairs for role in pair} - set(required_roles))
+    if not pairs or len(set(pairs)) != len(pairs) or unknown_roles:
+        raise ContractCheckError(
+            f"malformed {label} color-pack contract: {field} must be non-empty, unique, "
+            f"and use required_roles; unknown={unknown_roles!r}"
+        )
+    return tuple(pairs)
+
+
 def _validate_contract(raw: object, *, label: str) -> dict[str, object]:
     if not isinstance(raw, dict) or tuple(raw) != CONTRACT_FIELDS:
         keys = tuple(raw) if isinstance(raw, dict) else type(raw).__name__
@@ -125,10 +165,25 @@ def _validate_contract(raw: object, *, label: str) -> dict[str, object]:
             f"malformed {label} color-pack contract: required_roles must be non-empty and unique"
         )
 
+    text_contrast_pairs = _as_role_pairs(
+        raw["text_contrast_pairs"],
+        field="text_contrast_pairs",
+        label=label,
+        required_roles=required_roles,
+    )
+    non_text_contrast_pairs = _as_role_pairs(
+        raw["non_text_contrast_pairs"],
+        field="non_text_contrast_pairs",
+        label=label,
+        required_roles=required_roles,
+    )
+
     return {
         "catalog": catalog,
         "source_swatches": normalized_swatches,
         "required_roles": required_roles,
+        "text_contrast_pairs": text_contrast_pairs,
+        "non_text_contrast_pairs": non_text_contrast_pairs,
     }
 
 
@@ -249,7 +304,10 @@ def main(argv: list[str] | None = None) -> int:
             )
         return 1
 
-    print("color-pack contracts match for catalog, source_swatches, and required_roles")
+    print(
+        "color-pack contracts match for catalog, source_swatches, required_roles, "
+        "text_contrast_pairs, and non_text_contrast_pairs"
+    )
     return 0
 
 

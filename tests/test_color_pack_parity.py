@@ -57,6 +57,8 @@ def _write_contract(
                 f"REQUIRED_COLOR_ROLES = {contract['required_roles']!r}",
                 f"COLOR_PACK_CODES = {contract['catalog']!r}",
                 f"_SOURCE_SWATCHES = {contract['source_swatches']!r}",
+                f"TEXT_CONTRAST_PAIRS = {contract['text_contrast_pairs']!r}",
+                f"NON_TEXT_CONTRAST_PAIRS = {contract['non_text_contrast_pairs']!r}",
                 suffix,
             )
         ),
@@ -102,6 +104,8 @@ def test_matching_commit_blobs_pass_even_when_worktrees_drift(tmp_path, capsys):
             "catalog": ("drift",),
             "source_swatches": {"drift": ("#000000",)},
             "required_roles": ("role",),
+            "text_contrast_pairs": (("role", "role"),),
+            "non_text_contrast_pairs": (("role", "role"),),
         },
     )
 
@@ -109,7 +113,16 @@ def test_matching_commit_blobs_pass_even_when_worktrees_drift(tmp_path, capsys):
     assert "color-pack contracts match" in capsys.readouterr().out
 
 
-@pytest.mark.parametrize("field", ["catalog", "source_swatches", "required_roles"])
+@pytest.mark.parametrize(
+    "field",
+    [
+        "catalog",
+        "source_swatches",
+        "required_roles",
+        "text_contrast_pairs",
+        "non_text_contrast_pairs",
+    ],
+)
 def test_each_shared_field_drift_is_reported_from_the_pinned_blobs(tmp_path, capsys, field):
     visualizer, visualizer_sha, grader, _grader_sha = _matching_repos(tmp_path)
     contract = color_pack_contract_snapshot()
@@ -120,8 +133,10 @@ def test_each_shared_field_drift_is_reported_from_the_pinned_blobs(tmp_path, cap
         }
     elif field == "source_swatches":
         contract[field]["default"] = ("#000000",)
+    elif field == "required_roles":
+        contract[field] = (contract[field][1], contract[field][0], *contract[field][2:])
     else:
-        contract[field] = (*contract[field][:-1], "replacement-role")
+        contract[field] = (*contract[field][:-1], tuple(reversed(contract[field][-1])))
     _write_contract(grader, "grader", contract)
     grader_sha = _commit(grader, f"drift {field}")
 
@@ -186,6 +201,20 @@ def test_pinned_blob_never_executes_top_level_side_effects(tmp_path, capsys):
     assert not sentinel.exists()
 
 
+def test_duplicate_literal_declaration_is_a_controlled_failure(tmp_path, capsys):
+    visualizer, visualizer_sha, grader, _grader_sha = _matching_repos(tmp_path)
+    _write_contract(
+        grader,
+        "grader",
+        color_pack_contract_snapshot(),
+        suffix="COLOR_PACK_CODES = ('duplicate',)\n",
+    )
+    grader_sha = _commit(grader, "duplicate declaration")
+
+    assert check_color_pack_parity.main(_args(visualizer, visualizer_sha, grader, grader_sha)) == 2
+    assert "duplicate literal declaration COLOR_PACK_CODES" in capsys.readouterr().err
+
+
 @pytest.mark.parametrize(
     "source, expected",
     [
@@ -193,13 +222,17 @@ def test_pinned_blob_never_executes_top_level_side_effects(tmp_path, capsys):
         (
             "REQUIRED_COLOR_ROLES = ('role',)\n"
             "COLOR_PACK_CODES = ('default',)\n"
-            "_SOURCE_SWATCHES = build_swatches()\n",
+            "_SOURCE_SWATCHES = build_swatches()\n"
+            "TEXT_CONTRAST_PAIRS = (('role', 'role'),)\n"
+            "NON_TEXT_CONTRAST_PAIRS = (('role', 'role'),)\n",
             "_SOURCE_SWATCHES must be a literal",
         ),
         (
             "REQUIRED_COLOR_ROLES = ('role',)\n"
             "COLOR_PACK_CODES = ('default',)\n"
-            "_SOURCE_SWATCHES = {'other': ('#000000',)}\n",
+            "_SOURCE_SWATCHES = {'other': ('#000000',)}\n"
+            "TEXT_CONTRAST_PAIRS = (('role', 'role'),)\n"
+            "NON_TEXT_CONTRAST_PAIRS = (('role', 'role'),)\n",
             "source_swatches keys must match catalog order",
         ),
     ],

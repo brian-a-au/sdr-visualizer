@@ -115,11 +115,12 @@ visualizer-only differences stay documented and tested in
 
 `render/color_packs.py` is also a shared runtime path. Its
 `color_pack_contract_snapshot()` exposes only the ordered catalog, ordered
-source swatches for every catalog entry, and ordered required-role names. It
-deliberately excludes derived role values so each project can render its own
-presentation while sharing the source contract. Release qualification loads
-both registry blobs from explicit visualizer and grader commit SHAs with no
-package dependency or working-tree read, then compares those fields using
+source swatches for every catalog entry, ordered required-role names, and the
+ordered text/non-text accessibility pairs. It deliberately excludes derived
+role values so each project can render its own presentation while sharing the
+source and accessibility-gate contract. Release qualification loads both
+registry blobs from explicit visualizer and grader commit SHAs with no package
+dependency or working-tree read, then compares those fields using
 `scripts/check_color_pack_parity.py`.
 
 If a third tool creates sustained demand for the same layer, reconsider a

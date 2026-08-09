@@ -661,7 +661,7 @@ h1 {
   font-family: "Söhne", "Inter", system-ui, sans-serif;
   font-size: 13px;
   padding: 6px 10px;
-  border: 1px solid var(--sdr-border-default);
+  border: 1px solid var(--sdr-border-strong);
   border-radius: 2px;
   background: var(--sdr-surface-panel);
   color: var(--sdr-text-primary);
@@ -677,7 +677,7 @@ h1 {
 .ghost-button {
   font-size: 12px;
   padding: 5px 12px;
-  border: 1px solid var(--sdr-border-default);
+  border: 1px solid var(--sdr-border-strong);
   border-radius: 2px;
   background: var(--sdr-surface-panel);
   color: var(--sdr-fixed-neutral-strong-text);

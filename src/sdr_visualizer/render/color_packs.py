@@ -48,7 +48,7 @@ REQUIRED_COLOR_ROLES = (
 
 COLOR_PACK_CODES = ("default", "ADBE", "OMTR", "BLUE")
 
-# This mapping and the two tuples above are deliberately literal declarations.
+# This mapping and the contract tuples above and below are deliberately literal declarations.
 # The cross-repository parity check reads them with ast.literal_eval, so comparing
 # a sibling checkout never imports or executes either repository's Python code.
 _SOURCE_SWATCHES = {
@@ -347,15 +347,17 @@ COLOR_PACKS: Mapping[str, ColorPack] = MappingProxyType(
 
 
 def color_pack_contract_snapshot() -> dict[str, object]:
-    """Return a copy-safe snapshot of the shared, source-only pack contract.
+    """Return a copy-safe snapshot of the shared cross-repository contract.
 
     Derived semantic role values are deliberately excluded: sibling parity is
-    defined by the public catalog, reviewed source swatches, and role names.
+    defined by the catalog, source swatches, role names, and accessibility gates.
     """
     return {
         "catalog": tuple(COLOR_PACK_CODES),
         "source_swatches": {code: tuple(_SOURCE_SWATCHES[code]) for code in COLOR_PACK_CODES},
         "required_roles": tuple(REQUIRED_COLOR_ROLES),
+        "text_contrast_pairs": tuple(TEXT_CONTRAST_PAIRS),
+        "non_text_contrast_pairs": tuple(NON_TEXT_CONTRAST_PAIRS),
     }
 
 

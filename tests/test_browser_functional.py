@@ -491,6 +491,44 @@ def test_graph_uses_pack_colors_distinct_shapes_and_accessible_type_labels(
     assert observed["edgeStroke"] == observed["expectedEdge"]
 
 
+@pytest.mark.parametrize("color_pack", COLOR_PACK_CODES)
+def test_graph_control_boundaries_meet_non_text_contrast(browser_page, tmp_path, color_pack):
+    _open_tiny_graph(
+        browser_page,
+        tmp_path,
+        f"graph-controls-{color_pack}.html",
+        color_pack=color_pack,
+    )
+
+    ratios = browser_page.evaluate(
+        r"""() => {
+          function luminance(rgb) {
+            const channels = rgb.match(/[\d.]+/g).slice(0, 3).map(value => {
+              const channel = Number(value) / 255;
+              return channel <= 0.04045
+                ? channel / 12.92
+                : Math.pow((channel + 0.055) / 1.055, 2.4);
+            });
+            return 0.2126 * channels[0] + 0.7152 * channels[1] + 0.0722 * channels[2];
+          }
+          function contrast(first, second) {
+            const values = [luminance(first), luminance(second)].sort((a, b) => b - a);
+            return (values[0] + 0.05) / (values[1] + 0.05);
+          }
+          return ['#graph-search', '.ghost-button'].map(selector => {
+            const style = getComputedStyle(document.querySelector(selector));
+            return {
+              selector,
+              ratio: contrast(style.borderTopColor, style.backgroundColor),
+            };
+          });
+        }"""
+    )
+
+    assert {item["selector"] for item in ratios} == {"#graph-search", ".ghost-button"}
+    assert all(item["ratio"] >= 3.0 for item in ratios), (color_pack, ratios)
+
+
 def test_print_media_keeps_only_active_view_on_white_pack_surface(browser_page, tmp_path):
     _open_tiny_graph(browser_page, tmp_path, "print-ADBE.html", color_pack="ADBE")
 

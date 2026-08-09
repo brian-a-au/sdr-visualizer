@@ -242,7 +242,13 @@ def test_visible_css_uses_text_roles_for_text_and_strong_roles_for_control_bound
     assert "--sdr-visualizer-operator-text: #6A4F30;" in css
     assert "color: var(--sdr-visualizer-operator-text);" in css
 
-    for selector in ("#search-input", ".filter-group select", ".chip"):
+    for selector in (
+        "#search-input",
+        ".filter-group select",
+        ".chip",
+        "#graph-search",
+        ".ghost-button",
+    ):
         rule = re.search(rf"{re.escape(selector)} \{{(.*?)\n\}}", css, re.DOTALL)
         assert rule is not None
         assert "border: 1px solid var(--sdr-border-strong);" in rule.group(1)
