@@ -1,0 +1,189 @@
+<!doctype html>
+<html lang="en" data-color-pack="{{ color_pack }}">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{ title }}</title>
+  <style>
+{{ base_css | safe }}
+{{ css | safe }}
+{{ color_pack_css | safe }}
+  </style>
+</head>
+<body>
+  <header class="header">
+    <div class="header-inner">
+      <div class="brand">
+      <span class="eyebrow">Implementation Visualizer</span>
+      <h1>{{ title }}</h1>
+      <div class="subtitle ui">
+        <span class="platform-tag platform-cja">CJA</span>
+        <span>Dataset lineage</span>
+        <span class="separator">·</span>
+        <span class="mono">{{ scope_label }}</span>
+      </div>
+      </div>
+      <div class="meta-strip ui" aria-label="Lineage counts">
+        <div class="meta-item"><span class="meta-label">Datasets</span><span class="meta-value">{{ counts.datasets }}</span></div>
+        <div class="meta-item"><span class="meta-label">Connections</span><span class="meta-value">{{ counts.connections }}</span></div>
+        <div class="meta-item"><span class="meta-label">Data views</span><span class="meta-value">{{ counts.data_views }}</span></div>
+        <div class="meta-item"><span class="meta-label">Relationships</span><span class="meta-value">{{ counts.edges }}</span></div>
+      </div>
+      <div class="lineage-coverage ui" data-coverage-state="{{ coverage.state }}">
+        <strong>{{ coverage.label }}</strong>
+        <span>{{ coverage.detail }}</span>
+      </div>
+    </div>
+  </header>
+
+  <nav class="view-nav ui" aria-label="Report views">
+    <span class="view-button is-active" aria-current="page">Dataset lineage</span>
+  </nav>
+
+  <main class="view lineage-view">
+    <section class="search-panel" aria-labelledby="find-heading">
+      <div>
+        <p class="eyebrow">Inspect lineage</p>
+        <h2 id="find-heading">Explore CJA lineage</h2>
+        <p>Find a Data View, Connection, or dataset and explore its accessible relationships.</p>
+      </div>
+      <div class="search-kind">
+        <label for="lineage-search-kind">Search for</label>
+        <select id="lineage-search-kind"><option value="data-view">Data Views</option><option value="connection">Connections</option><option value="dataset">Datasets</option></select>
+      </div>
+      <label for="lineage-search">Name or stable identifier</label>
+      <input id="lineage-search" type="search" autocomplete="off" aria-controls="lineage-results" aria-describedby="lineage-search-help"{% if empty %} disabled aria-disabled="true"{% endif %}>
+      <p id="lineage-search-help" class="hint">Search does not change the report URL or saved browser state.</p>
+      <div id="lineage-results" class="search-results" role="region" aria-label="Lineage search results"></div>
+      <p id="lineage-status" class="status" role="status" aria-live="polite">
+        {% if empty %}No accessible lineage records were reported for this scope.{% elif gated %}The full diagram is gated by the provisional size limit. Search data remains available.{% else %}Static overview. No data view is selected.{% endif %}
+      </p>
+    </section>
+
+    <section class="topology-panel" aria-labelledby="topology-heading">
+      <div class="section-heading">
+        <div>
+          <p class="eyebrow">Three-column lineage</p>
+          <h2 id="topology-heading">AEP datasets → CJA Connections → CJA Data Views</h2>
+        </div>
+        <ul class="legend" aria-label="Entity shapes">
+          <li><span class="shape shape--dataset" aria-hidden="true"></span>Dataset</li>
+          <li><span class="shape shape--connection" aria-hidden="true"></span>Connection</li>
+          <li><span class="shape shape--data-view" aria-hidden="true"></span>Data view</li>
+        </ul>
+      </div>
+      <div id="lineage-role-legend" class="role-legend ui" hidden>
+        <span class="role-legend-label">Connection-configured role</span>
+        <ul id="lineage-role-legend-items" aria-label="Dataset to Connection role colors"></ul>
+        <span class="role-legend-note">Color applies to dataset → Connection relationships, not universal AEP dataset properties.</span>
+      </div>
+      <section id="lineage-role-coverage" class="role-coverage ui" aria-labelledby="lineage-role-coverage-heading">
+        <div class="role-coverage-heading">
+          <div>
+            <p class="eyebrow">Scope summary</p>
+            <h3 id="lineage-role-coverage-heading">Connection role coverage</h3>
+          </div>
+          <p id="lineage-role-coverage-copy"></p>
+        </div>
+        <div id="lineage-global-role-filters" class="global-role-filters" role="group" aria-label="Highlight topology by Connection role"></div>
+        <details class="role-coverage-note"><summary>How to read coverage</summary><p>Counts describe dataset → Connection relationship instances. Missing, null, and empty values remain distinct from false. Coverage includes only the scope accessible during discovery.</p></details>
+      </section>
+      <div class="graph-actions">
+        <button id="lineage-theme-toggle" type="button" aria-pressed="false">Dark mode</button>
+        <button id="lineage-show-overview" type="button" aria-pressed="true"{% if empty %} disabled aria-disabled="true"{% endif %}>Connection overview</button>
+        <button id="lineage-full-graph" type="button" aria-pressed="false" aria-describedby="lineage-full-graph-cost"{% if empty %} disabled aria-disabled="true"{% endif %}>Draw full topology</button>
+        <p id="lineage-full-graph-cost"{% if gated %} class="gate-warning"{% endif %}>
+          {% if empty %}No topology is available to draw.{% elif gated %}Large graph warning: {{ counts.datasets + counts.connections + counts.data_views }} nodes and {{ counts.edges }} relationships exceed the provisional {{ gating.node_limit }}-node or {{ gating.edge_limit }}-relationship gate. Drawing is explicit and may be costly.{% else %}The full {{ counts.datasets + counts.connections + counts.data_views }}-node, {{ counts.edges }}-relationship SVG is created only on request.{% endif %}
+        </p>
+      </div>
+      <div id="lineage-camera-controls" class="camera-controls ui" aria-label="Diagram navigation" hidden>
+        <div class="camera-buttons">
+          <button id="lineage-zoom-in" type="button" aria-label="Zoom in" aria-keyshortcuts="+">Zoom in</button>
+          <button id="lineage-zoom-out" type="button" aria-label="Zoom out" aria-keyshortcuts="-">Zoom out</button>
+          <button id="lineage-reset-camera" type="button" aria-label="Reset diagram view" aria-keyshortcuts="0">Reset view</button>
+        </div>
+        <p id="lineage-camera-help">Drag to pan. Use arrow keys to pan, plus and minus to zoom, and 0 to reset. Node names are available in full to assistive technology and on hover.</p>
+        <p id="lineage-motion-copy" class="motion-copy" hidden></p>
+      </div>
+      <div class="stage-shell">
+        <div id="lineage-stage-key" class="stage-key ui" role="group" aria-label="Topology columns" hidden>
+          <span class="stage-key-item stage-key-item--dataset"><span aria-hidden="true">D</span>AEP datasets <strong id="lineage-key-datasets"></strong></span>
+          <span class="stage-key-item stage-key-item--connection"><span aria-hidden="true">C</span>CJA connections <strong id="lineage-key-connections"></strong></span>
+          <span class="stage-key-item stage-key-item--data-view"><span aria-hidden="true">V</span>CJA data views <strong id="lineage-key-data-views"></strong></span>
+        </div>
+        <div id="lineage-stage" class="stage" data-state="overview" tabindex="0" aria-label="Lineage diagram" aria-describedby="lineage-camera-help">
+{% if empty %}
+          <p class="empty-state">There is no topology to draw. The zero counts and discovery coverage above remain authoritative.</p>
+{% else %}
+          <p class="overview-state">The initial overview is intentionally static and unselected. Prepared build-side geometry is embedded for bounded inspection.</p>
+{% endif %}
+        </div>
+        <div id="lineage-stage-toolbar" class="stage-toolbar ui" aria-label="Diagram display controls" hidden>
+          <span class="flow-indicator"><span aria-hidden="true"></span>Lineage flow</span>
+          <button id="lineage-flow-pause" type="button" aria-pressed="false" hidden>Pause flow</button>
+
+        </div>
+      </div>
+      <section id="lineage-details" class="lineage-details" aria-labelledby="lineage-selection-heading" hidden>
+        <div class="detail-heading">
+          <div>
+            <p class="eyebrow">Selected data view</p>
+            <h3 id="lineage-selection-heading"></h3>
+            <p id="lineage-selection-id" class="stable-id"></p>
+          </div>
+          <button id="lineage-back-connection" type="button">Back to Connection</button>
+          <button id="lineage-clear-selection" type="button">Clear selection</button>
+        </div>
+        <div class="detail-grid">
+          <section aria-labelledby="lineage-parent-heading">
+            <h4 id="lineage-parent-heading">Parent connection</h4>
+            <div id="lineage-parent"></div>
+          </section>
+          <section aria-labelledby="lineage-datasets-heading">
+            <h4 id="lineage-datasets-heading">Backing datasets</h4>
+            <div id="lineage-datasets"></div>
+          </section>
+          <section aria-labelledby="lineage-siblings-heading">
+            <h4 id="lineage-siblings-heading">Sibling data views</h4>
+            <div id="lineage-siblings"></div>
+          </section>
+        </div>
+        <section id="lineage-relationship-details" class="relationship-details" aria-labelledby="lineage-relationship-heading" hidden>
+          <div class="relationship-heading">
+            <div>
+              <p class="eyebrow">Selected dataset → connection</p>
+              <h4 id="lineage-relationship-heading"></h4>
+              <p id="lineage-relationship-id" class="stable-id"></p>
+            </div>
+          </div>
+          <div id="lineage-relationship-summary" class="relationship-summary ui" aria-label="Relationship metadata summary"></div>
+          <p class="semantic-boundary">CJA dataset role is configuration for this Connection relationship. It does not describe XDM record or time-series behavior, and it does not indicate AEP Real-Time Customer Profile enablement. Ingestion observations do not establish end-to-end CJA reporting readiness.</p>
+          <p id="lineage-relationship-context" class="relationship-context" role="note" hidden></p>
+          <div id="lineage-relationship-metadata" class="metadata-grid"></div>
+        </section>
+        <div id="lineage-route-controls" class="route-controls" hidden>
+          <p id="lineage-route-copy"></p>
+          <button id="lineage-clear-route" type="button">Clear selected route</button>
+        </div>
+      </section>
+      <noscript><p class="noscript">The scope, coverage, counts, and static explanation remain available without JavaScript.</p></noscript>
+    </section>
+  </main>
+
+  <footer class="footer ui">
+    <span>Generated by sdr-visualizer {{ visualizer_version }}</span>
+    <span class="separator">·</span>
+    <span>Color pack: {{ color_pack }}</span>
+    <span class="separator">·</span>
+    <span>Private CJA lineage POC</span>
+  </footer>
+
+  <script id="sdr-lineage-data" type="application/json">{{ payload_json | safe }}</script>
+  <script>
+{{ graph_js | safe }}
+  </script>
+  <script>
+{{ js | safe }}
+  </script>
+</body>
+</html>

@@ -86,7 +86,7 @@ uv run python scripts/check_color_pack_parity.py \\
 uv run pytest tests/test_structure_limits.py tests/test_adapters_cja.py \
   tests/test_adapters_aa.py tests/test_cli.py tests/test_analysis_trend.py \
   tests/test_renderer.py -q
-uv run pytest --ignore=tests/test_browser_functional.py \
+uv run pytest --ignore=tests/test_browser_functional.py --ignore=tests/test_lineage_browser.py \
   --cov=sdr_visualizer --cov-branch --cov-report=term-missing \
   --cov-report=json --cov-fail-under=99
 
@@ -98,7 +98,8 @@ uv run python scripts/generate_large_fixture.py
 uv run python scripts/generate_aa_large_fixture.py
 uv run python scripts/generate_large_fixture.py \
   --scale 1.67 --output tests/fixtures/cja_snapshot_xl.json
-uv run pytest tests/test_browser_functional.py -v
+uv run pytest tests/test_browser_functional.py tests/test_lineage_browser.py -v
+uv run python scripts/perf_lineage_poc.py
 uv run python scripts/perf_browser_check.py
 uv run python scripts/perf_check.py
 ```

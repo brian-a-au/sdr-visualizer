@@ -44,6 +44,7 @@ REQUIRED_SDIST_PATHS = {
     "docs/PERFORMANCE.md",
     "docs/PRODUCT_CONTRACT.md",
     "docs/RELEASING.md",
+    "docs/LINEAGE.md",
     "docs/payload-schema.json",
 }
 FORBIDDEN_SDIST_COMPONENTS = {"__pycache__", ".pytest_cache", ".git"}
@@ -310,6 +311,46 @@ def smoke_artifact(
             env=env,
         )
         validate_render(report, label)
+
+        lineage_console = console.with_name("cja-lineage.exe" if os.name == "nt" else "cja-lineage")
+        run_checked(
+            [str(lineage_console), "--help"], label=label, stage="lineage --help", cwd=work, env=env
+        )
+        lineage_fixture = work / "discovery.json"
+        lineage_fixture.write_text(
+            json.dumps(
+                {
+                    "dataViews": [
+                        {
+                            "id": "dv-smoke",
+                            "name": "Synthetic lineage",
+                            "connection": {"id": "conn-smoke", "name": "Synthetic connection"},
+                            "datasets": [{"id": "ds-smoke", "name": "Synthetic dataset"}],
+                        }
+                    ],
+                    "count": 1,
+                }
+            ),
+            encoding="utf-8",
+        )
+        lineage_report = work / "lineage.html"
+        run_checked(
+            [
+                str(lineage_console),
+                "--saved",
+                str(lineage_fixture),
+                "--output",
+                str(lineage_report),
+                "--quiet",
+            ],
+            label=label,
+            stage="lineage render",
+            cwd=work,
+            env=env,
+        )
+        lineage_html = lineage_report.read_text(encoding="utf-8")
+        if 'id="sdr-lineage-data"' not in lineage_html or "Synthetic lineage" not in lineage_html:
+            raise _fail(label, "lineage render", "embedded lineage payload or fixture is absent")
         return version
 
 

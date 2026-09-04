@@ -45,6 +45,7 @@ uv run pytest --ignore=tests/test_browser_functional.py --cov=sdr_visualizer --c
 uv run ruff check                # lint
 uv run ruff format               # format (the repo is format-clean)
 uv run python scripts/check_markdown_links.py
+uv run python scripts/perf_lineage_poc.py     # CJA lineage build/size budgets
 uv run python scripts/perf_check.py           # build/size budgets
 uv run python scripts/perf_browser_check.py   # browser budgets
 uv run python scripts/check_workflow_policy.py

@@ -1,0 +1,19 @@
+{
+  "dataViews": [
+    {
+      "id": "dv-<script>",
+      "name": "<img src=x onerror=alert(1)> 😀",
+      "connection": {
+        "id": "conn-&-東京",
+        "name": "</script><script>alert(2)</script>"
+      },
+      "datasets": [
+        {
+          "id": "ds-quote-\"-apostrophe-'",
+          "name": "<svg onload=alert(3)> café"
+        }
+      ]
+    }
+  ],
+  "count": 1
+}

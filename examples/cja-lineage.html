@@ -1,0 +1,3485 @@
+<!doctype html>
+<html lang="en" data-color-pack="default">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>CJA Dataset Lineage</title>
+  <style>
+/* These legacy neutrals deliberately stay pack-independent: they preserve the
+ * default visual hierarchy for secondary copy, overlays, nested shading, and
+ * subtle operator backgrounds. Chromatic meaning uses the semantic pack roles. */
+:root {
+  --sdr-fixed-neutral-strong-text: #2A2A2A;
+  --sdr-fixed-neutral-secondary-text: #4A4A44;
+  --sdr-fixed-neutral-faint: #C8C4B8;
+  --sdr-fixed-neutral-soft-background: #F2F0E9;
+  --sdr-fixed-neutral-and-background: #E6E2D4;
+  --sdr-fixed-neutral-warm-background: #F5DBB5;
+  --sdr-fixed-neutral-negative-background: #F5D8D2;
+  --sdr-fixed-neutral-negative-text: #8B2A1F;
+  --sdr-fixed-neutral-nesting: rgba(20, 20, 18, 0.035);
+  --sdr-fixed-neutral-shadow: rgba(20, 20, 18, 0.06);
+  --sdr-fixed-neutral-overlay: rgba(20, 20, 18, 0.18);
+  --sdr-visualizer-calculated-metric: var(--sdr-component-calculated-metric);
+  --sdr-visualizer-missing-content: var(--sdr-severity-high);
+  --sdr-visualizer-change-modified: var(--sdr-change-modified);
+  --sdr-visualizer-graph-link: var(--sdr-chart-grid);
+  --sdr-visualizer-operator-text: var(--sdr-text-muted);
+}
+/* Renderer-specific aliases preserve pre-feature default pixels where the
+ * shared accessible role uses a reviewed replacement. Non-default packs
+ * inherit the shared semantic roles above. */
+:root[data-color-pack="default"] {
+  --sdr-visualizer-calculated-metric: #A08018;
+  --sdr-visualizer-change-modified: #8A6D2F;
+  --sdr-visualizer-graph-link: #C8C4B8;
+  --sdr-visualizer-operator-text: #6A4F30;
+}
+
+/* ---------- Reset & base ---------- */
+*, *::before, *::after { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; }
+body {
+  margin: 0;
+  font-family: "Charter", "Iowan Old Style", "Source Serif Pro", Georgia, "Times New Roman", serif;
+  font-size: 16px;
+  line-height: 1.55;
+  color: var(--sdr-text-primary);
+  background: var(--sdr-surface-page);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+.ui   { font-family: "Söhne", "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+.mono { font-family: "JetBrains Mono", "SF Mono", "Menlo", "Consolas", monospace; }
+
+a { color: var(--sdr-text-primary); text-decoration: underline; text-decoration-thickness: 1px; text-underline-offset: 2px; }
+a:hover { text-decoration-color: var(--sdr-text-primary); }
+button { font: inherit; color: inherit; background: none; border: 0; cursor: pointer; }
+
+/* ---------- Header ---------- */
+.header {
+  border-bottom: 1px solid var(--sdr-fixed-neutral-strong-text);
+  background: var(--sdr-surface-page);
+}
+.header-inner {
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: 40px 32px 24px;
+}
+.eyebrow {
+  font-family: "Söhne", "Inter", system-ui, sans-serif;
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--sdr-text-muted);
+  display: block;
+  margin-bottom: 8px;
+}
+h1 {
+  font-weight: 500;
+  font-size: 32px;
+  line-height: 1.15;
+  letter-spacing: -0.01em;
+  margin: 0 0 12px;
+}
+.subtitle {
+  font-size: 13px;
+  color: var(--sdr-text-muted);
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 28px;
+}
+.subtitle .separator { color: var(--sdr-fixed-neutral-faint); }
+.platform-tag {
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  font-weight: 500;
+  padding: 3px 8px;
+  border: 1px solid var(--sdr-fixed-neutral-faint);
+  border-radius: 2px;
+  color: var(--sdr-fixed-neutral-strong-text);
+}
+.platform-tag.platform-cja { border-color: var(--sdr-component-dimension); color: var(--sdr-focus-ring); }
+.platform-tag.platform-aa  { border-color: var(--sdr-component-segment); color: var(--sdr-accent-secondary); }
+
+.meta-strip {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 28px;
+  padding: 14px 0 0;
+  border-top: 1px solid var(--sdr-surface-emphasis);
+  font-size: 13px;
+}
+.meta-item { display: flex; flex-direction: column; gap: 2px; }
+.meta-label {
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--sdr-text-muted);
+  font-weight: 500;
+}
+.meta-value { font-size: 18px; color: var(--sdr-text-primary); font-weight: 500; }
+
+/* ---------- View nav ---------- */
+.view-nav {
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: 14px 32px;
+  display: flex;
+  gap: 24px;
+  border-bottom: 1px solid var(--sdr-surface-emphasis);
+  background: var(--sdr-surface-page);
+  position: sticky;
+  top: 0;
+  z-index: 5;
+}
+.view-button {
+  font-size: 12px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--sdr-text-muted);
+  font-weight: 500;
+  padding: 4px 0;
+  border-bottom: 2px solid transparent;
+  transition: color 0.12s, border-color 0.12s;
+}
+.view-button:hover:not([disabled]) { color: var(--sdr-text-primary); }
+.view-button.is-active { color: var(--sdr-text-primary); border-bottom-color: var(--sdr-text-primary); }
+.view-button[disabled] { color: var(--sdr-fixed-neutral-faint); cursor: not-allowed; }
+
+/* ---------- Catalog controls ---------- */
+.view {
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: 24px 32px 96px;
+}
+.catalog-controls {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--sdr-surface-emphasis);
+  margin-bottom: 16px;
+}
+.search-row {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+.search-label {
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--sdr-text-muted);
+  font-weight: 500;
+}
+#search-input {
+  flex: 1;
+  max-width: 480px;
+  font: inherit;
+  font-family: "Söhne", "Inter", system-ui, sans-serif;
+  font-size: 14px;
+  padding: 8px 12px;
+  border: 1px solid var(--sdr-border-strong);
+  border-radius: 2px;
+  background: var(--sdr-surface-panel);
+  color: var(--sdr-text-primary);
+}
+#search-input:focus {
+  outline: none;
+  border-color: var(--sdr-text-primary);
+}
+.result-count {
+  font-size: 12px;
+  color: var(--sdr-text-muted);
+}
+.filter-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 24px;
+  align-items: flex-start;
+}
+.filter-group {
+  border: 0;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.filter-group legend {
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--sdr-text-muted);
+  font-weight: 500;
+  padding: 0;
+  margin-bottom: 2px;
+}
+.filter-group select {
+  font: inherit;
+  font-family: "Söhne", "Inter", system-ui, sans-serif;
+  font-size: 13px;
+  padding: 5px 28px 5px 10px;
+  border: 1px solid var(--sdr-border-strong);
+  border-radius: 2px;
+  background: var(--sdr-surface-panel);
+  color: var(--sdr-text-primary);
+  appearance: none;
+  background-image: linear-gradient(45deg, transparent 50%, var(--sdr-text-muted) 50%), linear-gradient(135deg, var(--sdr-text-muted) 50%, transparent 50%);
+  background-position: calc(100% - 14px) 50%, calc(100% - 9px) 50%;
+  background-size: 5px 5px;
+  background-repeat: no-repeat;
+}
+
+.chip-group { display: flex; flex-wrap: wrap; gap: 6px; }
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-family: "Söhne", "Inter", system-ui, sans-serif;
+  padding: 4px 10px;
+  border: 1px solid var(--sdr-border-strong);
+  border-radius: 999px;
+  cursor: pointer;
+  user-select: none;
+  background: var(--sdr-surface-panel);
+  color: var(--sdr-text-muted);
+  transition: border-color 0.12s, color 0.12s, background 0.12s;
+}
+.chip input { display: none; }
+.chip:has(input:checked) {
+  border-color: var(--sdr-text-primary);
+  color: var(--sdr-text-primary);
+  background: var(--sdr-surface-subtle);
+}
+.dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--sdr-text-muted);
+}
+.dot-metric            { background: var(--sdr-component-metric); }
+.dot-dimension         { background: var(--sdr-component-dimension); }
+.dot-derived_field     { background: var(--sdr-component-derived-field); }
+.dot-segment           { background: var(--sdr-component-segment); }
+.dot-calculated_metric { background: var(--sdr-visualizer-calculated-metric); }
+
+/* ---------- Catalog table ---------- */
+.catalog-table-wrap { overflow-x: auto; }
+.catalog-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+}
+.catalog-table thead th {
+  font-family: "Söhne", "Inter", system-ui, sans-serif;
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--sdr-text-muted);
+  font-weight: 500;
+  text-align: left;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--sdr-fixed-neutral-strong-text);
+  white-space: nowrap;
+}
+.catalog-table thead th.num { text-align: right; }
+.catalog-table thead th.sortable { cursor: pointer; user-select: none; }
+.catalog-table thead th.sortable:hover { color: var(--sdr-text-primary); }
+.catalog-table thead th.is-sorted::after {
+  content: "↑";
+  display: inline-block;
+  margin-left: 6px;
+  font-size: 10px;
+}
+.catalog-table thead th.is-sorted.is-desc::after { content: "↓"; }
+
+.catalog-table tbody tr {
+  border-bottom: 1px solid var(--sdr-surface-emphasis);
+  cursor: pointer;
+  transition: background 0.08s;
+}
+.catalog-table tbody tr:hover { background: var(--sdr-surface-subtle); }
+.catalog-table tbody td {
+  padding: 12px;
+  vertical-align: top;
+}
+.catalog-table tbody td.num { text-align: right; }
+.catalog-table .col-name {
+  font-weight: 500;
+  max-width: 280px;
+}
+.catalog-table .row-name-cell {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+.catalog-table .row-id {
+  font-family: "JetBrains Mono", "SF Mono", "Menlo", monospace;
+  font-size: 11px;
+  color: var(--sdr-text-muted);
+  display: block;
+  margin-top: 2px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.catalog-table .col-type {
+  font-family: "Söhne", "Inter", system-ui, sans-serif;
+  font-size: 12px;
+  color: var(--sdr-text-muted);
+  white-space: nowrap;
+}
+.catalog-table .col-type .dot { margin-right: 6px; }
+.catalog-table .col-description {
+  color: var(--sdr-fixed-neutral-secondary-text);
+  max-width: 360px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.catalog-table .col-description.is-missing {
+  color: var(--sdr-visualizer-missing-content);
+  font-style: italic;
+}
+.catalog-table .col-tags {
+  font-family: "Söhne", "Inter", system-ui, sans-serif;
+  font-size: 12px;
+  color: var(--sdr-text-muted);
+}
+.catalog-table .tag {
+  display: inline-block;
+  padding: 1px 6px;
+  margin-right: 4px;
+  margin-bottom: 2px;
+  background: var(--sdr-surface-emphasis);
+  border-radius: 2px;
+  color: var(--sdr-fixed-neutral-secondary-text);
+}
+.catalog-table .col-refs {
+  font-family: "Söhne", "Inter", system-ui, sans-serif;
+  font-size: 13px;
+  color: var(--sdr-text-primary);
+}
+.catalog-table .col-refs.zero { color: var(--sdr-fixed-neutral-faint); }
+.catalog-table .col-modified, .catalog-table .col-owner {
+  font-family: "Söhne", "Inter", system-ui, sans-serif;
+  font-size: 12px;
+  color: var(--sdr-text-muted);
+  white-space: nowrap;
+}
+.catalog-empty {
+  padding: 56px 0;
+  text-align: center;
+  color: var(--sdr-text-muted);
+  font-size: 14px;
+}
+
+/* ---------- Detail panel ---------- */
+.detail-overlay {
+  position: fixed;
+  inset: 0;
+  background: var(--sdr-fixed-neutral-overlay);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.14s;
+  z-index: 10;
+}
+.detail-overlay.is-open { opacity: 1; pointer-events: auto; }
+
+.detail-panel {
+  position: fixed;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: 480px;
+  max-width: 92vw;
+  background: var(--sdr-surface-page);
+  border-left: 1px solid var(--sdr-border-default);
+  box-shadow: -8px 0 24px var(--sdr-fixed-neutral-shadow);
+  transform: translateX(100%);
+  transition: transform 0.14s ease-out;
+  z-index: 11;
+  overflow-y: auto;
+}
+.detail-panel.is-open { transform: translateX(0); }
+
+.detail-panel-inner { padding: 32px 32px 64px; }
+.detail-close {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  font-size: 24px;
+  line-height: 1;
+  color: var(--sdr-text-muted);
+  padding: 4px 8px;
+}
+.detail-close:hover { color: var(--sdr-text-primary); }
+
+.detail-eyebrow {
+  font-family: "Söhne", "Inter", system-ui, sans-serif;
+  font-size: 11px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--sdr-text-muted);
+  margin-bottom: 8px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.detail-name {
+  font-size: 26px;
+  font-weight: 500;
+  line-height: 1.2;
+  margin: 0 0 8px;
+}
+.detail-id {
+  font-family: "JetBrains Mono", "SF Mono", monospace;
+  font-size: 12px;
+  color: var(--sdr-text-muted);
+  word-break: break-all;
+  margin-bottom: 24px;
+}
+.detail-section {
+  border-top: 1px solid var(--sdr-surface-emphasis);
+  padding-top: 16px;
+  margin-bottom: 16px;
+}
+.detail-section h3 {
+  font-family: "Söhne", "Inter", system-ui, sans-serif;
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--sdr-text-muted);
+  font-weight: 500;
+  margin: 0 0 8px;
+}
+.detail-grid {
+  display: grid;
+  grid-template-columns: 120px 1fr;
+  gap: 6px 16px;
+  font-family: "Söhne", "Inter", system-ui, sans-serif;
+  font-size: 13px;
+}
+.detail-grid dt { color: var(--sdr-text-muted); }
+.detail-grid dd { margin: 0; color: var(--sdr-text-primary); }
+.detail-grid .mono-value {
+  font-family: "JetBrains Mono", "SF Mono", monospace;
+  font-size: 12px;
+  word-break: break-all;
+}
+.detail-description {
+  color: var(--sdr-fixed-neutral-strong-text);
+  font-size: 15px;
+  line-height: 1.55;
+}
+.detail-description.is-missing {
+  color: var(--sdr-visualizer-missing-content);
+  font-style: italic;
+}
+.detail-references {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  font-family: "JetBrains Mono", "SF Mono", monospace;
+  font-size: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.detail-references li button {
+  text-align: left;
+  color: var(--sdr-text-primary);
+  border-bottom: 1px solid transparent;
+  padding: 0;
+}
+.detail-references li button:hover { border-bottom-color: var(--sdr-text-primary); }
+
+.formula-block {
+  font-family: "JetBrains Mono", "SF Mono", monospace;
+  font-size: 13px;
+  background: var(--sdr-surface-subtle);
+  border-left: 2px solid var(--sdr-visualizer-calculated-metric);
+  padding: 10px 12px;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+/* ---------- Segment anatomy ---------- */
+.anatomy {
+  font-family: "Söhne", "Inter", system-ui, sans-serif;
+  font-size: 13px;
+  color: var(--sdr-fixed-neutral-strong-text);
+}
+/* Each container slightly darkens — alpha stacks visually under nesting,
+ * so depth communicates through subtle shading rather than visible borders. */
+.anatomy-container {
+  margin: 4px 0;
+  padding: 8px 10px;
+  background: var(--sdr-fixed-neutral-nesting);
+  border-radius: 2px;
+}
+.anatomy-container > .anatomy-label {
+  display: inline-block;
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  font-weight: 500;
+  color: var(--sdr-text-muted);
+  margin-bottom: 4px;
+}
+.anatomy-container[data-context] .anatomy-label::before {
+  content: "";
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--sdr-text-muted);
+  margin-right: 6px;
+  vertical-align: 1px;
+}
+.anatomy-container[data-context*="event"] .anatomy-label::before     { background: var(--sdr-component-segment); }
+.anatomy-container[data-context*="session"] .anatomy-label::before   { background: var(--sdr-component-dimension); }
+.anatomy-container[data-context*="person"] .anatomy-label::before    { background: var(--sdr-component-metric); }
+.anatomy-container[data-context*="hit"] .anatomy-label::before       { background: var(--sdr-component-segment); }
+.anatomy-container[data-context*="visit"] .anatomy-label::before     { background: var(--sdr-component-dimension); }
+.anatomy-container[data-context*="visitor"] .anatomy-label::before   { background: var(--sdr-component-metric); }
+
+.anatomy-logical { margin: 3px 0; padding: 6px 0; }
+.anatomy-logical-op {
+  display: inline-block;
+  padding: 1px 6px;
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  font-weight: 500;
+  border-radius: 2px;
+  margin-bottom: 4px;
+}
+.anatomy-op-and { background: var(--sdr-fixed-neutral-and-background); color: var(--sdr-fixed-neutral-strong-text); }
+.anatomy-op-or  { background: var(--sdr-fixed-neutral-warm-background); color: var(--sdr-visualizer-operator-text); }
+.anatomy-op-not, .anatomy-op-without { background: var(--sdr-fixed-neutral-negative-background); color: var(--sdr-fixed-neutral-negative-text); }
+
+.anatomy-children { padding-left: 4px; }
+.anatomy-criterion {
+  padding: 4px 8px;
+  margin: 2px 0;
+  font-family: "JetBrains Mono", "SF Mono", monospace;
+  font-size: 12px;
+  color: var(--sdr-fixed-neutral-strong-text);
+}
+.anatomy-criterion .criterion-target { font-weight: 500; color: var(--sdr-text-primary); }
+.anatomy-criterion .criterion-op { color: var(--sdr-text-muted); padding: 0 4px; }
+.anatomy-criterion .criterion-value { color: var(--sdr-accent-secondary); }
+
+.anatomy-segment-ref {
+  padding: 4px 8px;
+  margin: 2px 0;
+  font-family: "JetBrains Mono", "SF Mono", monospace;
+  font-size: 12px;
+}
+.anatomy-segment-ref button {
+  color: var(--sdr-fixed-neutral-strong-text);
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 2px;
+  padding: 0;
+}
+.anatomy-segment-ref button:hover { color: var(--sdr-text-primary); }
+
+.anatomy-unknown {
+  padding: 4px 8px;
+  font-size: 11px;
+  color: var(--sdr-visualizer-missing-content);
+  font-style: italic;
+}
+
+/* ---------- Calc metric anatomy ---------- */
+.formula-tree {
+  font-family: "JetBrains Mono", "SF Mono", monospace;
+  font-size: 13px;
+  color: var(--sdr-fixed-neutral-strong-text);
+}
+.formula-op {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 0;
+}
+.formula-op-name {
+  font-family: "Söhne", "Inter", system-ui, sans-serif;
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  font-weight: 500;
+  color: var(--sdr-visualizer-operator-text);
+  background: var(--sdr-fixed-neutral-warm-background);
+  padding: 1px 6px;
+  border-radius: 2px;
+}
+.formula-args {
+  margin-top: 4px;
+  padding-left: 14px;
+  border-left: 2px solid var(--sdr-surface-emphasis);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.formula-metric-ref {
+  color: var(--sdr-text-primary);
+}
+.formula-metric-ref button {
+  color: var(--sdr-text-primary);
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 2px;
+  font-family: inherit;
+  font-size: inherit;
+  padding: 0;
+}
+.formula-metric-ref button.is-dangling { color: var(--sdr-visualizer-missing-content); cursor: default; text-decoration: none; }
+.formula-constant { color: var(--sdr-text-muted); }
+.formula-segment-scope { color: var(--sdr-accent-secondary); }
+
+/* ---------- Graph view ---------- */
+.view-graph { padding-top: 16px; }
+.graph-controls {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--sdr-surface-emphasis);
+  margin-bottom: 16px;
+}
+.graph-search-row {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+#graph-search {
+  flex: 1;
+  max-width: 360px;
+  font-family: "Söhne", "Inter", system-ui, sans-serif;
+  font-size: 13px;
+  padding: 6px 10px;
+  border: 1px solid var(--sdr-border-strong);
+  border-radius: 2px;
+  background: var(--sdr-surface-panel);
+  color: var(--sdr-text-primary);
+}
+#graph-search:focus { outline: none; border-color: var(--sdr-text-primary); }
+.graph-stats { font-size: 12px; color: var(--sdr-text-muted); }
+.graph-filter-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 24px;
+  align-items: flex-end;
+}
+.ghost-button {
+  font-size: 12px;
+  padding: 5px 12px;
+  border: 1px solid var(--sdr-border-strong);
+  border-radius: 2px;
+  background: var(--sdr-surface-panel);
+  color: var(--sdr-fixed-neutral-strong-text);
+  font-weight: 500;
+  cursor: pointer;
+  transition: border-color 0.12s, color 0.12s;
+}
+.ghost-button:hover { border-color: var(--sdr-text-primary); color: var(--sdr-text-primary); }
+
+.graph-stage {
+  position: relative;
+  width: 100%;
+  height: min(72vh, 760px);
+  min-height: 480px;
+  background: var(--sdr-surface-panel);
+  border: 1px solid var(--sdr-surface-emphasis);
+  border-radius: 2px;
+  overflow: hidden;
+}
+#graph-canvas { width: 100%; height: 100%; cursor: grab; }
+#graph-canvas:active { cursor: grabbing; }
+
+.graph-degraded {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  padding: 32px;
+  text-align: center;
+  background: var(--sdr-surface-page);
+  z-index: 1;
+}
+.graph-degraded[hidden] { display: none; }
+.graph-degraded p {
+  max-width: 480px;
+  color: var(--sdr-fixed-neutral-secondary-text);
+  margin: 0;
+  font-size: 14px;
+}
+
+.graph-edge {
+  stroke: var(--sdr-visualizer-graph-link);
+  stroke-opacity: 0.6;
+  stroke-width: 1px;
+}
+.graph-edge.is-faded { stroke-opacity: 0.12; }
+.graph-edge.is-highlighted { stroke: var(--sdr-text-primary); stroke-opacity: 0.9; stroke-width: 1.4px; }
+
+.graph-node-symbol {
+  stroke: var(--sdr-surface-page);
+  stroke-width: 1.5px;
+  cursor: pointer;
+  transition: stroke 0.1s;
+}
+.graph-node.is-faded .graph-node-symbol { opacity: 0.2; }
+.graph-node.is-highlighted .graph-node-symbol { stroke: var(--sdr-text-primary); stroke-width: 2px; }
+/* Search-match highlights persist through hover fading: the two classes
+   co-occur only in paintGraph's hover branch, and without this the fade's
+   opacity would swallow the highlight ring. */
+.graph-node.is-faded.is-highlighted .graph-node-symbol { opacity: 1; }
+
+.graph-node text {
+  font-family: "Söhne", "Inter", system-ui, sans-serif;
+  font-size: 10px;
+  fill: var(--sdr-fixed-neutral-strong-text);
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.1s;
+}
+/* Label culling: only the top-in-degree nodes are labeled at rest; zooming
+   past 1.4x (class graph-labels-all) reveals all labels. Hover / highlight
+   always reveals; faded nodes hide their labels. */
+.graph-node.is-labeled text { opacity: 1; }
+.graph-node:not(.is-labeled) text { display: none; }
+.graph-labels-all .graph-node:not(.is-faded) text { display: inline; opacity: 1; }
+.graph-node.is-faded text { opacity: 0; }
+.graph-node.is-hover text { display: inline; opacity: 1; font-weight: 500; }
+.graph-node.is-highlighted text { display: inline; opacity: 1; }
+
+/* ---------- Footer ---------- */
+.footer {
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: 32px;
+  border-top: 1px solid var(--sdr-surface-emphasis);
+  font-size: 11px;
+  color: var(--sdr-text-muted);
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+.footer .separator { color: var(--sdr-fixed-neutral-faint); }
+
+/* ---------- Mobile ---------- */
+@media (max-width: 720px) {
+  .header-inner, .view-nav, .view, .footer { padding-left: 20px; padding-right: 20px; }
+  h1 { font-size: 26px; }
+  .filter-row { gap: 16px; }
+  .col-modified, .col-owner, .col-tags { display: none; }
+  .detail-panel {
+    top: auto;
+    width: 100%;
+    max-width: 100%;
+    height: 90vh;
+    transform: translateY(100%);
+    border-left: 0;
+    border-top: 1px solid var(--sdr-border-default);
+  }
+  .detail-panel.is-open { transform: translateY(0); }
+}
+
+/* ---------- A11y ---------- */
+@media (prefers-reduced-motion: reduce) {
+  .detail-overlay, .detail-panel, .catalog-table tbody tr, .view-button { transition: none; }
+}
+
+/* ---------- Print ---------- */
+@media print {
+  @page { margin: 12mm; }
+
+  html, body, .header, .view, .graph-stage, .trend-chart {
+    color: var(--sdr-print-foreground) !important;
+    background: var(--sdr-print-background) !important;
+  }
+  body { font-size: 11pt; }
+  .header, .footer, .catalog-table thead th, .catalog-table tbody tr,
+  .trend-chart, .trend-interval, .change-row, .graph-stage {
+    border-color: var(--sdr-print-border) !important;
+  }
+  .view-nav, .catalog-controls, .graph-controls, .changes-search-row,
+  .changes-status, .trend-show-next, .detail-panel, .detail-overlay {
+    display: none !important;
+  }
+  .view { max-width: none; padding: 16px 0 0; }
+  .view[hidden] { display: none !important; }
+  .header-inner, .footer { max-width: none; padding: 12px 0; }
+  .graph-stage { height: 170mm; min-height: 0; overflow: visible; }
+  .graph-node-symbol { stroke: var(--sdr-print-background); }
+  .graph-node text { fill: var(--sdr-print-foreground); }
+  .graph-edge { stroke: var(--sdr-print-border); }
+  .catalog-table-wrap { overflow: visible; }
+  .trend-chart, .trend-interval, .change-row { break-inside: avoid; }
+  a { color: var(--sdr-print-foreground); }
+}
+
+/* ----- Truncated-catalog indicator row ----- */
+.catalog-truncated td {
+  padding: 14px 16px;
+  text-align: center;
+  color: var(--sdr-text-muted);
+  font-style: italic;
+}
+.catalog-truncated { cursor: default; }
+.catalog-table tbody tr.catalog-truncated:hover { background: transparent; }
+
+/* ---------- Changes view (comparative report) ---------- */
+.changes-header { padding-bottom: 16px; border-bottom: 1px solid var(--sdr-surface-emphasis); margin-bottom: 8px; }
+.changes-summary { display: flex; align-items: baseline; gap: 10px; font-size: 14px; }
+.change-count { font-weight: 600; }
+.change-count-added    { color: var(--sdr-change-added); }
+.change-count-removed  { color: var(--sdr-change-removed); }
+.change-count-modified { color: var(--sdr-visualizer-change-modified); }
+.changes-baseline { color: var(--sdr-text-muted); margin-left: auto; }
+.change-group-title {
+  font-size: 12px; font-weight: 600; letter-spacing: 0.1em;
+  text-transform: uppercase; color: var(--sdr-text-muted); margin: 24px 0 8px;
+}
+.change-row { padding: 8px 12px; border-left: 3px solid transparent; border-bottom: 1px solid var(--sdr-surface-emphasis); }
+.change-added    { border-left-color: var(--sdr-change-added); }
+.change-removed  { border-left-color: var(--sdr-change-removed); }
+.change-modified { border-left-color: var(--sdr-visualizer-change-modified); }
+.change-row .dot { margin-right: 6px; }
+.change-name { font-weight: 600; }
+.change-row .row-id { color: var(--sdr-text-muted); font-size: 12px; margin-left: 8px; }
+.change-no-desc { color: var(--sdr-text-muted); font-size: 12px; margin-left: 8px; font-style: italic; }
+.change-link { text-align: left; padding: 0; }
+.change-link:hover .change-name { text-decoration: underline; }
+.change-modified summary { cursor: pointer; }
+.change-field-count { color: var(--sdr-text-muted); font-size: 12px; margin-left: 8px; }
+.change-fields { margin: 8px 0 0; padding-left: 20px; list-style: none; }
+.change-field { font-size: 14px; margin: 4px 0; }
+.change-field-name { font-size: 12px; color: var(--sdr-text-muted); margin-right: 8px; }
+.change-old { text-decoration: line-through; color: var(--sdr-change-removed); }
+.change-new { color: var(--sdr-change-added); }
+.change-list-added   { color: var(--sdr-change-added); margin-right: 8px; }
+.change-list-removed { color: var(--sdr-change-removed); margin-right: 8px; }
+.changes-empty { color: var(--sdr-text-muted); }
+.changes-search-row { display: flex; align-items: center; gap: 10px; margin-top: 12px; }
+#changes-search { flex: 1; max-width: 420px; }
+.changes-status {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 16px 12px;
+  color: var(--sdr-text-muted);
+  font-size: 12px;
+}
+.progressive-button {
+  border: 1px solid var(--sdr-fixed-neutral-faint);
+  background: var(--sdr-surface-panel);
+  color: var(--sdr-fixed-neutral-strong-text);
+  padding: 5px 10px;
+  font: inherit;
+  cursor: pointer;
+}
+.progressive-button:hover { background: var(--sdr-fixed-neutral-soft-background); }
+
+/* ---------- Trend view ---------- */
+.trend-charts {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 16px;
+  padding-bottom: 24px;
+  border-bottom: 1px solid var(--sdr-surface-emphasis);
+}
+.trend-chart { padding: 12px; border: 1px solid var(--sdr-surface-emphasis); background: var(--sdr-surface-panel); }
+.trend-chart-label {
+  font-size: 11px; font-weight: 600; letter-spacing: 0.1em;
+  text-transform: uppercase; color: var(--sdr-text-muted); margin-bottom: 6px;
+}
+.trend-chart-values { font-size: 12px; color: var(--sdr-text-muted); margin-top: 4px; }
+.trend-interval { padding: 8px 12px; border-bottom: 1px solid var(--sdr-surface-emphasis); }
+.trend-interval summary { cursor: pointer; }
+.trend-interval summary .change-count { margin-left: 10px; }
+.trend-range { font-weight: 600; }
+.trend-ids { margin: 8px 0 4px 20px; font-size: 13px; line-height: 1.9; }
+.trend-ids-label { font-weight: 600; margin-right: 8px; }
+.trend-id { background: var(--sdr-fixed-neutral-soft-background); padding: 1px 6px; margin-right: 4px; }
+.trend-show-next { margin-left: 6px; }
+.trend-capped { color: var(--sdr-text-muted); margin-top: 12px; }
+
+:root {
+  --lineage-dataset-color: var(--sdr-component-dimension);
+  --lineage-connection-color: var(--sdr-component-segment);
+  --lineage-data-view-color: var(--sdr-component-derived-field);
+  --lineage-journey-0: var(--sdr-accent-secondary);
+  --lineage-journey-1: var(--sdr-chart-primary);
+  --lineage-journey-2: var(--sdr-chart-secondary);
+  --lineage-role-event: var(--sdr-component-segment);
+  --lineage-role-profile: var(--sdr-component-metric);
+  --lineage-role-lookup: var(--sdr-component-calculated-metric);
+  --lineage-role-summary: var(--sdr-component-derived-field);
+  --lineage-role-other: var(--sdr-accent-primary);
+}
+
+body { min-width: 20rem; }
+
+html[data-theme="dark"] {
+  color-scheme: dark;
+  --sdr-surface-page: #0B1013;
+  --sdr-surface-panel: #151C20;
+  --sdr-surface-subtle: #10171B;
+  --sdr-surface-emphasis: #243038;
+  --sdr-text-primary: #F2F6F7;
+  --sdr-text-muted: #ABB7BC;
+  --sdr-text-inverse: #071013;
+  --sdr-border-default: #34434A;
+  --sdr-border-strong: #7A8A91;
+  --sdr-focus-ring: #F2F6F7;
+  --lineage-dataset-color: color-mix(in srgb, var(--sdr-component-dimension) 58%, #FFFFFF);
+  --lineage-connection-color: color-mix(in srgb, var(--sdr-component-segment) 58%, #FFFFFF);
+  --lineage-data-view-color: color-mix(in srgb, var(--sdr-component-derived-field) 58%, #FFFFFF);
+  --lineage-journey-0: color-mix(in srgb, var(--sdr-accent-secondary) 62%, #FFFFFF);
+  --lineage-journey-1: color-mix(in srgb, var(--sdr-chart-primary) 52%, #FFFFFF);
+  --lineage-journey-2: color-mix(in srgb, var(--sdr-chart-secondary) 58%, #FFFFFF);
+  --lineage-role-event: color-mix(in srgb, var(--sdr-component-segment) 58%, #FFFFFF);
+  --lineage-role-profile: color-mix(in srgb, var(--sdr-component-metric) 58%, #FFFFFF);
+  --lineage-role-lookup: color-mix(in srgb, var(--sdr-component-calculated-metric) 62%, #FFFFFF);
+  --lineage-role-summary: color-mix(in srgb, var(--sdr-component-derived-field) 58%, #FFFFFF);
+  --lineage-role-other: color-mix(in srgb, var(--sdr-accent-primary) 58%, #FFFFFF);
+}
+
+.lineage-coverage { display: flex; gap: .5rem 1rem; align-items: baseline; margin-top: 14px; font-size: 12px; }
+.lineage-coverage strong { color: var(--sdr-accent-secondary); }
+.lineage-coverage span { color: var(--sdr-text-muted); }
+
+.lineage-view { display: grid; gap: 24px; }
+.lineage-view h2,
+.lineage-view h3,
+.lineage-view h4,
+.lineage-view p { margin-top: 0; }
+.lineage-view h2 { margin-bottom: 8px; font-size: 24px; line-height: 1.2; font-weight: 500; letter-spacing: -.01em; }
+.search-panel,
+.topology-panel { padding: 24px 0; border-top: 1px solid var(--sdr-surface-emphasis); background: var(--sdr-surface-page); }
+.search-panel { border-top: 0; padding-top: 0; }
+.search-panel { display: grid; grid-template-columns: minmax(16rem, .75fr) minmax(18rem, 1.25fr); gap: .55rem 2rem; align-items: start; }
+.search-panel > div:first-child { grid-row: span 4; }
+.search-panel p:not(.eyebrow) { margin-bottom: 0; color: var(--sdr-text-muted); font-family: ui-sans-serif, system-ui, sans-serif; }
+label { color: var(--sdr-text-muted); font-family: ui-sans-serif, system-ui, sans-serif; font-size: .8rem; font-weight: 700; }
+input,
+select { width: 100%; min-height: 2.75rem; padding: .65rem .75rem; border: 1px solid var(--sdr-border-strong); border-radius: .25rem; color: var(--sdr-text-primary); background: var(--sdr-surface-page); font: inherit; }
+input:focus-visible,
+select:focus-visible,
+button:focus-visible,
+[tabindex]:focus-visible { outline: 3px solid var(--sdr-focus-ring); outline-offset: 3px; }
+input:disabled { border-color: var(--sdr-border-default); color: var(--sdr-text-muted); background: var(--sdr-surface-subtle); }
+.status, .hint { grid-column: 2; min-height: 1.2rem; margin-bottom: 0; color: var(--sdr-text-muted); font-family: ui-sans-serif, system-ui, sans-serif; font-size: .82rem; }
+button { min-height: 2.65rem; padding: .55rem .75rem; border: 1px solid var(--sdr-border-strong); border-radius: .25rem; color: var(--sdr-text-primary); background: var(--sdr-surface-panel); font: 700 .82rem/1.25 ui-sans-serif, system-ui, sans-serif; cursor: pointer; }
+button:hover:not(:disabled) { border-color: var(--sdr-accent-primary); background: var(--sdr-surface-subtle); }
+button:disabled { color: var(--sdr-text-muted); cursor: not-allowed; }
+.search-results { grid-column: 2; max-height: 18rem; overflow: auto; }
+.result-list, .entity-list { display: grid; gap: .45rem; margin: 0; padding: 0; list-style: none; }
+.result-list button, .dataset-list button { display: grid; width: 100%; text-align: left; }
+.result-list button[aria-pressed="true"], .dataset-list button[aria-pressed="true"] { border-width: 2px; border-color: var(--sdr-accent-primary); background: var(--sdr-surface-emphasis); }
+.result-name, .entity-name { font-weight: 750; }
+.relationship-role { justify-self: start; padding: .12rem .45rem; border: 1px solid var(--relationship-role-color, var(--lineage-connection-color)); border-radius: 999px; color: var(--relationship-role-color, var(--lineage-connection-color)); font-size: .68rem; font-weight: 800; letter-spacing: .04em; text-transform: uppercase; }
+.relationship-role--event { --relationship-role-color: var(--lineage-role-event); }
+.relationship-role--profile { --relationship-role-color: var(--lineage-role-profile); }
+.relationship-role--lookup { --relationship-role-color: var(--lineage-role-lookup); }
+.relationship-role--summary { --relationship-role-color: var(--lineage-role-summary); }
+.relationship-role--other { --relationship-role-color: var(--lineage-role-other); }
+.stable-id { overflow-wrap: anywhere; color: var(--sdr-text-muted); font: .76rem/1.35 ui-monospace, SFMono-Regular, Consolas, monospace; }
+
+.section-heading { display: flex; gap: 1.5rem; justify-content: space-between; align-items: start; }
+.legend { display: flex; flex-wrap: wrap; gap: .8rem; margin: .15rem 0 0; padding: 0; list-style: none; color: var(--sdr-text-muted); font-family: ui-sans-serif, system-ui, sans-serif; font-size: .78rem; }
+.legend li { display: inline-flex; gap: .38rem; align-items: center; }
+.shape { display: inline-block; width: 1.2rem; height: .72rem; border: 2px solid; border-radius: .32rem; background: var(--sdr-surface-subtle); }
+.shape--dataset { border-color: var(--lineage-dataset-color); border-radius: .5rem; }
+.shape--connection { border-color: var(--lineage-connection-color); border-style: dashed; }
+.shape--data-view { border-color: var(--lineage-data-view-color); border-width: 3px; }
+.role-legend { display: flex; flex-wrap: wrap; gap: .55rem .85rem; align-items: center; margin-top: .9rem; padding: .65rem .75rem; border: 1px solid var(--sdr-border-default); border-radius: .65rem; background: var(--sdr-surface-subtle); }
+.role-legend[hidden] { display: none; }
+.role-legend-label { font-size: .7rem; font-weight: 850; letter-spacing: .06em; text-transform: uppercase; }
+.role-legend ul { display: flex; flex-wrap: wrap; gap: .45rem .7rem; margin: 0; padding: 0; list-style: none; }
+.role-legend li { display: inline-flex; gap: .32rem; align-items: center; font-size: .72rem; }
+.role-legend-swatch { width: .7rem; height: .7rem; border-radius: 999px; background: var(--relationship-role-color, var(--sdr-border-strong)); box-shadow: 0 0 0 3px color-mix(in srgb, var(--relationship-role-color, var(--sdr-border-strong)) 14%, transparent); }
+.role-legend-note { flex: 1 1 24rem; color: var(--sdr-text-muted); font-size: .7rem; line-height: 1.4; }
+.role-coverage { display: grid; gap: .75rem; margin-top: 1rem; padding: 1rem; border: 1px solid var(--sdr-border-default); border-radius: .85rem; background: linear-gradient(135deg, color-mix(in srgb, var(--sdr-accent-primary) 6%, var(--sdr-surface-panel)), var(--sdr-surface-panel) 48%, color-mix(in srgb, var(--sdr-accent-secondary) 6%, var(--sdr-surface-panel))); }
+.role-coverage-heading { display: grid; grid-template-columns: minmax(12rem, .65fr) minmax(18rem, 1.35fr); gap: .5rem 1.5rem; align-items: end; }
+.role-coverage-heading h3 { margin: 0; font-size: 1.15rem; }
+.role-coverage-heading > p { margin: 0; color: var(--sdr-text-muted); font: .78rem/1.5 ui-sans-serif, system-ui, sans-serif; }
+.global-role-filters { display: flex; flex-wrap: wrap; gap: .45rem; }
+.global-role-filter { min-height: 2.2rem; padding: .38rem .65rem; border-radius: 999px; border-color: color-mix(in srgb, var(--relationship-role-color, var(--sdr-border-strong)) 68%, var(--sdr-border-default)); font-size: .72rem; }
+.global-role-filter[aria-pressed="true"] { color: var(--sdr-text-primary); border-color: var(--relationship-role-color, var(--sdr-border-strong)); background: var(--sdr-surface-emphasis); box-shadow: 0 0 0 3px color-mix(in srgb, var(--relationship-role-color, var(--sdr-border-strong)) 20%, transparent); }
+.global-role-filter:disabled { opacity: .58; background: var(--sdr-surface-subtle); }
+.role-coverage-note { margin: 0; color: var(--sdr-text-muted); font: .7rem/1.45 ui-sans-serif, system-ui, sans-serif; }
+.graph-actions { display: flex; gap: .8rem 1.2rem; align-items: center; margin-top: 1rem; }
+.graph-actions p { margin: 0; color: var(--sdr-text-muted); font: .8rem/1.4 ui-sans-serif, system-ui, sans-serif; }
+.graph-actions .gate-warning { padding-left: .8rem; border-left: 3px solid var(--sdr-accent-secondary); color: var(--sdr-text-primary); }
+.camera-controls { display: grid; grid-template-columns: auto minmax(16rem, 1fr); gap: .45rem 1rem; align-items: center; margin-top: 1rem; }
+.camera-controls[hidden] { display: none; }
+.camera-buttons { display: flex; flex-wrap: wrap; gap: .45rem; }
+.camera-buttons button { min-height: 2.25rem; padding: .4rem .65rem; }
+.camera-controls p { margin: 0; color: var(--sdr-text-muted); font: .76rem/1.45 ui-sans-serif, system-ui, sans-serif; }
+.camera-controls .motion-copy { grid-column: 1 / -1; padding-left: .65rem; border-left: 3px solid var(--sdr-accent-secondary); color: var(--sdr-text-primary); }
+.stage-shell { display: grid; gap: .75rem; margin-top: 1rem; }
+.stage-key { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 1rem; align-items: center; padding: 0 2.6rem; }
+.stage-key[hidden] { display: none; }
+.stage-key-item { display: inline-flex; gap: .42rem; align-items: center; width: max-content; max-width: 100%; min-height: 2rem; padding: .25rem .7rem .25rem .35rem; overflow: hidden; border: 1px solid currentColor; border-radius: 999px; background: var(--sdr-surface-panel); font-size: .68rem; font-weight: 800; letter-spacing: .08em; text-overflow: ellipsis; text-transform: uppercase; white-space: nowrap; }
+.stage-key-item:nth-child(2) { justify-self: center; }
+.stage-key-item:nth-child(3) { justify-self: end; }
+.stage-key-item > span { display: inline-grid; flex: 0 0 auto; width: 1.3rem; height: 1.3rem; place-items: center; border: 1px solid currentColor; border-radius: 50%; font-size: .58rem; }
+.stage-key-item strong { color: inherit; font-size: inherit; }
+.stage-key-item--dataset { color: var(--lineage-dataset-color); }
+.stage-key-item--connection { color: var(--lineage-connection-color); }
+.stage-key-item--data-view { color: var(--lineage-data-view-color); }
+.stage { position: relative; height: clamp(32rem, 68vh, 46rem); min-height: 13rem; padding: clamp(.5rem, 1.2vw, 1rem); overflow: hidden; border: 1px solid color-mix(in srgb, var(--sdr-border-strong) 72%, transparent); border-radius: 1.1rem; background-color: var(--sdr-surface-subtle); background-image: radial-gradient(circle at 15% 10%, color-mix(in srgb, var(--sdr-accent-primary) 12%, transparent), transparent 28%), radial-gradient(circle at 85% 88%, color-mix(in srgb, var(--sdr-accent-secondary) 10%, transparent), transparent 30%), radial-gradient(circle, color-mix(in srgb, var(--sdr-border-default) 65%, transparent) 1px, transparent 1px); background-size: auto, auto, 22px 22px; box-shadow: 0 18px 45px color-mix(in srgb, var(--sdr-text-primary) 9%, transparent), inset 0 1px 0 color-mix(in srgb, var(--sdr-surface-panel) 82%, transparent); }
+.stage-toolbar { display: flex; gap: .35rem; align-items: center; justify-self: end; padding: .35rem; border: 1px solid color-mix(in srgb, var(--sdr-border-strong) 58%, transparent); border-radius: 999px; background: var(--sdr-surface-panel); box-shadow: 0 8px 24px color-mix(in srgb, var(--sdr-text-primary) 9%, transparent); }
+.stage-toolbar[hidden] { display: none; }
+.stage-toolbar button { min-height: 2rem; padding: .3rem .65rem; border-color: transparent; border-radius: 999px; background: transparent; font-size: .72rem; }
+.stage-toolbar button:hover:not(:disabled) { border-color: var(--sdr-border-default); background: var(--sdr-surface-emphasis); }
+.stage-toolbar button[aria-pressed="true"] { color: var(--sdr-text-inverse); background: var(--sdr-accent-secondary); }
+.flow-indicator { display: inline-flex; gap: .4rem; align-items: center; padding: 0 .45rem; color: var(--sdr-text-muted); font-size: .68rem; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; }
+.flow-indicator > span { width: .46rem; height: .46rem; border-radius: 50%; background: var(--sdr-accent-primary); box-shadow: 0 0 0 4px color-mix(in srgb, var(--sdr-accent-primary) 14%, transparent), 0 0 12px var(--sdr-accent-primary); }
+.stage.has-camera { cursor: grab; touch-action: none; user-select: none; }
+.stage.has-camera.is-panning { cursor: grabbing; }
+.overview-state,
+.empty-state { max-width: 50ch; margin: 3rem auto; color: var(--sdr-text-muted); text-align: center; }
+.stage[data-state="overview"] { overflow: auto; }
+.connection-overview { min-height: 100%; padding: clamp(.25rem, 1vw, .75rem); }
+.connection-overview-header { display: flex; gap: 1rem; justify-content: space-between; align-items: end; margin-bottom: 1rem; }
+.connection-overview-header h3 { margin: 0; font: 650 1.25rem/1.25 Georgia, "Times New Roman", serif; }
+.connection-overview-header p { margin: 0; color: var(--sdr-text-muted); font: .75rem/1.4 ui-sans-serif, system-ui, sans-serif; }
+.connection-overview-body { display: grid; gap: 1rem; align-items: start; }
+.connection-overview-body.has-selection { grid-template-columns: minmax(0, 1fr) minmax(18rem, 23rem); }
+.connection-overview-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 16rem), 1fr)); gap: .65rem; }
+.connection-overview-card { position: relative; display: grid; gap: .4rem; min-width: 0; min-height: 9rem; padding: .8rem; border-radius: .8rem; text-align: left; background: color-mix(in srgb, var(--sdr-surface-panel) 92%, transparent); box-shadow: 0 8px 20px color-mix(in srgb, var(--sdr-text-primary) 6%, transparent); }
+.connection-overview-card:hover:not(:disabled) { transform: translateY(-1px); }
+.connection-overview-card[aria-pressed="true"] { border-width: 2px; border-color: var(--lineage-connection-color); background: color-mix(in srgb, var(--lineage-connection-color) 8%, var(--sdr-surface-panel)); box-shadow: 0 0 0 3px color-mix(in srgb, var(--lineage-connection-color) 16%, transparent), 0 12px 28px color-mix(in srgb, var(--sdr-text-primary) 10%, transparent); }
+.connection-overview-name { overflow: hidden; font: 800 .86rem/1.3 ui-sans-serif, system-ui, sans-serif; text-overflow: ellipsis; white-space: nowrap; }
+.connection-overview-id { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.connection-overview-counts { color: var(--sdr-text-muted); font: .7rem/1.35 ui-sans-serif, system-ui, sans-serif; }
+.connection-overview-roles { display: flex; flex-wrap: wrap; gap: .3rem; align-content: start; }
+.connection-overview-role { padding: .15rem .42rem; border: 1px solid color-mix(in srgb, var(--relationship-role-color, var(--sdr-border-strong)) 72%, var(--sdr-border-default)); border-radius: 999px; color: var(--sdr-text-primary); font: 800 .75rem/1.35 ui-sans-serif, system-ui, sans-serif; }
+.connection-overview-role-band { display: flex; width: 100%; height: .42rem; overflow: hidden; border: 1px solid var(--sdr-border-default); border-radius: 999px; background: var(--sdr-surface-emphasis); }
+.connection-overview-role-segment { min-width: .32rem; background: var(--relationship-role-color, var(--sdr-border-strong)); box-shadow: 0 0 9px color-mix(in srgb, var(--relationship-role-color, var(--sdr-border-strong)) 36%, transparent); }
+.connection-overview-selected { position: absolute; top: .55rem; right: .55rem; padding: .12rem .36rem; border-radius: 999px; color: var(--sdr-text-inverse); background: var(--lineage-connection-color); font: 850 .7rem/1.25 ui-sans-serif, system-ui, sans-serif; letter-spacing: .05em; text-transform: uppercase; }
+.connection-overview-card[aria-pressed="true"] .connection-overview-name { padding-right: 4.4rem; }
+.connection-inspector { position: sticky; top: .25rem; display: grid; gap: .8rem; min-width: 0; max-height: calc(68vh - 3rem); padding: 1rem; overflow: auto; border: 2px solid var(--lineage-connection-color); border-radius: 1rem; background: color-mix(in srgb, var(--lineage-connection-color) 6%, var(--sdr-surface-panel)); box-shadow: 0 14px 34px color-mix(in srgb, var(--sdr-text-primary) 12%, transparent), inset 0 1px 0 color-mix(in srgb, var(--sdr-surface-page) 75%, transparent); }
+.connection-inspector-header { display: flex; gap: .75rem; justify-content: space-between; align-items: start; }
+.connection-inspector-header .eyebrow { margin-bottom: .2rem; color: var(--lineage-connection-color); }
+.connection-inspector-heading { margin: 0 0 .2rem; overflow-wrap: anywhere; font: 700 1.05rem/1.3 ui-sans-serif, system-ui, sans-serif; }
+.connection-inspector-heading:focus { outline: 3px solid var(--sdr-focus-ring); outline-offset: 4px; }
+.connection-inspector-close { flex: 0 0 auto; min-height: 2.1rem; padding: .35rem .55rem; font-size: .7rem; }
+.connection-inspector-summary { margin: 0; color: var(--sdr-text-muted); font: .78rem/1.5 ui-sans-serif, system-ui, sans-serif; }
+.connection-inspector-views-heading { margin: .25rem 0 0; font: 850 .7rem/1.3 ui-sans-serif, system-ui, sans-serif; letter-spacing: .07em; text-transform: uppercase; }
+.connection-inspector-views { display: grid; gap: .42rem; margin: 0; padding: 0; list-style: none; }
+.connection-inspector-views button { display: grid; width: 100%; min-width: 0; text-align: left; }
+.connection-inspector-view-name { overflow-wrap: anywhere; font-weight: 800; }
+.lineage-svg { display: block; width: 100%; height: 100%; min-width: 0; max-height: none; }
+.lineage-column--dataset { --column-color: var(--lineage-dataset-color); }
+.lineage-column--connection { --column-color: var(--lineage-connection-color); }
+.lineage-column--data-view { --column-color: var(--lineage-data-view-color); }
+.lineage-column-band { fill: color-mix(in srgb, var(--column-color) 5%, var(--sdr-surface-panel)); stroke: color-mix(in srgb, var(--column-color) 58%, var(--sdr-border-default)); stroke-width: 1.5; stroke-dasharray: 9 7; vector-effect: non-scaling-stroke; }
+.lineage-edge { fill: none; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; opacity: .52; vector-effect: non-scaling-stroke; }
+.lineage-edge--dataset-connection { stroke: var(--lineage-dataset-color); }
+.lineage-edge--connection-data-view { stroke: var(--lineage-data-view-color); }
+.lineage-edge-role--event { stroke: var(--lineage-role-event); }
+.lineage-edge-role--profile { stroke: var(--lineage-role-profile); }
+.lineage-edge-role--lookup { stroke: var(--lineage-role-lookup); }
+.lineage-edge-role--summary { stroke: var(--lineage-role-summary); }
+.lineage-edge-role--other { stroke: var(--lineage-role-other); }
+.lineage-svg.has-global-role-filter .lineage-edge.is-global-role-muted { opacity: .07; }
+.lineage-svg.has-global-role-filter .lineage-edge.is-global-role-match { stroke-width: 3.4; opacity: 1; filter: url(#lineage-node-glow); }
+.lineage-svg.has-global-role-filter .lineage-node.is-global-role-muted { opacity: .2; }
+.lineage-svg.has-global-role-filter .lineage-node.is-global-role-match .lineage-node-shape { stroke-width: 3.5; filter: url(#lineage-node-glow); }
+.lineage-arrow--dataset { fill: var(--lineage-dataset-color); }
+.lineage-arrow--data-view { fill: var(--lineage-data-view-color); }
+.lineage-edge.is-route { stroke: var(--sdr-accent-secondary); stroke-width: 4; stroke-dasharray: 9 6; opacity: 1; }
+.journey-guide { fill: none; stroke: var(--lineage-journey-0); stroke-width: 4; stroke-linecap: round; stroke-linejoin: round; opacity: .72; vector-effect: non-scaling-stroke; }
+.journey-guide--1 { stroke: var(--lineage-journey-1); }
+.journey-guide--2 { stroke: var(--lineage-journey-2); }
+.journey-comet { fill: var(--lineage-journey-0); stroke: var(--sdr-surface-panel); stroke-width: 1.5; vector-effect: non-scaling-stroke; }
+.journey-comet--1 { fill: var(--lineage-journey-1); }
+.journey-comet--2 { fill: var(--lineage-journey-2); }
+.lineage-node--dataset { --node-color: var(--lineage-dataset-color); }
+.lineage-node--connection { --node-color: var(--lineage-connection-color); }
+.lineage-node--data-view { --node-color: var(--lineage-data-view-color); }
+.lineage-node-shape { fill: color-mix(in srgb, var(--node-color) 7%, var(--sdr-surface-panel)); stroke: var(--node-color); stroke-width: 2; vector-effect: non-scaling-stroke; }
+.lineage-node--connection .lineage-node-shape { stroke-dasharray: 7 4; }
+.lineage-node--data-view .lineage-node-shape { stroke-width: 3; }
+.lineage-node-accent { fill: var(--node-color); }
+.lineage-node-icon { fill: color-mix(in srgb, var(--node-color) 14%, var(--sdr-surface-panel)); stroke: var(--node-color); stroke-width: 1.5; vector-effect: non-scaling-stroke; }
+.lineage-node .lineage-node-glyph { fill: var(--node-color); font: 850 11px/1 ui-sans-serif, system-ui, sans-serif; }
+.lineage-node .lineage-node-label { fill: var(--sdr-text-primary); font: 750 15.5px/1 ui-sans-serif, system-ui, sans-serif; }
+.lineage-node .lineage-node-kind { fill: var(--node-color); font: 800 9px/1 ui-sans-serif, system-ui, sans-serif; letter-spacing: 1.05px; }
+.lineage-node text { pointer-events: none; }
+.lineage-node.is-journey-node .lineage-node-shape { filter: url(#lineage-node-glow); stroke-width: 3.5; animation: lineage-node-pulse 2.6s ease-in-out infinite; }
+.stage.is-flow-paused .lineage-node.is-journey-node .lineage-node-shape { animation-play-state: paused; }
+.lineage-node.is-selected .lineage-node-shape { fill: color-mix(in srgb, var(--sdr-accent-secondary) 13%, var(--sdr-surface-panel)); stroke: var(--sdr-accent-secondary); stroke-width: 4.5; stroke-dasharray: none; }
+.route-marker { fill: var(--sdr-accent-secondary); stroke: var(--sdr-surface-panel); stroke-width: 3; filter: url(#lineage-comet-glow); }
+@keyframes lineage-node-pulse {
+  0%, 100% { stroke-opacity: .72; }
+  50% { stroke-opacity: 1; }
+}
+.diagram-note { margin: .75rem 0 0; color: var(--sdr-text-muted); font: .8rem/1.4 ui-sans-serif, system-ui, sans-serif; }
+.lineage-details { margin-top: 1rem; padding-top: 1.25rem; border-top: 1px solid var(--sdr-border-default); }
+.detail-heading { display: flex; gap: 1rem; justify-content: space-between; align-items: start; }
+.detail-heading h3 { margin-bottom: .2rem; font-size: 1.5rem; }
+.detail-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 1rem; margin-top: 1rem; }
+.detail-grid > section { min-width: 0; padding: 1rem; border: 1px solid var(--sdr-border-default); background: var(--sdr-surface-subtle); }
+.detail-grid h4 { margin-bottom: .7rem; font: 750 .78rem/1.3 ui-sans-serif, system-ui, sans-serif; letter-spacing: .06em; text-transform: uppercase; }
+.detail-summary { color: var(--sdr-text-muted); font: .82rem/1.45 ui-sans-serif, system-ui, sans-serif; }
+.dataset-role-filter { display: grid; grid-template-columns: minmax(7.5rem, .7fr) minmax(9rem, 1.3fr); gap: .35rem .6rem; align-items: center; margin: .7rem 0; }
+.dataset-role-filter label { margin: 0; }
+.dataset-role-filter select { min-height: 2.35rem; padding-block: .45rem; font: 700 .76rem/1.25 ui-sans-serif, system-ui, sans-serif; }
+.entity-list { max-height: 25rem; overflow: auto; }
+.sibling-filter { margin: .2rem 0 .65rem; }
+.entity-list li:not(:has(button)) { display: grid; gap: .15rem; padding: .45rem 0; border-bottom: 1px solid var(--sdr-border-default); }
+.availability { padding: .65rem .75rem; border-left: 4px solid var(--sdr-border-strong); background: var(--sdr-surface-panel); font: .84rem/1.5 ui-sans-serif, system-ui, sans-serif; }
+.availability--unavailable { border-left-style: dashed; }
+.availability--empty { border-left-color: var(--sdr-accent-primary); }
+.availability--missing { border-left-color: var(--sdr-accent-secondary); }
+.load-more { margin-top: .75rem; }
+.route-controls { display: flex; flex-wrap: wrap; gap: .65rem; align-items: center; margin-top: 1rem; padding: 1rem; border: 2px solid var(--sdr-accent-secondary); background: var(--sdr-surface-subtle); }
+.route-controls[hidden] { display: none; }
+.route-controls p { flex: 1 1 28rem; margin: 0; font: .86rem/1.5 ui-sans-serif, system-ui, sans-serif; }
+.relationship-details { margin-top: 1rem; padding: 1rem; border: 1px solid var(--sdr-border-default); border-radius: .75rem; background: var(--sdr-surface-panel); }
+.relationship-details[hidden] { display: none; }
+.relationship-heading h4 { margin-bottom: .2rem; font: 650 1.1rem/1.35 ui-sans-serif, system-ui, sans-serif; text-transform: none; }
+.relationship-summary { display: flex; flex-wrap: wrap; gap: .45rem; margin-top: .8rem; }
+.relationship-summary:empty { display: none; }
+.relationship-summary-chip { --relationship-role-color: var(--sdr-border-strong); padding: .28rem .55rem; border: 1px solid color-mix(in srgb, var(--relationship-role-color, var(--sdr-border-strong)) 74%, var(--sdr-border-default)); border-radius: 999px; color: var(--sdr-text-primary); background: color-mix(in srgb, var(--relationship-role-color, var(--sdr-border-strong)) 8%, var(--sdr-surface-panel)); font-size: .7rem; font-weight: 750; line-height: 1.3; }
+.relationship-context { margin: .8rem 0 0; padding: .65rem .75rem; border: 1px solid var(--sdr-border-default); border-radius: .5rem; color: var(--sdr-text-muted); background: var(--sdr-surface-subtle); font: .78rem/1.45 ui-sans-serif, system-ui, sans-serif; }
+.relationship-context strong { color: var(--sdr-text-primary); }
+.semantic-boundary { max-width: 95ch; margin: .85rem 0 0; padding: .7rem .85rem; border-left: 4px solid var(--sdr-accent-secondary); color: var(--sdr-text-muted); background: var(--sdr-surface-subtle); font: .8rem/1.5 ui-sans-serif, system-ui, sans-serif; }
+.metadata-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 15rem), 1fr)); gap: .75rem; margin-top: .85rem; }
+.metadata-card { min-width: 0; padding: .8rem; border: 1px solid var(--sdr-border-default); border-radius: .55rem; background: var(--sdr-surface-subtle); }
+.metadata-card h5 { margin: 0 0 .6rem; font: 800 .73rem/1.3 ui-sans-serif, system-ui, sans-serif; letter-spacing: .06em; text-transform: uppercase; }
+.metadata-card dl { display: grid; grid-template-columns: minmax(7rem, .8fr) minmax(0, 1.2fr); gap: .38rem .65rem; margin: 0; }
+.metadata-card dt { color: var(--sdr-text-muted); font: 700 .72rem/1.4 ui-sans-serif, system-ui, sans-serif; }
+.metadata-card dd { min-width: 0; margin: 0; overflow-wrap: anywhere; font: .78rem/1.4 ui-monospace, SFMono-Regular, Consolas, monospace; }
+.metadata-empty { margin: 0; color: var(--sdr-text-muted); font: .78rem/1.4 ui-sans-serif, system-ui, sans-serif; }
+.noscript { color: var(--sdr-text-muted); }
+
+@media (max-width: 56.25rem) {
+  .lineage-coverage, .section-heading { display: block; }
+  .lineage-coverage span { display: block; margin-top: .3rem; }
+  .search-panel { grid-template-columns: 1fr; }
+  .search-panel > div:first-child { grid-row: auto; }
+  .status, .hint, .search-results { grid-column: 1; }
+  .legend { margin-top: 1rem; }
+  .role-coverage-heading { grid-template-columns: 1fr; }
+  .graph-actions, .detail-heading { align-items: stretch; flex-direction: column; }
+  .connection-overview-header { display: grid; }
+  .connection-overview-body.has-selection { grid-template-columns: 1fr; }
+  .connection-inspector { position: static; grid-row: 1; max-height: none; }
+  .connection-overview-grid { grid-row: 2; }
+  .camera-controls { grid-template-columns: 1fr; }
+  .camera-controls .motion-copy { grid-column: 1; }
+  .stage-key { gap: .3rem; padding: 0; }
+  .stage-key-item { padding-right: .4rem; font-size: .58rem; letter-spacing: .04em; }
+  .stage { height: min(62vh, 38rem); }
+  .stage-toolbar { max-width: 100%; }
+  .flow-indicator { padding-left: .3rem; font-size: .62rem; }
+  .detail-grid { grid-template-columns: 1fr; }
+  .dataset-role-filter { grid-template-columns: 1fr; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .route-marker, .journey-comet { display: none !important; }
+  *, *::before, *::after { scroll-behavior: auto !important; animation-duration: .001ms !important; animation-iteration-count: 1 !important; }
+}
+
+@media print {
+  :root, body { color: var(--sdr-print-foreground); background: var(--sdr-print-background); }
+  .header, .search-panel, .topology-panel { border-color: var(--sdr-print-border); }
+  .search-panel { display: none; }
+  .route-marker, .journey-comet, .graph-actions, .camera-controls, .stage-toolbar, .route-controls button { display: none !important; }
+  .lineage-edge { stroke: var(--sdr-print-foreground); }
+  .lineage-edge.is-route { stroke: var(--sdr-print-foreground); stroke-width: 4; }
+  .lineage-node-shape { fill: var(--sdr-print-background); stroke: var(--sdr-print-foreground); }
+  .lineage-node text { fill: var(--sdr-print-foreground); }
+}
+
+.search-kind { grid-column: 2; display: grid; gap: .35rem; }
+.result-name { overflow-wrap: anywhere; }
+@media (max-width: 56.25rem) { .search-kind { grid-column: 1; } }
+
+:root {
+  --sdr-surface-page: #FAFAF7;
+  --sdr-surface-panel: #FFFFFF;
+  --sdr-surface-subtle: #F5F3EB;
+  --sdr-surface-emphasis: #ECE9E0;
+  --sdr-text-primary: #1A1A1A;
+  --sdr-text-muted: #6B6B66;
+  --sdr-text-inverse: #FFFFFF;
+  --sdr-border-default: #D8D6CF;
+  --sdr-border-strong: #8A8A82;
+  --sdr-focus-ring: #3A5E5E;
+  --sdr-accent-primary: #4A6F6F;
+  --sdr-accent-secondary: #6A4F30;
+  --sdr-component-metric: #2A2A2A;
+  --sdr-component-dimension: #4A6F6F;
+  --sdr-component-derived-field: #5E6B78;
+  --sdr-component-segment: #8A6A4A;
+  --sdr-component-calculated-metric: #806A00;
+  --sdr-severity-critical: #8C4A3F;
+  --sdr-severity-high: #9C4F10;
+  --sdr-severity-medium: #806A00;
+  --sdr-severity-low: #3D6B4F;
+  --sdr-change-added: #3D6B4F;
+  --sdr-change-modified: #806A00;
+  --sdr-change-removed: #8C4A3F;
+  --sdr-chart-primary: #1A1A1A;
+  --sdr-chart-secondary: #4A6F6F;
+  --sdr-chart-grid: #8A8A82;
+  --sdr-chart-axis: #6B6B66;
+  --sdr-print-foreground: #1A1A1A;
+  --sdr-print-background: #FFFFFF;
+  --sdr-print-border: #8A8A82;
+}
+
+  </style>
+</head>
+<body>
+  <header class="header">
+    <div class="header-inner">
+      <div class="brand">
+      <span class="eyebrow">Implementation Visualizer</span>
+      <h1>CJA Dataset Lineage</h1>
+      <div class="subtitle ui">
+        <span class="platform-tag platform-cja">CJA</span>
+        <span>Dataset lineage</span>
+        <span class="separator">·</span>
+        <span class="mono">Synthetic CJA lineage example</span>
+      </div>
+      </div>
+      <div class="meta-strip ui" aria-label="Lineage counts">
+        <div class="meta-item"><span class="meta-label">Datasets</span><span class="meta-value">3</span></div>
+        <div class="meta-item"><span class="meta-label">Connections</span><span class="meta-value">4</span></div>
+        <div class="meta-item"><span class="meta-label">Data views</span><span class="meta-value">4</span></div>
+        <div class="meta-item"><span class="meta-label">Relationships</span><span class="meta-value">8</span></div>
+      </div>
+      <div class="lineage-coverage ui" data-coverage-state="accessible-scope-completeness-unknown">
+        <strong>Accessible scope; completeness unknown</strong>
+        <span>This report describes only the scope accessible to this discovery source.</span>
+      </div>
+    </div>
+  </header>
+
+  <nav class="view-nav ui" aria-label="Report views">
+    <span class="view-button is-active" aria-current="page">Dataset lineage</span>
+  </nav>
+
+  <main class="view lineage-view">
+    <section class="search-panel" aria-labelledby="find-heading">
+      <div>
+        <p class="eyebrow">Inspect lineage</p>
+        <h2 id="find-heading">Explore CJA lineage</h2>
+        <p>Find a Data View, Connection, or dataset and explore its accessible relationships.</p>
+      </div>
+      <div class="search-kind">
+        <label for="lineage-search-kind">Search for</label>
+        <select id="lineage-search-kind"><option value="data-view">Data Views</option><option value="connection">Connections</option><option value="dataset">Datasets</option></select>
+      </div>
+      <label for="lineage-search">Name or stable identifier</label>
+      <input id="lineage-search" type="search" autocomplete="off" aria-controls="lineage-results" aria-describedby="lineage-search-help">
+      <p id="lineage-search-help" class="hint">Search does not change the report URL or saved browser state.</p>
+      <div id="lineage-results" class="search-results" role="region" aria-label="Lineage search results"></div>
+      <p id="lineage-status" class="status" role="status" aria-live="polite">
+        Static overview. No data view is selected.
+      </p>
+    </section>
+
+    <section class="topology-panel" aria-labelledby="topology-heading">
+      <div class="section-heading">
+        <div>
+          <p class="eyebrow">Three-column lineage</p>
+          <h2 id="topology-heading">AEP datasets → CJA Connections → CJA Data Views</h2>
+        </div>
+        <ul class="legend" aria-label="Entity shapes">
+          <li><span class="shape shape--dataset" aria-hidden="true"></span>Dataset</li>
+          <li><span class="shape shape--connection" aria-hidden="true"></span>Connection</li>
+          <li><span class="shape shape--data-view" aria-hidden="true"></span>Data view</li>
+        </ul>
+      </div>
+      <div id="lineage-role-legend" class="role-legend ui" hidden>
+        <span class="role-legend-label">Connection-configured role</span>
+        <ul id="lineage-role-legend-items" aria-label="Dataset to Connection role colors"></ul>
+        <span class="role-legend-note">Color applies to dataset → Connection relationships, not universal AEP dataset properties.</span>
+      </div>
+      <section id="lineage-role-coverage" class="role-coverage ui" aria-labelledby="lineage-role-coverage-heading">
+        <div class="role-coverage-heading">
+          <div>
+            <p class="eyebrow">Scope summary</p>
+            <h3 id="lineage-role-coverage-heading">Connection role coverage</h3>
+          </div>
+          <p id="lineage-role-coverage-copy"></p>
+        </div>
+        <div id="lineage-global-role-filters" class="global-role-filters" role="group" aria-label="Highlight topology by Connection role"></div>
+        <details class="role-coverage-note"><summary>How to read coverage</summary><p>Counts describe dataset → Connection relationship instances. Missing, null, and empty values remain distinct from false. Coverage includes only the scope accessible during discovery.</p></details>
+      </section>
+      <div class="graph-actions">
+        <button id="lineage-theme-toggle" type="button" aria-pressed="false">Dark mode</button>
+        <button id="lineage-show-overview" type="button" aria-pressed="true">Connection overview</button>
+        <button id="lineage-full-graph" type="button" aria-pressed="false" aria-describedby="lineage-full-graph-cost">Draw full topology</button>
+        <p id="lineage-full-graph-cost">
+          The full 11-node, 8-relationship SVG is created only on request.
+        </p>
+      </div>
+      <div id="lineage-camera-controls" class="camera-controls ui" aria-label="Diagram navigation" hidden>
+        <div class="camera-buttons">
+          <button id="lineage-zoom-in" type="button" aria-label="Zoom in" aria-keyshortcuts="+">Zoom in</button>
+          <button id="lineage-zoom-out" type="button" aria-label="Zoom out" aria-keyshortcuts="-">Zoom out</button>
+          <button id="lineage-reset-camera" type="button" aria-label="Reset diagram view" aria-keyshortcuts="0">Reset view</button>
+        </div>
+        <p id="lineage-camera-help">Drag to pan. Use arrow keys to pan, plus and minus to zoom, and 0 to reset. Node names are available in full to assistive technology and on hover.</p>
+        <p id="lineage-motion-copy" class="motion-copy" hidden></p>
+      </div>
+      <div class="stage-shell">
+        <div id="lineage-stage-key" class="stage-key ui" role="group" aria-label="Topology columns" hidden>
+          <span class="stage-key-item stage-key-item--dataset"><span aria-hidden="true">D</span>AEP datasets <strong id="lineage-key-datasets"></strong></span>
+          <span class="stage-key-item stage-key-item--connection"><span aria-hidden="true">C</span>CJA connections <strong id="lineage-key-connections"></strong></span>
+          <span class="stage-key-item stage-key-item--data-view"><span aria-hidden="true">V</span>CJA data views <strong id="lineage-key-data-views"></strong></span>
+        </div>
+        <div id="lineage-stage" class="stage" data-state="overview" tabindex="0" aria-label="Lineage diagram" aria-describedby="lineage-camera-help">
+
+          <p class="overview-state">The initial overview is intentionally static and unselected. Prepared build-side geometry is embedded for bounded inspection.</p>
+
+        </div>
+        <div id="lineage-stage-toolbar" class="stage-toolbar ui" aria-label="Diagram display controls" hidden>
+          <span class="flow-indicator"><span aria-hidden="true"></span>Lineage flow</span>
+          <button id="lineage-flow-pause" type="button" aria-pressed="false" hidden>Pause flow</button>
+
+        </div>
+      </div>
+      <section id="lineage-details" class="lineage-details" aria-labelledby="lineage-selection-heading" hidden>
+        <div class="detail-heading">
+          <div>
+            <p class="eyebrow">Selected data view</p>
+            <h3 id="lineage-selection-heading"></h3>
+            <p id="lineage-selection-id" class="stable-id"></p>
+          </div>
+          <button id="lineage-back-connection" type="button">Back to Connection</button>
+          <button id="lineage-clear-selection" type="button">Clear selection</button>
+        </div>
+        <div class="detail-grid">
+          <section aria-labelledby="lineage-parent-heading">
+            <h4 id="lineage-parent-heading">Parent connection</h4>
+            <div id="lineage-parent"></div>
+          </section>
+          <section aria-labelledby="lineage-datasets-heading">
+            <h4 id="lineage-datasets-heading">Backing datasets</h4>
+            <div id="lineage-datasets"></div>
+          </section>
+          <section aria-labelledby="lineage-siblings-heading">
+            <h4 id="lineage-siblings-heading">Sibling data views</h4>
+            <div id="lineage-siblings"></div>
+          </section>
+        </div>
+        <section id="lineage-relationship-details" class="relationship-details" aria-labelledby="lineage-relationship-heading" hidden>
+          <div class="relationship-heading">
+            <div>
+              <p class="eyebrow">Selected dataset → connection</p>
+              <h4 id="lineage-relationship-heading"></h4>
+              <p id="lineage-relationship-id" class="stable-id"></p>
+            </div>
+          </div>
+          <div id="lineage-relationship-summary" class="relationship-summary ui" aria-label="Relationship metadata summary"></div>
+          <p class="semantic-boundary">CJA dataset role is configuration for this Connection relationship. It does not describe XDM record or time-series behavior, and it does not indicate AEP Real-Time Customer Profile enablement. Ingestion observations do not establish end-to-end CJA reporting readiness.</p>
+          <p id="lineage-relationship-context" class="relationship-context" role="note" hidden></p>
+          <div id="lineage-relationship-metadata" class="metadata-grid"></div>
+        </section>
+        <div id="lineage-route-controls" class="route-controls" hidden>
+          <p id="lineage-route-copy"></p>
+          <button id="lineage-clear-route" type="button">Clear selected route</button>
+        </div>
+      </section>
+      <noscript><p class="noscript">The scope, coverage, counts, and static explanation remain available without JavaScript.</p></noscript>
+    </section>
+  </main>
+
+  <footer class="footer ui">
+    <span>Generated by sdr-visualizer 1.1.0</span>
+    <span class="separator">·</span>
+    <span>Color pack: default</span>
+    <span class="separator">·</span>
+    <span>Private CJA lineage POC</span>
+  </footer>
+
+  <script id="sdr-lineage-data" type="application/json">{"schema":"cja-lineage-poc/1","scope_label":"Synthetic CJA lineage example","coverage":{"state":"accessible-scope-completeness-unknown","label":"Accessible scope; completeness unknown","detail":"This report describes only the scope accessible to this discovery source."},"counts":{"datasets":3,"connections":4,"data_views":4,"edges":8},"empty":false,"entities":{"datasets":[{"id":"ds-lookup","name":"Account lookup","kind":"dataset","shape":"rounded-rectangle","search_text":"Account lookup ds-lookup"},{"id":"ds-shared","name":"Shared dataset","kind":"dataset","shape":"rounded-rectangle","search_text":"Shared dataset ds-shared"},{"id":"ds-summary","name":"Daily summary","kind":"dataset","shape":"rounded-rectangle","search_text":"Daily summary ds-summary"}],"connections":[{"id":"conn-event","name":"Event connection","display_name":"Event connection","kind":"connection","shape":"hexagon","detail_availability":"available","dataset_availability":"available","search_text":"Event connection conn-event"},{"id":"conn-lookup","name":"Lookup connection","display_name":"Lookup connection","kind":"connection","shape":"hexagon","detail_availability":"available","dataset_availability":"available","search_text":"Lookup connection conn-lookup"},{"id":"conn-profile","name":"Profile connection","display_name":"Profile connection","kind":"connection","shape":"hexagon","detail_availability":"available","dataset_availability":"available","search_text":"Profile connection conn-profile"},{"id":"conn-summary","name":"Summary connection","display_name":"Summary connection","kind":"connection","shape":"hexagon","detail_availability":"available","dataset_availability":"available","search_text":"Summary connection conn-summary"}],"data_views":[{"id":"dv-event","name":"Event view","kind":"data-view","shape":"rectangle","connection_id":"conn-event","connection_detail_availability":"available","dataset_availability":"available","search_text":"Event view dv-event"},{"id":"dv-lookup","name":"Lookup view","kind":"data-view","shape":"rectangle","connection_id":"conn-lookup","connection_detail_availability":"available","dataset_availability":"available","search_text":"Lookup view dv-lookup"},{"id":"dv-profile","name":"Profile view","kind":"data-view","shape":"rectangle","connection_id":"conn-profile","connection_detail_availability":"available","dataset_availability":"available","search_text":"Profile view dv-profile"},{"id":"dv-summary","name":"Summary view","kind":"data-view","shape":"rectangle","connection_id":"conn-summary","connection_detail_availability":"available","dataset_availability":"available","search_text":"Summary view dv-summary"}]},"edges":[{"id":"dataset-connection:0","kind":"dataset-connection","source_id":"ds-lookup","target_id":"conn-lookup","connection_metadata":{"role":"lookup","lookup":{"keyField":"accountId","parentFields":["accountId","accountName"],"parentDatasetId":"ds-shared","parentDatasetType":"event"}}},{"id":"dataset-connection:1","kind":"dataset-connection","source_id":"ds-shared","target_id":"conn-event","connection_metadata":{"role":"event","schema":{"id":"schema-event","name":"Web Event Schema","ref":{"id":"https://ns.adobe.com/example/schemas/event","contentType":"application/vnd.adobe.xed-full+json;version=1"}},"identity":{"timestampId":"timestamp","visitorId":"identityMap","namespace":"ECID","usePrimaryIdNamespace":false,"identityMap":true,"namespaceColumn":"identityMap"},"ingestion":{"streaming":true,"backfillSummary":{"total":2,"failed":0,"inProgress":0,"completed":2,"invalid":false},"lastIngestedTime":"2026-08-29T12:34:56Z","streamingEnabledAt":"2026-01-02T03:04:05Z"},"dataSource":{"id":"webData","type":"Web Data","description":"Browser event data"}}},{"id":"dataset-connection:2","kind":"dataset-connection","source_id":"ds-shared","target_id":"conn-profile","connection_metadata":{"role":"profile","identity":{"namespace":null,"usePrimaryIdNamespace":false,"namespaceColumn":""},"dataSource":{}}},{"id":"dataset-connection:3","kind":"dataset-connection","source_id":"ds-summary","target_id":"conn-summary","connection_metadata":{"role":"summary","lookup":{"parentFields":[]}}},{"id":"connection-data-view:0","kind":"connection-data-view","source_id":"conn-event","target_id":"dv-event"},{"id":"connection-data-view:1","kind":"connection-data-view","source_id":"conn-lookup","target_id":"dv-lookup"},{"id":"connection-data-view:2","kind":"connection-data-view","source_id":"conn-profile","target_id":"dv-profile"},{"id":"connection-data-view:3","kind":"connection-data-view","source_id":"conn-summary","target_id":"dv-summary"}],"adjacency":{"dataset_ids_by_connection":{"conn-event":["ds-shared"],"conn-lookup":["ds-lookup"],"conn-profile":["ds-shared"],"conn-summary":["ds-summary"]},"data_view_ids_by_connection":{"conn-event":["dv-event"],"conn-lookup":["dv-lookup"],"conn-profile":["dv-profile"],"conn-summary":["dv-summary"]}},"geometry":{"global":{"width":1320.0,"height":440.0,"columns":[{"kind":"dataset","x":40.0,"width":280.0,"top":72.0,"bottom":400.0},{"kind":"connection","x":520.0,"width":280.0,"top":72.0,"bottom":400.0},{"kind":"data-view","x":1000.0,"width":280.0,"top":72.0,"bottom":400.0}],"nodes":[{"ref":"dataset:ds-lookup","kind":"dataset","entity_id":"ds-lookup","x":40.0,"y":72.0,"width":280.0,"height":64.0},{"ref":"dataset:ds-shared","kind":"dataset","entity_id":"ds-shared","x":40.0,"y":160.0,"width":280.0,"height":64.0},{"ref":"dataset:ds-summary","kind":"dataset","entity_id":"ds-summary","x":40.0,"y":248.0,"width":280.0,"height":64.0},{"ref":"connection:conn-event","kind":"connection","entity_id":"conn-event","x":520.0,"y":72.0,"width":280.0,"height":64.0},{"ref":"connection:conn-lookup","kind":"connection","entity_id":"conn-lookup","x":520.0,"y":160.0,"width":280.0,"height":64.0},{"ref":"connection:conn-profile","kind":"connection","entity_id":"conn-profile","x":520.0,"y":248.0,"width":280.0,"height":64.0},{"ref":"connection:conn-summary","kind":"connection","entity_id":"conn-summary","x":520.0,"y":336.0,"width":280.0,"height":64.0},{"ref":"data-view:dv-event","kind":"data-view","entity_id":"dv-event","x":1000.0,"y":72.0,"width":280.0,"height":64.0},{"ref":"data-view:dv-lookup","kind":"data-view","entity_id":"dv-lookup","x":1000.0,"y":160.0,"width":280.0,"height":64.0},{"ref":"data-view:dv-profile","kind":"data-view","entity_id":"dv-profile","x":1000.0,"y":248.0,"width":280.0,"height":64.0},{"ref":"data-view:dv-summary","kind":"data-view","entity_id":"dv-summary","x":1000.0,"y":336.0,"width":280.0,"height":64.0}],"edges":[{"id":"dataset-connection:0","kind":"dataset-connection","source_ref":"dataset:ds-lookup","target_ref":"connection:conn-lookup","points":[[320.0,104.0],[420.0,104.0],[420.0,192.0],[520.0,192.0]]},{"id":"dataset-connection:1","kind":"dataset-connection","source_ref":"dataset:ds-shared","target_ref":"connection:conn-event","points":[[320.0,192.0],[420.0,192.0],[420.0,104.0],[520.0,104.0]]},{"id":"dataset-connection:2","kind":"dataset-connection","source_ref":"dataset:ds-shared","target_ref":"connection:conn-profile","points":[[320.0,192.0],[420.0,192.0],[420.0,280.0],[520.0,280.0]]},{"id":"dataset-connection:3","kind":"dataset-connection","source_ref":"dataset:ds-summary","target_ref":"connection:conn-summary","points":[[320.0,280.0],[420.0,280.0],[420.0,368.0],[520.0,368.0]]},{"id":"connection-data-view:0","kind":"connection-data-view","source_ref":"connection:conn-event","target_ref":"data-view:dv-event","points":[[800.0,104.0],[900.0,104.0],[900.0,104.0],[1000.0,104.0]]},{"id":"connection-data-view:1","kind":"connection-data-view","source_ref":"connection:conn-lookup","target_ref":"data-view:dv-lookup","points":[[800.0,192.0],[900.0,192.0],[900.0,192.0],[1000.0,192.0]]},{"id":"connection-data-view:2","kind":"connection-data-view","source_ref":"connection:conn-profile","target_ref":"data-view:dv-profile","points":[[800.0,280.0],[900.0,280.0],[900.0,280.0],[1000.0,280.0]]},{"id":"connection-data-view:3","kind":"connection-data-view","source_ref":"connection:conn-summary","target_ref":"data-view:dv-summary","points":[[800.0,368.0],[900.0,368.0],[900.0,368.0],[1000.0,368.0]]}]},"local_by_connection":[{"connection_id":"conn-event","width":1320.0,"height":200.0,"columns":[{"kind":"dataset","x":40.0,"width":280.0,"top":72.0,"bottom":160.0},{"kind":"connection","x":520.0,"width":280.0,"top":72.0,"bottom":160.0},{"kind":"data-view","x":1000.0,"width":280.0,"top":72.0,"bottom":160.0}],"nodes":[{"ref":"dataset:ds-shared","kind":"dataset","entity_id":"ds-shared","x":40.0,"y":72.0,"width":280.0,"height":64.0},{"ref":"connection:conn-event","kind":"connection","entity_id":"conn-event","x":520.0,"y":72.0,"width":280.0,"height":64.0},{"ref":"data-view:dv-event","kind":"data-view","entity_id":"dv-event","x":1000.0,"y":72.0,"width":280.0,"height":64.0}],"edges":[{"id":"dataset-connection:1","kind":"dataset-connection","source_ref":"dataset:ds-shared","target_ref":"connection:conn-event","points":[[320.0,104.0],[420.0,104.0],[420.0,104.0],[520.0,104.0]]},{"id":"connection-data-view:0","kind":"connection-data-view","source_ref":"connection:conn-event","target_ref":"data-view:dv-event","points":[[800.0,104.0],[900.0,104.0],[900.0,104.0],[1000.0,104.0]]}]},{"connection_id":"conn-lookup","width":1320.0,"height":200.0,"columns":[{"kind":"dataset","x":40.0,"width":280.0,"top":72.0,"bottom":160.0},{"kind":"connection","x":520.0,"width":280.0,"top":72.0,"bottom":160.0},{"kind":"data-view","x":1000.0,"width":280.0,"top":72.0,"bottom":160.0}],"nodes":[{"ref":"dataset:ds-lookup","kind":"dataset","entity_id":"ds-lookup","x":40.0,"y":72.0,"width":280.0,"height":64.0},{"ref":"connection:conn-lookup","kind":"connection","entity_id":"conn-lookup","x":520.0,"y":72.0,"width":280.0,"height":64.0},{"ref":"data-view:dv-lookup","kind":"data-view","entity_id":"dv-lookup","x":1000.0,"y":72.0,"width":280.0,"height":64.0}],"edges":[{"id":"dataset-connection:0","kind":"dataset-connection","source_ref":"dataset:ds-lookup","target_ref":"connection:conn-lookup","points":[[320.0,104.0],[420.0,104.0],[420.0,104.0],[520.0,104.0]]},{"id":"connection-data-view:1","kind":"connection-data-view","source_ref":"connection:conn-lookup","target_ref":"data-view:dv-lookup","points":[[800.0,104.0],[900.0,104.0],[900.0,104.0],[1000.0,104.0]]}]},{"connection_id":"conn-profile","width":1320.0,"height":200.0,"columns":[{"kind":"dataset","x":40.0,"width":280.0,"top":72.0,"bottom":160.0},{"kind":"connection","x":520.0,"width":280.0,"top":72.0,"bottom":160.0},{"kind":"data-view","x":1000.0,"width":280.0,"top":72.0,"bottom":160.0}],"nodes":[{"ref":"dataset:ds-shared","kind":"dataset","entity_id":"ds-shared","x":40.0,"y":72.0,"width":280.0,"height":64.0},{"ref":"connection:conn-profile","kind":"connection","entity_id":"conn-profile","x":520.0,"y":72.0,"width":280.0,"height":64.0},{"ref":"data-view:dv-profile","kind":"data-view","entity_id":"dv-profile","x":1000.0,"y":72.0,"width":280.0,"height":64.0}],"edges":[{"id":"dataset-connection:2","kind":"dataset-connection","source_ref":"dataset:ds-shared","target_ref":"connection:conn-profile","points":[[320.0,104.0],[420.0,104.0],[420.0,104.0],[520.0,104.0]]},{"id":"connection-data-view:2","kind":"connection-data-view","source_ref":"connection:conn-profile","target_ref":"data-view:dv-profile","points":[[800.0,104.0],[900.0,104.0],[900.0,104.0],[1000.0,104.0]]}]},{"connection_id":"conn-summary","width":1320.0,"height":200.0,"columns":[{"kind":"dataset","x":40.0,"width":280.0,"top":72.0,"bottom":160.0},{"kind":"connection","x":520.0,"width":280.0,"top":72.0,"bottom":160.0},{"kind":"data-view","x":1000.0,"width":280.0,"top":72.0,"bottom":160.0}],"nodes":[{"ref":"dataset:ds-summary","kind":"dataset","entity_id":"ds-summary","x":40.0,"y":72.0,"width":280.0,"height":64.0},{"ref":"connection:conn-summary","kind":"connection","entity_id":"conn-summary","x":520.0,"y":72.0,"width":280.0,"height":64.0},{"ref":"data-view:dv-summary","kind":"data-view","entity_id":"dv-summary","x":1000.0,"y":72.0,"width":280.0,"height":64.0}],"edges":[{"id":"dataset-connection:3","kind":"dataset-connection","source_ref":"dataset:ds-summary","target_ref":"connection:conn-summary","points":[[320.0,104.0],[420.0,104.0],[420.0,104.0],[520.0,104.0]]},{"id":"connection-data-view:3","kind":"connection-data-view","source_ref":"connection:conn-summary","target_ref":"data-view:dv-summary","points":[[800.0,104.0],[900.0,104.0],[900.0,104.0],[1000.0,104.0]]}]}]},"gating":{"node_limit":1000,"edge_limit":8000,"full_graph_gated":false,"full_graph_requires_opt_in":true,"default_overview":"static-inert"}}</script>
+  <script>
+(() => {
+  "use strict";
+
+  const SVG_NS = "http:" + "//www.w3.org/2000/svg";
+  const CAMERA_MIN_WIDTH = 240;
+  const READABLE_CAMERA_WIDTH = 360;
+  const JOURNEY_LIMIT = 3;
+
+  function create(context) {
+    const {
+      addText,
+      empty,
+      el,
+      entityMatchesGlobalRole,
+      entityLabel,
+      isRouteEdge,
+      maps,
+      payload,
+      reducedMotion,
+      relationshipRole,
+      renderRouteControls,
+      selectedView,
+      setFullGraph,
+      setStatus,
+      stage,
+      state,
+    } = context;
+
+    function truncateLabel(value, limit = 24) {
+      const points = Array.from(value);
+      return points.length > limit ? `${points.slice(0, limit - 3).join("")}…` : value;
+    }
+
+    function roundedPathData(points, radius = 18) {
+      const distinct = points.filter(
+        (point, index) =>
+          index === 0 ||
+          point[0] !== points[index - 1][0] ||
+          point[1] !== points[index - 1][1]
+      );
+      if (distinct.length < 3) {
+        return distinct
+          .map((point, index) => `${index === 0 ? "M" : "L"}${point[0]} ${point[1]}`)
+          .join(" ");
+      }
+      const commands = [`M${distinct[0][0]} ${distinct[0][1]}`];
+      for (let index = 1; index < distinct.length - 1; index += 1) {
+        const previous = distinct[index - 1];
+        const current = distinct[index];
+        const next = distinct[index + 1];
+        const incoming = Math.hypot(current[0] - previous[0], current[1] - previous[1]);
+        const outgoing = Math.hypot(next[0] - current[0], next[1] - current[1]);
+        const bend = Math.min(radius, incoming / 2, outgoing / 2);
+        const before = [
+          current[0] + ((previous[0] - current[0]) * bend) / incoming,
+          current[1] + ((previous[1] - current[1]) * bend) / incoming,
+        ];
+        const after = [
+          current[0] + ((next[0] - current[0]) * bend) / outgoing,
+          current[1] + ((next[1] - current[1]) * bend) / outgoing,
+        ];
+        commands.push(
+          `L${before[0]} ${before[1]}`,
+          `Q${current[0]} ${current[1]} ${after[0]} ${after[1]}`
+        );
+      }
+      const last = distinct[distinct.length - 1];
+      commands.push(`L${last[0]} ${last[1]}`);
+      return commands.join(" ");
+    }
+
+    function combinedPathData(first, second) {
+      return roundedPathData([...first.points, ...second.points]);
+    }
+
+    function svgDefinitions() {
+      const defs = document.createElementNS(SVG_NS, "defs");
+      for (const [id, deviation] of [
+        ["lineage-comet-glow", "6"],
+        ["lineage-node-glow", "3"],
+      ]) {
+        const filter = document.createElementNS(SVG_NS, "filter");
+        filter.id = id;
+        for (const [name, value] of [
+          ["x", "-40%"], ["y", "-40%"], ["width", "180%"], ["height", "180%"],
+        ]) filter.setAttribute(name, value);
+        const blur = document.createElementNS(SVG_NS, "feGaussianBlur");
+        blur.setAttribute("stdDeviation", deviation);
+        blur.setAttribute("result", "blur");
+        const merge = document.createElementNS(SVG_NS, "feMerge");
+        for (const input of ["blur", "SourceGraphic"]) {
+          const node = document.createElementNS(SVG_NS, "feMergeNode");
+          node.setAttribute("in", input);
+          merge.appendChild(node);
+        }
+        filter.append(blur, merge);
+        defs.appendChild(filter);
+      }
+      for (const [id, className] of [
+        ["lineage-arrow-dataset", "lineage-arrow--dataset"],
+        ["lineage-arrow-data-view", "lineage-arrow--data-view"],
+      ]) {
+        const marker = document.createElementNS(SVG_NS, "marker");
+        marker.id = id;
+        for (const [name, value] of [
+          ["viewBox", "0 0 7 6"], ["refX", "6"], ["refY", "3"],
+          ["markerWidth", "7"], ["markerHeight", "6"], ["orient", "auto"],
+        ]) marker.setAttribute(name, value);
+        const arrow = document.createElementNS(SVG_NS, "path");
+        arrow.setAttribute("d", "M0 0 L7 3 L0 6 Z");
+        arrow.classList.add("lineage-arrow", className);
+        marker.appendChild(arrow);
+        defs.appendChild(marker);
+      }
+      return defs;
+    }
+
+    function buildColumnLayer(canvas) {
+      const bands = document.createElementNS(SVG_NS, "g");
+      bands.classList.add("lineage-columns");
+      for (const column of canvas.columns) {
+        const group = document.createElementNS(SVG_NS, "g");
+        group.classList.add("lineage-column", `lineage-column--${column.kind}`);
+        const band = document.createElementNS(SVG_NS, "rect");
+        band.classList.add("lineage-column-band");
+        for (const [name, value] of [
+          ["x", column.x - 22], ["y", 18], ["width", column.width + 44],
+          ["height", Math.max(164, canvas.height - 36)], ["rx", 28],
+        ]) band.setAttribute(name, String(value));
+        group.appendChild(band);
+        bands.appendChild(group);
+      }
+      return bands;
+    }
+
+    function centerY(node) {
+      return node.y + node.height / 2;
+    }
+
+    function closestJourneyForConnection(connectionId, nodes, edgeByPair) {
+      const connectionRef = `connection:${connectionId}`;
+      const connectionNode = nodes.get(connectionRef);
+      if (!connectionNode) return null;
+      const datasets = (payload.adjacency.dataset_ids_by_connection[connectionId] || [])
+        .map((id) => ({ id, node: nodes.get(`dataset:${id}`) }))
+        .filter((item) => item.node)
+        .sort((left, right) => centerY(left.node) - centerY(right.node));
+      const views = (payload.adjacency.data_view_ids_by_connection[connectionId] || [])
+        .map((id) => ({ id, node: nodes.get(`data-view:${id}`) }))
+        .filter((item) => item.node)
+        .sort((left, right) => centerY(left.node) - centerY(right.node));
+      let datasetIndex = 0;
+      let viewIndex = 0;
+      let best = null;
+      while (datasetIndex < datasets.length && viewIndex < views.length) {
+        state.ambientJourneyComparisons += 1;
+        const dataset = datasets[datasetIndex];
+        const view = views[viewIndex];
+        const datasetRef = `dataset:${dataset.id}`;
+        const viewRef = `data-view:${view.id}`;
+        const first = edgeByPair.get(`${datasetRef}\n${connectionRef}`);
+        const second = edgeByPair.get(`${connectionRef}\n${viewRef}`);
+        const centers = [centerY(dataset.node), centerY(connectionNode), centerY(view.node)];
+        const score = Math.max(...centers) - Math.min(...centers);
+        const label = `${entityLabel("dataset", dataset.id)} to ${entityLabel("connection", connectionId)} to ${entityLabel("data-view", view.id)}`;
+        if (first && second && (!best || score < best.score || (score === best.score && label.localeCompare(best.label) < 0))) {
+          best = {
+            score,
+            connectionId,
+            refs: [datasetRef, connectionRef, viewRef],
+            edges: [first, second],
+            label,
+          };
+        }
+        if (centerY(dataset.node) <= centerY(view.node)) datasetIndex += 1;
+        else viewIndex += 1;
+      }
+      return best;
+    }
+
+    function ambientJourneys(canvas, edges) {
+      state.ambientJourneyComparisons = 0;
+      const nodes = new Map(canvas.nodes.map((node) => [node.ref, node]));
+      const edgeByPair = new Map(
+        edges.map((edge) => [`${edge.source_ref}\n${edge.target_ref}`, edge])
+      );
+      const candidates = payload.entities.connections
+        .map((connection) => closestJourneyForConnection(connection.id, nodes, edgeByPair))
+        .filter(Boolean)
+        .sort((left, right) => left.score - right.score || left.label.localeCompare(right.label));
+      return candidates.slice(0, JOURNEY_LIMIT);
+    }
+
+    function buildSvgNode(node, view, index, defs, journeyRefs) {
+      const group = document.createElementNS(SVG_NS, "g");
+      group.classList.add("lineage-node", `lineage-node--${node.kind}`);
+      group.dataset.ref = node.ref;
+      if (node.entity_id === view.id || node.entity_id === state.activeDatasetId) {
+        group.classList.add("is-selected");
+      }
+      if (journeyRefs.has(node.ref)) group.classList.add("is-journey-node");
+      group.setAttribute("transform", `translate(${node.x} ${node.y})`);
+      const label = entityLabel(node.kind, node.entity_id);
+      const kindLabel = node.kind === "data-view"
+        ? "Data view"
+        : node.kind[0].toUpperCase() + node.kind.slice(1);
+      group.setAttribute("role", "img");
+      group.setAttribute("aria-label", `${kindLabel}: ${label}. Stable identifier: ${node.entity_id}.`);
+      const shape = document.createElementNS(SVG_NS, "rect");
+      shape.setAttribute("width", String(node.width));
+      shape.setAttribute("height", String(node.height));
+      shape.setAttribute("rx", node.kind === "dataset" ? "18" : "12");
+      shape.classList.add("lineage-node-shape");
+      const accent = document.createElementNS(SVG_NS, "rect");
+      accent.classList.add("lineage-node-accent");
+      for (const [name, value] of [
+        ["x", 0], ["y", 10], ["width", 6], ["height", node.height - 20], ["rx", 3],
+      ]) accent.setAttribute(name, String(value));
+      const icon = document.createElementNS(SVG_NS, "circle");
+      icon.classList.add("lineage-node-icon");
+      icon.setAttribute("cx", "25");
+      icon.setAttribute("cy", String(node.height / 2));
+      icon.setAttribute("r", "12");
+      const glyph = document.createElementNS(SVG_NS, "text");
+      glyph.classList.add("lineage-node-glyph");
+      glyph.setAttribute("x", "25");
+      glyph.setAttribute("y", String(node.height / 2 + 4));
+      glyph.setAttribute("text-anchor", "middle");
+      glyph.textContent = node.kind === "dataset" ? "D" : node.kind === "connection" ? "C" : "V";
+      const clip = document.createElementNS(SVG_NS, "clipPath");
+      clip.id = `lineage-label-clip-${index}`;
+      const clipRect = document.createElementNS(SVG_NS, "rect");
+      for (const [name, value] of [
+        ["x", 44], ["y", 6], ["width", node.width - 54], ["height", node.height - 12],
+      ]) clipRect.setAttribute(name, String(value));
+      clip.appendChild(clipRect);
+      defs.appendChild(clip);
+      const text = document.createElementNS(SVG_NS, "text");
+      text.classList.add("lineage-node-label");
+      text.setAttribute("x", "45");
+      text.setAttribute("y", "28");
+      text.setAttribute("clip-path", `url(#${clip.id})`);
+      text.textContent = truncateLabel(label);
+      const kind = document.createElementNS(SVG_NS, "text");
+      kind.classList.add("lineage-node-kind");
+      kind.setAttribute("x", "45");
+      kind.setAttribute("y", "47");
+      kind.textContent = node.kind === "dataset" ? "AEP DATASET" : node.kind === "connection" ? "CJA CONNECTION" : "CJA DATA VIEW";
+      const title = document.createElementNS(SVG_NS, "title");
+      title.textContent = `${kindLabel}: ${label}; ${node.entity_id}`;
+      group.append(title, shape, accent, icon, glyph, text, kind);
+      return group;
+    }
+
+    function buildSvg(canvas, nodes, edges, view, withAmbientFlow = false) {
+      const svg = document.createElementNS(SVG_NS, "svg");
+      svg.classList.add("lineage-svg");
+      svg.setAttribute("role", "img");
+      svg.setAttribute("aria-labelledby", "lineage-svg-title lineage-svg-description");
+      const defs = svgDefinitions();
+      const title = document.createElementNS(SVG_NS, "title");
+      title.id = "lineage-svg-title";
+      title.textContent = state.fullGraph ? "Full CJA lineage topology" : `Selected lineage for ${view.name}`;
+      const description = document.createElementNS(SVG_NS, "desc");
+      description.id = "lineage-svg-description";
+      description.textContent = state.fullGraph
+        ? `${nodes.length} entities and ${edges.length} relationships.`
+        : `Bounded parent, dataset, and sibling neighborhood for ${view.name}. Text details follow the diagram.`;
+      if (state.globalRoleFilter !== "all") {
+        svg.classList.add("has-global-role-filter");
+        description.textContent += " Non-matching entities and relationships are visually muted by the active Connection role highlight.";
+      }
+      const journeys = withAmbientFlow && state.globalRoleFilter === "all"
+        ? ambientJourneys(canvas, edges)
+        : [];
+      const journeyRefs = new Set(journeys.flatMap((journey) => journey.refs));
+      if (state.activeDatasetId && view.connection_id) {
+        journeyRefs.add(`dataset:${state.activeDatasetId}`);
+        journeyRefs.add(`connection:${view.connection_id}`);
+        journeyRefs.add(`data-view:${view.id}`);
+      }
+      if (journeys.length) {
+        description.textContent += ` ${journeys.length} representative dataset-to-data-view journeys are highlighted; their motion is illustrative and does not measure traffic volume.`;
+      }
+      svg.append(title, description, defs, buildColumnLayer(canvas));
+      for (const edge of edges) {
+        const path = document.createElementNS(SVG_NS, "path");
+        path.setAttribute("d", roundedPathData(edge.points));
+        path.setAttribute("fill", "none");
+        path.classList.add("lineage-edge", `lineage-edge--${edge.kind}`);
+        let globalRoleMatch = true;
+        if (edge.kind === "dataset-connection") {
+          const datasetId = edge.source_ref.slice("dataset:".length);
+          const connectionId = edge.target_ref.slice("connection:".length);
+          const role = relationshipRole(datasetId, connectionId);
+          globalRoleMatch = role.filterKey === state.globalRoleFilter;
+          if (role.label) {
+            path.classList.add(`lineage-edge-role--${role.styleKey}`);
+            path.dataset.connectionRole = role.label;
+            const edgeTitle = document.createElementNS(SVG_NS, "title");
+            edgeTitle.textContent = `${entityLabel("dataset", datasetId)} to ${entityLabel("connection", connectionId)}. Connection role: ${role.label}.`;
+            path.appendChild(edgeTitle);
+          }
+        } else if (state.globalRoleFilter !== "all") {
+          const connectionId = edge.source_ref.slice("connection:".length);
+          globalRoleMatch = entityMatchesGlobalRole("connection", connectionId);
+        }
+        if (state.globalRoleFilter !== "all") {
+          path.classList.add(
+            globalRoleMatch ? "is-global-role-match" : "is-global-role-muted"
+          );
+        }
+        path.setAttribute("marker-end", edge.kind === "dataset-connection" ? "url(#lineage-arrow-dataset)" : "url(#lineage-arrow-data-view)");
+        if (isRouteEdge(edge, view)) path.classList.add("is-route");
+        svg.appendChild(path);
+      }
+      for (const [index, journey] of journeys.entries()) {
+        const routePath = combinedPathData(journey.edges[0], journey.edges[1]);
+        const guide = document.createElementNS(SVG_NS, "path");
+        guide.setAttribute("d", routePath);
+        guide.classList.add("journey-guide", `journey-guide--${index}`);
+        guide.setAttribute("filter", "url(#lineage-comet-glow)");
+        guide.setAttribute("aria-hidden", "true");
+        svg.appendChild(guide);
+        if (!reducedMotion.matches) {
+          for (let tail = 3; tail >= 0; tail -= 1) {
+            const marker = document.createElementNS(SVG_NS, "circle");
+            marker.classList.add("journey-comet", `journey-comet--${index}`);
+            marker.setAttribute("r", String(3.5 + (3 - tail) * 1.5));
+            marker.setAttribute("opacity", String(0.22 + (3 - tail) * 0.2));
+            marker.setAttribute("filter", "url(#lineage-comet-glow)");
+            marker.setAttribute("aria-hidden", "true");
+            const motion = document.createElementNS(SVG_NS, "animateMotion");
+            motion.setAttribute("path", routePath);
+            motion.setAttribute("dur", `${4.6 + index * 0.7}s`);
+            motion.setAttribute("begin", `-${index * 0.8 + tail * 0.09}s`);
+            motion.setAttribute("repeatCount", "indefinite");
+            marker.appendChild(motion);
+            svg.appendChild(marker);
+          }
+        }
+      }
+      for (const [index, node] of nodes.entries()) {
+        const group = buildSvgNode(node, view, index, defs, journeyRefs);
+        if (state.globalRoleFilter !== "all") {
+          group.classList.add(
+            entityMatchesGlobalRole(node.kind, node.entity_id)
+              ? "is-global-role-match"
+              : "is-global-role-muted"
+          );
+        }
+        svg.appendChild(group);
+      }
+      if (state.activeDatasetId && !reducedMotion.matches && !state.fullGraph) {
+        const routeEdges = edges.filter((edge) => isRouteEdge(edge, view));
+        if (routeEdges.length === 2) {
+          const marker = document.createElementNS(SVG_NS, "circle");
+          marker.classList.add("route-marker");
+          marker.setAttribute("r", "8");
+          marker.setAttribute("aria-hidden", "true");
+          const motion = document.createElementNS(SVG_NS, "animateMotion");
+          motion.setAttribute("path", combinedPathData(routeEdges[0], routeEdges[1]));
+          motion.setAttribute("dur", "4s");
+          motion.setAttribute("repeatCount", "indefinite");
+          marker.appendChild(motion);
+          svg.appendChild(marker);
+          if (state.paused) svg.pauseAnimations();
+        }
+      }
+      return { svg, journeys };
+    }
+
+    function stageDimensions() {
+      const style = getComputedStyle(stage);
+      return {
+        width: Math.max(1, stage.clientWidth - parseFloat(style.paddingLeft) - parseFloat(style.paddingRight)),
+        height: Math.max(1, stage.clientHeight - parseFloat(style.paddingTop) - parseFloat(style.paddingBottom)),
+      };
+    }
+
+    function clampCamera(camera) {
+      const canvas = state.activeCanvas;
+      if (!canvas) return camera;
+      const width = Math.min(canvas.width, Math.max(CAMERA_MIN_WIDTH, camera.width));
+      const dimensions = stageDimensions();
+      const height = Math.min(canvas.height, (width * dimensions.height) / dimensions.width);
+      return {
+        x: Math.min(Math.max(0, camera.x), Math.max(0, canvas.width - width)),
+        y: Math.min(Math.max(0, camera.y), Math.max(0, canvas.height - height)),
+        width,
+        height,
+      };
+    }
+
+    function applyCamera() {
+      const svg = stage.querySelector("svg");
+      if (!svg || !state.camera) return;
+      state.camera = clampCamera(state.camera);
+      const { x, y, width, height } = state.camera;
+      svg.setAttribute("viewBox", `${x} ${y} ${width} ${height}`);
+    }
+
+    function initialCamera(canvas, focusRefs) {
+      const dimensions = stageDimensions();
+      const width = Math.min(
+        canvas.width,
+        Math.max(READABLE_CAMERA_WIDTH, (dimensions.width * 15.5) / 12.5)
+      );
+      const height = Math.min(canvas.height, (width * dimensions.height) / dimensions.width);
+      const focusNodes = focusRefs
+        .map((ref) => canvas.nodes.find((node) => node.ref === ref))
+        .filter(Boolean);
+      const anchor = focusNodes[0] || canvas.nodes[0];
+      const centerX = anchor ? anchor.x + anchor.width / 2 : canvas.width / 2;
+      const centerYValue = anchor ? anchor.y + anchor.height / 2 : height / 2;
+      return clampCamera({ x: centerX - width / 2, y: centerYValue - height / 2, width, height });
+    }
+
+    function configureDiagramControls(journeys) {
+      el.cameraControls.hidden = false;
+      el.stageToolbar.hidden = false;
+      el.stageKey.hidden = false;
+      el.keyDatasets.textContent = String(stage.querySelectorAll(".lineage-node--dataset").length);
+      el.keyConnections.textContent = String(stage.querySelectorAll(".lineage-node--connection").length);
+      el.keyDataViews.textContent = String(stage.querySelectorAll(".lineage-node--data-view").length);
+      const hasJourneys = journeys.length > 0;
+      const hasMotion = state.fullGraph ? hasJourneys : Boolean(state.activeDatasetId);
+      const paused = state.fullGraph ? state.flowPaused : state.paused;
+      el.flowPause.hidden = reducedMotion.matches || !hasMotion;
+      el.flowPause.setAttribute("aria-pressed", String(paused));
+      el.flowPause.textContent = paused ? "Resume flow" : "Pause flow";
+      el.themeToggle.setAttribute("aria-pressed", String(state.theme === "dark"));
+      el.themeToggle.textContent = state.theme === "dark" ? "Light mode" : "Dark mode";
+      stage.classList.toggle("is-flow-paused", paused);
+      el.motionCopy.hidden = !state.fullGraph || !hasJourneys;
+      if (state.fullGraph && hasJourneys) {
+        el.motionCopy.textContent = reducedMotion.matches
+          ? `${journeys.length} representative journeys remain statically highlighted; animation is omitted by reduced-motion preference.`
+          : `${journeys.length} representative journeys glow across the topology. Motion shows lineage direction only; it does not encode volume, latency, or health.`;
+      }
+    }
+
+    function mountSvg(canvas, built, focusRefs) {
+      stage.appendChild(built.svg);
+      stage.classList.add("has-camera");
+      state.activeCanvas = canvas;
+      state.initialCamera = initialCamera(canvas, focusRefs);
+      state.camera = { ...state.initialCamera };
+      applyCamera();
+      configureDiagramControls(built.journeys);
+    }
+
+    function clearPan() {
+      if (state.pointer && stage.hasPointerCapture(state.pointer.id)) {
+        stage.releasePointerCapture(state.pointer.id);
+      }
+      state.pointer = null;
+      stage.classList.remove("is-panning");
+    }
+
+    function clearDiagramControls() {
+      clearPan();
+      stage.classList.remove("has-camera", "is-flow-paused");
+      state.activeCanvas = null;
+      state.initialCamera = null;
+      state.camera = null;
+      el.cameraControls.hidden = true;
+      el.motionCopy.hidden = true;
+      el.flowPause.hidden = true;
+      el.stageToolbar.hidden = true;
+      el.stageKey.hidden = true;
+    }
+
+    function zoomCamera(factor) {
+      if (!state.camera || !state.activeCanvas) return;
+      const centerX = state.camera.x + state.camera.width / 2;
+      const centerYValue = state.camera.y + state.camera.height / 2;
+      const width = Math.min(state.activeCanvas.width, Math.max(CAMERA_MIN_WIDTH, state.camera.width * factor));
+      const dimensions = stageDimensions();
+      const height = Math.min(state.activeCanvas.height, (width * dimensions.height) / dimensions.width);
+      state.camera = clampCamera({ x: centerX - width / 2, y: centerYValue - height / 2, width, height });
+      applyCamera();
+    }
+
+    function panCamera(horizontal, vertical) {
+      if (!state.camera) return;
+      state.camera.x += state.camera.width * horizontal;
+      state.camera.y += state.camera.height * vertical;
+      applyCamera();
+    }
+
+    function edgePriority(edge, view) {
+      if (isRouteEdge(edge, view)) return 2;
+      return edge.source_ref === `connection:${view.connection_id}` && edge.target_ref === `data-view:${view.id}` ? 1 : 0;
+    }
+
+    function compactCanvas(canvas, retainedNodes, retainedEdges) {
+      const byRef = new Map();
+      const nodes = [];
+      for (const kind of ["dataset", "connection", "data-view"]) {
+        const preparedSlots = canvas.nodes.filter((node) => node.kind === kind).sort((a, b) => a.y - b.y);
+        const retained = retainedNodes.filter((node) => node.kind === kind).sort((a, b) => a.y - b.y);
+        for (const [index, node] of retained.entries()) {
+          const compacted = { ...node, y: preparedSlots[index].y };
+          nodes.push(compacted);
+          byRef.set(compacted.ref, compacted);
+        }
+      }
+      const edges = retainedEdges.map((edge) => {
+        const source = byRef.get(edge.source_ref);
+        const target = byRef.get(edge.target_ref);
+        const start = [source.x + source.width, source.y + source.height / 2];
+        const end = [target.x, target.y + target.height / 2];
+        const laneX = edge.points[1][0];
+        return { ...edge, points: [start, [laneX, start[1]], [laneX, end[1]], end] };
+      });
+      const bottomMargin = Math.max(0, ...canvas.columns.map((column) => canvas.height - column.bottom));
+      const height = Math.max(200, Math.max(0, ...nodes.map((node) => node.y + node.height)) + bottomMargin);
+      return {
+        ...canvas,
+        height,
+        columns: canvas.columns.map((column) => ({ ...column, bottom: height - bottomMargin })),
+        nodes,
+        edges,
+      };
+    }
+
+    function renderLocalGraph() {
+      const view = selectedView();
+      const canvas = view && view.connection_id ? maps.local.get(view.connection_id) : null;
+      setFullGraph(false);
+      empty(stage);
+      stage.dataset.state = "data-view";
+      if (!canvas || !view.connection_id) {
+        clearDiagramControls();
+        addText(stage, "p", "A local diagram is unavailable because this data view has no resolved parent connection.", "availability availability--missing");
+        return;
+      }
+      const required = new Set([`data-view:${view.id}`, `connection:${view.connection_id}`]);
+      if (state.activeDatasetId) required.add(`dataset:${state.activeDatasetId}`);
+      const allowed = new Set(required);
+      for (const node of canvas.nodes) {
+        if (allowed.size >= 100) break;
+        allowed.add(node.ref);
+      }
+      const edges = canvas.edges
+        .filter((edge) => allowed.has(edge.source_ref) && allowed.has(edge.target_ref))
+        .sort((left, right) => edgePriority(right, view) - edgePriority(left, view))
+        .slice(0, 100);
+      const bounded = compactCanvas(canvas, canvas.nodes.filter((node) => allowed.has(node.ref)), edges);
+      const built = buildSvg(bounded, bounded.nodes, bounded.edges, view);
+      const focusRefs = [`connection:${view.connection_id}`, `data-view:${view.id}`];
+      if (state.activeDatasetId) focusRefs.unshift(`dataset:${state.activeDatasetId}`);
+      mountSvg(bounded, built, focusRefs);
+      if (canvas.nodes.length > allowed.size) {
+        addText(stage, "p", `${canvas.nodes.length - allowed.size} additional local nodes are omitted from this bounded diagram; complete datasets and siblings remain listed below.`, "diagram-note");
+      }
+    }
+
+    function drawFullGraph() {
+      setFullGraph(true);
+      el.showOverview.setAttribute("aria-pressed", "false");
+      state.paused = false;
+      state.flowPaused = false;
+      empty(stage);
+      stage.dataset.state = "full-graph";
+      const view = selectedView() || { id: "", name: "full topology", connection_id: null };
+      const canvas = payload.geometry.global;
+      const built = buildSvg(canvas, canvas.nodes, canvas.edges, view, true);
+      const focusRefs = state.activeDatasetId && view.connection_id
+        ? [`dataset:${state.activeDatasetId}`, `connection:${view.connection_id}`, `data-view:${view.id}`]
+        : built.journeys.length ? built.journeys[0].refs : [];
+      mountSvg(canvas, built, focusRefs);
+      if (selectedView()) renderRouteControls(selectedView());
+      setStatus(`Full topology drawn: ${canvas.nodes.length} nodes and ${canvas.edges.length} relationships. The camera opens at readable scale; pan or use the navigation controls to inspect the complete graph.`);
+    }
+
+    return Object.freeze({
+      applyCamera,
+      clearDiagramControls,
+      clearPan,
+      drawFullGraph,
+      panCamera,
+      renderLocalGraph,
+      stageDimensions,
+      zoomCamera,
+    });
+  }
+
+  window.SdrCjaLineageGraph = Object.freeze({ create });
+})();
+
+  </script>
+  <script>
+(() => { "use strict";
+  const BATCH_SIZE = 100;
+  const ROLE_DEFINITIONS = Object.freeze({
+    event: "Event", profile: "Profile", lookup: "Lookup", summary: "Summary",
+    other: "Other", unspecified: "Unspecified",
+  });
+  const ROLE_ORDER = ["event", "profile", "lookup", "summary"], KNOWN_ROLE_KEYS = new Set(ROLE_ORDER);
+  const dataElement = document.getElementById("sdr-lineage-data");
+  const stage = document.getElementById("lineage-stage");
+  const search = document.getElementById("lineage-search");
+  if (!dataElement || !stage || !search) return;
+
+  const payload = JSON.parse(dataElement.textContent);
+  const el = {
+    results: document.getElementById("lineage-results"),
+    status: document.getElementById("lineage-status"),
+    details: document.getElementById("lineage-details"),
+    heading: document.getElementById("lineage-selection-heading"),
+    selectionId: document.getElementById("lineage-selection-id"),
+    parent: document.getElementById("lineage-parent"),
+    datasets: document.getElementById("lineage-datasets"),
+    siblings: document.getElementById("lineage-siblings"),
+    relationship: document.getElementById("lineage-relationship-details"),
+    relationshipHeading: document.getElementById("lineage-relationship-heading"),
+    relationshipId: document.getElementById("lineage-relationship-id"),
+    relationshipSummary: document.getElementById("lineage-relationship-summary"),
+    relationshipContext: document.getElementById("lineage-relationship-context"),
+    relationshipMetadata: document.getElementById("lineage-relationship-metadata"),
+    routeControls: document.getElementById("lineage-route-controls"),
+    routeCopy: document.getElementById("lineage-route-copy"),
+    clearRoute: document.getElementById("lineage-clear-route"),
+    clearSelection: document.getElementById("lineage-clear-selection"),
+    showOverview: document.getElementById("lineage-show-overview"),
+    fullGraph: document.getElementById("lineage-full-graph"),
+    cameraControls: document.getElementById("lineage-camera-controls"),
+    zoomIn: document.getElementById("lineage-zoom-in"), zoomOut: document.getElementById("lineage-zoom-out"),
+    resetCamera: document.getElementById("lineage-reset-camera"), flowPause: document.getElementById("lineage-flow-pause"),
+    stageToolbar: document.getElementById("lineage-stage-toolbar"), stageKey: document.getElementById("lineage-stage-key"),
+    keyDatasets: document.getElementById("lineage-key-datasets"), keyConnections: document.getElementById("lineage-key-connections"),
+    keyDataViews: document.getElementById("lineage-key-data-views"), themeToggle: document.getElementById("lineage-theme-toggle"),
+    motionCopy: document.getElementById("lineage-motion-copy"), roleLegend: document.getElementById("lineage-role-legend"),
+    roleLegendItems: document.getElementById("lineage-role-legend-items"),
+    roleCoverageCopy: document.getElementById("lineage-role-coverage-copy"),
+    globalRoleFilters: document.getElementById("lineage-global-role-filters"),
+  };
+  const maps = {
+    dataset: new Map(payload.entities.datasets.map((item) => [item.id, item])),
+    connection: new Map(payload.entities.connections.map((item) => [item.id, item])),
+    "data-view": new Map(payload.entities.data_views.map((item) => [item.id, item])),
+    local: new Map(payload.geometry.local_by_connection.map((item) => [item.connection_id, item])),
+    relationship: new Map(
+      payload.edges
+        .filter((item) => item.kind === "dataset-connection")
+        .map((item) => [relationshipKey(item.source_id, item.target_id), item])
+    ),
+  };
+  const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
+  const darkMode = window.matchMedia("(prefers-color-scheme: dark)");
+  const state = {
+    selectedConnectionId: null, selectedDataViewId: null, activeDatasetId: null, paused: false,
+    initiatingResult: null, initiatingDataset: null,
+    resultLimit: BATCH_SIZE,
+    datasetLimit: BATCH_SIZE,
+    connectionViewLimit: BATCH_SIZE,
+    datasetRoleFilter: "all",
+    globalRoleFilter: "all",
+    siblingLimit: BATCH_SIZE,
+    siblingQuery: "",
+    fullGraph: false, flowPaused: false,
+    camera: null, initialCamera: null, activeCanvas: null, pointer: null,
+    theme: darkMode.matches ? "dark" : "light",
+    themeOverridden: false,
+    ambientJourneyComparisons: 0,
+  };
+
+  document.documentElement.dataset.theme = state.theme;
+
+  stage.dataset.preparedConnections = String(payload.geometry.local_by_connection.length);
+  stage.dataset.fullGraphGated = String(payload.gating.full_graph_gated);
+
+  function empty(node) {
+    while (node.firstChild) node.removeChild(node.firstChild);
+  }
+
+  function addText(parent, tag, text, className) {
+    const node = document.createElement(tag);
+    if (className) node.className = className;
+    node.textContent = text;
+    parent.appendChild(node);
+    return node;
+  }
+
+  function setStatus(text) {
+    el.status.textContent = text;
+  }
+
+  function normalizeSearch(value) {
+    return String(value)
+      .normalize("NFKC")
+      .toLowerCase()
+      .replace(/\u00df/g, "ss");
+  }
+
+  function setFullGraph(active) {
+    state.fullGraph = active;
+    if (!active) state.flowPaused = false;
+    el.fullGraph.setAttribute("aria-pressed", String(active));
+  }
+
+  function entityLabel(kind, id) {
+    const item = maps[kind].get(id);
+    return item ? item.name || item.display_name || item.id : id;
+  }
+
+  function selectedView() {
+    return state.selectedDataViewId ? maps["data-view"].get(state.selectedDataViewId) : null;
+  }
+
+  function datasetIds(view) {
+    return view && view.connection_id
+      ? payload.adjacency.dataset_ids_by_connection[view.connection_id] || []
+      : [];
+  }
+
+  function relationshipEdge(datasetId, connectionId) {
+    return maps.relationship.get(relationshipKey(datasetId, connectionId));
+  }
+
+  function relationshipKey(datasetId, connectionId) {
+    return `${datasetId}\u0000${connectionId}`;
+  }
+
+  function hasOwn(value, key) {
+    return value !== null && typeof value === "object" && Object.prototype.hasOwnProperty.call(value, key);
+  }
+
+  function displayRole(value) {
+    if (typeof value !== "string" || value.length === 0) return null;
+    return ROLE_DEFINITIONS[value.toLowerCase()] || value;
+  }
+
+  function roleKey(value) {
+    if (typeof value !== "string") return "unspecified";
+    const normalized = value.toLowerCase();
+    if (KNOWN_ROLE_KEYS.has(normalized)) return normalized;
+    return "other";
+  }
+
+  function relationshipRole(datasetId, connectionId) {
+    const edge = relationshipEdge(datasetId, connectionId);
+    const metadata = edge && edge.connection_metadata;
+    if (!metadata || !hasOwn(metadata, "role")) {
+      return {
+        filterKey: "missing",
+        filterLabel: "Not reported",
+        styleKey: "unspecified",
+        label: null,
+      };
+    }
+    if (metadata.role === null) {
+      return {
+        filterKey: "null",
+        filterLabel: "Reported null",
+        styleKey: "unspecified",
+        label: null,
+      };
+    }
+    if (metadata.role === "") {
+      return {
+        filterKey: "empty",
+        filterLabel: "Reported empty string",
+        styleKey: "unspecified",
+        label: null,
+      };
+    }
+    const label = displayRole(metadata.role);
+    const styleKey = roleKey(metadata.role);
+    return {
+      filterKey: KNOWN_ROLE_KEYS.has(styleKey) ? styleKey : `custom:${metadata.role}`,
+      filterLabel: label,
+      styleKey,
+      label,
+    };
+  }
+
+  function incrementRoleCount(counts, role) {
+    const entry = counts.get(role.filterKey) || {
+      key: role.filterKey,
+      label: role.filterLabel,
+      styleKey: role.styleKey,
+      count: 0,
+    };
+    entry.count += 1;
+    counts.set(role.filterKey, entry);
+  }
+
+  function buildRoleIndex() {
+    const counts = new Map();
+    const legendCounts = new Map();
+    const membership = new Map();
+    const connectionCounts = new Map();
+    let metadataRelationships = 0;
+    const connectionsWithDatasets = new Set();
+    for (const edge of maps.relationship.values()) {
+      if (hasOwn(edge, "connection_metadata")) metadataRelationships += 1;
+      connectionsWithDatasets.add(edge.target_id);
+      const role = relationshipRole(edge.source_id, edge.target_id);
+      incrementRoleCount(counts, role);
+      if (role.label) incrementRoleCount(legendCounts, role);
+      const roleMembership = membership.get(role.filterKey) || {
+        dataset: new Set(),
+        connection: new Set(),
+        "data-view": new Set(),
+      };
+      roleMembership.dataset.add(edge.source_id);
+      roleMembership.connection.add(edge.target_id);
+      membership.set(role.filterKey, roleMembership);
+      const rolesForConnection = connectionCounts.get(edge.target_id) || new Map();
+      incrementRoleCount(rolesForConnection, role);
+      connectionCounts.set(edge.target_id, rolesForConnection);
+    }
+    for (const key of ROLE_ORDER) {
+      if (!counts.has(key)) {
+        counts.set(key, { key, label: ROLE_DEFINITIONS[key], styleKey: key, count: 0 });
+      }
+    }
+    for (const [key, label] of [
+      ["missing", "Not reported"],
+      ["null", "Reported null"],
+      ["empty", "Reported empty string"],
+    ]) {
+      if (!counts.has(key)) {
+        counts.set(key, { key, label, styleKey: "unspecified", count: 0 });
+      }
+    }
+    for (const view of maps["data-view"].values()) {
+      const rolesForConnection = connectionCounts.get(view.connection_id);
+      if (!rolesForConnection) continue;
+      for (const roleKey of rolesForConnection.keys()) {
+        const roleMembership = membership.get(roleKey);
+        if (roleMembership) roleMembership["data-view"].add(view.id);
+      }
+    }
+    return Object.freeze({
+      counts,
+      legendCounts,
+      membership,
+      connectionEntries: new Map(
+        Array.from(connectionCounts, ([connectionId, roleCounts]) => [
+          connectionId,
+          orderedRoleEntries(roleCounts, false),
+        ])
+      ),
+      metadataRelationships,
+      connectionsWithDatasets: connectionsWithDatasets.size,
+      totalRelationships: maps.relationship.size,
+    });
+  }
+
+  function orderedRoleEntries(counts, includeZeroStates = true) {
+    const ordered = [];
+    for (const key of ROLE_ORDER) {
+      const entry = counts.get(key);
+      if (entry && (entry.count || includeZeroStates)) ordered.push(entry);
+    }
+    const custom = Array.from(counts.values())
+      .filter((entry) => entry.styleKey === "other")
+      .sort((left, right) => left.label.localeCompare(right.label));
+    ordered.push(...custom);
+    for (const key of ["missing", "null", "empty"]) {
+      const entry = counts.get(key);
+      if (entry && (entry.count || includeZeroStates)) ordered.push(entry);
+    }
+    return ordered;
+  }
+
+  const roleIndex = buildRoleIndex();
+
+  function connectionMatchesGlobalRole(connectionId) {
+    if (state.globalRoleFilter === "all") return true;
+    const membership = roleIndex.membership.get(state.globalRoleFilter);
+    return Boolean(membership && membership.connection.has(connectionId));
+  }
+
+  function entityMatchesGlobalRole(kind, id) {
+    if (state.globalRoleFilter === "all") return true;
+    const membership = roleIndex.membership.get(state.globalRoleFilter);
+    return Boolean(membership && membership[kind] && membership[kind].has(id));
+  }
+
+  function renderGlobalRoleCoverage() {
+    const stats = roleIndex;
+    el.roleCoverageCopy.textContent = `${stats.metadataRelationships} of ${stats.totalRelationships} dataset relationships include Connection metadata. ${stats.connectionsWithDatasets} of ${maps.connection.size} Connections have accessible backing datasets.`;
+    empty(el.globalRoleFilters);
+    const entries = [
+      {
+        key: "all",
+        label: "All",
+        styleKey: "unspecified",
+        count: stats.totalRelationships,
+      },
+      ...orderedRoleEntries(stats.counts),
+    ];
+    for (const entry of entries) {
+      const button = document.createElement("button");
+      button.type = "button";
+      button.className = "global-role-filter";
+      if (entry.key !== "all" && entry.styleKey !== "unspecified") {
+        button.classList.add(`relationship-role--${entry.styleKey}`);
+      }
+      button.dataset.globalRoleKey = entry.key;
+      button.setAttribute("aria-pressed", String(state.globalRoleFilter === entry.key));
+      button.textContent = `${entry.label} ${entry.count}`;
+      if (entry.count === 0) {
+        button.disabled = true;
+        button.setAttribute("aria-disabled", "true");
+      }
+      button.addEventListener("click", () => {
+        if (state.globalRoleFilter === entry.key) return;
+        state.globalRoleFilter = entry.key;
+        renderGlobalRoleCoverage();
+        if (stage.dataset.state === "overview") renderConnectionOverview();
+        else if (state.fullGraph) drawFullGraph();
+        else if (selectedView()) renderLocalGraph();
+        const replacement = Array.from(el.globalRoleFilters.querySelectorAll("button")).find(
+          (candidate) => candidate.dataset.globalRoleKey === entry.key
+        );
+        if (replacement) replacement.focus();
+        setStatus(entry.key === "all"
+          ? "All Connection roles are visible."
+          : `${entry.label} relationships are emphasized across the current lineage view.`);
+      });
+      el.globalRoleFilters.appendChild(button);
+    }
+  }
+
+  function renderRoleLegend() {
+    empty(el.roleLegendItems);
+    const entries = Array.from(roleIndex.legendCounts.values()).sort((left, right) => {
+      const leftIndex = ROLE_ORDER.indexOf(left.styleKey);
+      const rightIndex = ROLE_ORDER.indexOf(right.styleKey);
+      return (leftIndex < 0 ? ROLE_ORDER.length : leftIndex)
+        - (rightIndex < 0 ? ROLE_ORDER.length : rightIndex)
+        || left.label.localeCompare(right.label);
+    });
+    for (const { count, label, styleKey } of entries) {
+      const item = document.createElement("li");
+      item.className = `relationship-role--${styleKey}`;
+      const swatch = document.createElement("span");
+      swatch.className = "role-legend-swatch";
+      swatch.setAttribute("aria-hidden", "true");
+      item.append(swatch, document.createTextNode(`${label} ${count}`));
+      el.roleLegendItems.appendChild(item);
+    }
+    el.roleLegend.hidden = el.roleLegendItems.childElementCount === 0;
+  }
+
+  function siblingIds(view) {
+    return view && view.connection_id
+      ? (payload.adjacency.data_view_ids_by_connection[view.connection_id] || []).filter(
+          (id) => id !== view.id
+        )
+      : [];
+  }
+
+  function renderResults() {
+    empty(el.results);
+    const query = normalizeSearch(search.value.trim());
+    if (!query) {
+      addText(el.results, "p", "Enter a name or stable identifier to search the selected entity type.", "hint");
+      return;
+    }
+    const kind = document.getElementById("lineage-search-kind").value;
+    const matches = Array.from(maps[kind].values()).filter((item) =>
+      normalizeSearch(item.search_text).includes(query)
+    );
+    const list = document.createElement("ul");
+    list.className = "result-list";
+    for (const item of matches.slice(0, state.resultLimit)) {
+      const row = document.createElement("li");
+      const button = document.createElement("button");
+      button.type = "button";
+      if (kind === "data-view") {
+        button.dataset.dataViewId = item.id;
+        button.setAttribute("aria-pressed", String(state.selectedDataViewId === item.id));
+      } else if (kind === "connection") button.dataset.searchConnectionId = item.id;
+      else button.dataset.searchDatasetId = item.id;
+      addText(button, "span", entityLabel(kind, item.id), "result-name");
+      addText(button, "span", item.id, "stable-id");
+      button.addEventListener("click", () => {
+        if (kind === "data-view") selectDataView(item.id, button);
+        else if (kind === "connection") selectConnection(item.id);
+        else inspectSearchDataset(item.id);
+      });
+      row.appendChild(button);
+      list.appendChild(row);
+    }
+    el.results.appendChild(list);
+    if (matches.length === 0) addText(el.results, "p", "No matching entities.", "hint");
+    if (state.resultLimit < matches.length) {
+      const button = document.createElement("button");
+      button.type = "button";
+      button.className = "load-more";
+      button.textContent = `Show next ${Math.min(BATCH_SIZE, matches.length - state.resultLimit)} results`;
+      button.addEventListener("click", () => {
+        state.resultLimit += BATCH_SIZE;
+        renderResults();
+        const next = el.results.querySelector(".load-more");
+        if (next) next.focus();
+        else search.focus();
+      });
+      el.results.appendChild(button);
+    }
+    const shown = Math.min(matches.length, state.resultLimit);
+    setStatus(`${matches.length} ${kind} ${matches.length === 1 ? "result" : "results"}; showing ${shown}. Current selection is preserved.`);
+  }
+
+  function inspectSearchDataset(id) {
+    empty(el.results);
+    const heading = addText(el.results, "h3", entityLabel("dataset", id));
+    heading.tabIndex = -1;
+    addText(el.results, "p", id, "stable-id");
+    const connections = Array.from(maps.connection.values()).filter((connection) =>
+      maps.relationship.has(relationshipKey(id, connection.id))
+    );
+    addText(el.results, "p", `${connections.length} accessible Connections use this dataset. Choose a Connection to inspect its Data Views and relationship metadata.`, "hint");
+    const list = document.createElement("ul");
+    list.className = "result-list";
+    for (const connection of connections) {
+      const row = document.createElement("li");
+      const button = document.createElement("button");
+      button.type = "button";
+      button.dataset.searchConnectionId = connection.id;
+      const views = payload.adjacency.data_view_ids_by_connection[connection.id] || [];
+      addText(button, "span", `${entityLabel("connection", connection.id)} · ${views.length} Data Views`, "result-name");
+      addText(button, "span", connection.id, "stable-id");
+      button.addEventListener("click", () => selectConnection(connection.id));
+      row.appendChild(button);
+      list.appendChild(row);
+    }
+    el.results.appendChild(list);
+    heading.focus();
+    setStatus(`${entityLabel("dataset", id)}: ${connections.length} accessible Connections. Roles belong to individual dataset–Connection relationships.`);
+  }
+
+  function renderParent(view) {
+    empty(el.parent);
+    if (!view.connection_id) {
+      addText(el.parent, "p", "Parent connection unavailable: no connection identifier was reported.", "availability availability--missing");
+      return;
+    }
+    const connection = maps.connection.get(view.connection_id);
+    if (!connection) {
+      addText(el.parent, "p", "Parent connection unavailable: the reported identifier could not be resolved.", "availability availability--missing");
+      addText(el.parent, "p", view.connection_id, "stable-id");
+      return;
+    }
+    if (connection.detail_availability === "unavailable") {
+      addText(el.parent, "p", "Connection name unavailable for this accessible parent.", "availability availability--unavailable");
+    } else {
+      addText(el.parent, "p", connection.display_name, "entity-name");
+    }
+    addText(el.parent, "p", connection.id, "stable-id");
+  }
+
+  function renderDatasets(view) {
+    empty(el.datasets);
+    if (view.dataset_availability === "unavailable") {
+      addText(el.datasets, "p", "Backing datasets unavailable for this data view's parent connection.", "availability availability--unavailable");
+      return;
+    }
+    const ids = datasetIds(view);
+    if (view.dataset_availability === "reported-empty" || ids.length === 0) {
+      addText(el.datasets, "p", "No backing datasets were reported for this connection.", "availability availability--empty");
+      return;
+    }
+    const roleCounts = new Map();
+    for (const id of ids) {
+      const role = relationshipRole(id, view.connection_id);
+      incrementRoleCount(roleCounts, role);
+    }
+    if (ids.length > 1) {
+      const filter = document.createElement("div");
+      filter.className = "dataset-role-filter ui";
+      const label = document.createElement("label");
+      label.setAttribute("for", "lineage-role-filter");
+      label.textContent = "Connection role";
+      const select = document.createElement("select");
+      select.id = "lineage-role-filter";
+      const options = [["all", `All roles (${ids.length})`]];
+      const roleOptions = Array.from(roleCounts.entries()).sort((left, right) => {
+        const leftIndex = ROLE_ORDER.indexOf(left[1].styleKey);
+        const rightIndex = ROLE_ORDER.indexOf(right[1].styleKey);
+        const leftRank = leftIndex < 0 ? ROLE_ORDER.length : leftIndex;
+        const rightRank = rightIndex < 0 ? ROLE_ORDER.length : rightIndex;
+        return leftRank - rightRank || left[1].label.localeCompare(right[1].label);
+      });
+      for (const [key, entry] of roleOptions) {
+        options.push([key, `${entry.label} (${entry.count})`]);
+      }
+      for (const [value, text] of options) {
+        const option = document.createElement("option");
+        option.value = value;
+        option.textContent = text;
+        select.appendChild(option);
+      }
+      select.value = state.datasetRoleFilter;
+      select.addEventListener("change", () => {
+        state.datasetRoleFilter = select.value;
+        state.datasetLimit = BATCH_SIZE;
+        const activeRole = state.activeDatasetId
+          ? relationshipRole(state.activeDatasetId, view.connection_id).filterKey
+          : null;
+        if (state.activeDatasetId && select.value !== "all" && activeRole !== select.value) {
+          state.activeDatasetId = null;
+          state.paused = false;
+          state.initiatingDataset = null;
+          setFullGraph(false);
+        }
+        renderDetails();
+        renderLocalGraph();
+        document.getElementById("lineage-role-filter").focus();
+        const selectedRole = roleCounts.get(select.value);
+        const shown = select.value === "all" ? ids.length : (selectedRole ? selectedRole.count : 0);
+        setStatus(`${shown} of ${ids.length} backing datasets match ${select.value === "all" ? "all Connection roles" : selectedRole.label} for ${view.name}.`);
+      });
+      filter.append(label, select);
+      el.datasets.appendChild(filter);
+    }
+    const filteredIds = state.datasetRoleFilter === "all"
+      ? ids
+      : ids.filter(
+          (id) => relationshipRole(id, view.connection_id).filterKey === state.datasetRoleFilter
+        );
+    const selectedOutsideBatch =
+      state.activeDatasetId &&
+      filteredIds.includes(state.activeDatasetId) &&
+      !filteredIds.slice(0, state.datasetLimit).includes(state.activeDatasetId);
+    const visibleIds = selectedOutsideBatch
+      ? [state.activeDatasetId, ...filteredIds.filter((id) => id !== state.activeDatasetId)].slice(
+          0,
+          state.datasetLimit
+        )
+      : filteredIds.slice(0, state.datasetLimit);
+    addText(
+      el.datasets,
+      "p",
+      state.datasetRoleFilter === "all"
+        ? `${ids.length} backing ${ids.length === 1 ? "dataset" : "datasets"}; showing ${visibleIds.length}. Select one to trace its lineage route.`
+        : `${filteredIds.length} of ${ids.length} backing datasets match ${roleCounts.get(state.datasetRoleFilter).label}; showing ${visibleIds.length}. Select one to trace its lineage route.`,
+      "detail-summary"
+    );
+    const list = document.createElement("ul");
+    list.className = "entity-list dataset-list";
+    for (const id of visibleIds) {
+      const item = maps.dataset.get(id);
+      if (!item) continue;
+      const row = document.createElement("li");
+      const button = document.createElement("button");
+      button.type = "button";
+      button.dataset.datasetId = id;
+      button.setAttribute("aria-pressed", String(state.activeDatasetId === id));
+      const role = relationshipRole(id, view.connection_id);
+      button.setAttribute(
+        "aria-label",
+        `Trace dataset ${item.name}, stable identifier ${item.id}${role.label ? `, CJA Connection role ${role.label}` : ""}`
+      );
+      addText(button, "span", item.name, "entity-name");
+      if (role.label) addText(button, "span", `${role.label} role`, `relationship-role relationship-role--${role.styleKey}`);
+      addText(button, "span", item.id, "stable-id");
+      button.addEventListener("click", () => selectRoute(id, button));
+      row.appendChild(button);
+      list.appendChild(row);
+    }
+    el.datasets.appendChild(list);
+    if (state.datasetLimit < filteredIds.length) {
+      const button = document.createElement("button");
+      button.type = "button";
+      button.className = "load-more";
+      button.textContent = `Show next ${Math.min(BATCH_SIZE, filteredIds.length - state.datasetLimit)} datasets`;
+      button.setAttribute(
+        "aria-label",
+        state.datasetRoleFilter === "all"
+          ? `Show next ${Math.min(BATCH_SIZE, filteredIds.length - state.datasetLimit)} of ${filteredIds.length} backing datasets`
+          : `Show next ${Math.min(BATCH_SIZE, filteredIds.length - state.datasetLimit)} of ${filteredIds.length} matching backing datasets`
+      );
+      button.addEventListener("click", () => {
+        state.datasetLimit += BATCH_SIZE;
+        renderDatasets(view);
+        const next = el.datasets.querySelector(".load-more");
+        if (next) next.focus();
+        else {
+          el.datasets.tabIndex = -1;
+          el.datasets.focus();
+        }
+        setStatus(
+          `${Math.min(filteredIds.length, state.datasetLimit)} of ${filteredIds.length} matching backing datasets are shown for ${view.name}.`
+        );
+      });
+      el.datasets.appendChild(button);
+    }
+  }
+
+  function renderSiblingResults(view, results) {
+    const ids = siblingIds(view);
+    empty(results);
+    const query = normalizeSearch(state.siblingQuery.trim());
+    const filteredIds = query
+      ? ids.filter((id) => {
+          const item = maps["data-view"].get(id);
+          return item && normalizeSearch(item.search_text).includes(query);
+        })
+      : ids;
+    addText(
+      results,
+      "p",
+      `${filteredIds.length} of ${ids.length} siblings match the current filter.`,
+      "detail-summary"
+    );
+    const list = document.createElement("ul");
+    list.className = "entity-list sibling-list";
+    for (const id of filteredIds.slice(0, state.siblingLimit)) {
+      const item = maps["data-view"].get(id);
+      if (!item) continue;
+      const row = document.createElement("li");
+      addText(row, "span", item.name, "entity-name");
+      addText(row, "span", item.id, "stable-id");
+      list.appendChild(row);
+    }
+    results.appendChild(list);
+    if (state.siblingLimit < filteredIds.length) {
+      const button = document.createElement("button");
+      button.type = "button";
+      button.className = "load-more";
+      button.textContent = `Show next ${Math.min(BATCH_SIZE, filteredIds.length - state.siblingLimit)} siblings`;
+      button.addEventListener("click", () => {
+        state.siblingLimit += BATCH_SIZE;
+        renderSiblingResults(view, results);
+        const next = results.querySelector(".load-more");
+        if (next) next.focus();
+        else {
+          results.tabIndex = -1;
+          results.focus();
+        }
+      });
+      results.appendChild(button);
+    }
+  }
+
+  function renderSiblings(view) {
+    empty(el.siblings);
+    const ids = siblingIds(view);
+    addText(el.siblings, "p", `${ids.length} sibling data ${ids.length === 1 ? "view" : "views"} share this connection.`, "detail-summary");
+    if (ids.length === 0) return;
+
+    const label = document.createElement("label");
+    label.setAttribute("for", "lineage-sibling-filter");
+    label.textContent = "Filter sibling data views";
+    const filter = document.createElement("input");
+    filter.id = "lineage-sibling-filter";
+    filter.type = "search";
+    filter.className = "sibling-filter";
+    filter.autocomplete = "off";
+    filter.value = state.siblingQuery;
+    const results = document.createElement("div");
+    results.id = "lineage-sibling-results";
+    results.setAttribute("role", "region");
+    results.setAttribute("aria-label", "Filtered sibling data views");
+    filter.setAttribute("aria-controls", results.id);
+    filter.addEventListener("input", () => {
+      state.siblingQuery = filter.value;
+      state.siblingLimit = BATCH_SIZE;
+      renderSiblingResults(view, results);
+    });
+    el.siblings.append(label, filter, results);
+    renderSiblingResults(view, results);
+  }
+
+  function renderRouteControls(view) {
+    if (!state.activeDatasetId) {
+      el.routeControls.hidden = true;
+      return;
+    }
+    el.routeControls.hidden = false;
+    const dataset = maps.dataset.get(state.activeDatasetId);
+    const connection = maps.connection.get(view.connection_id);
+    el.routeCopy.textContent = `Selected route: ${dataset.name} → ${connection ? connection.display_name : view.connection_id} → ${view.name}. Static edge emphasis is authoritative; marker timing has no operational meaning.`;
+  }
+
+  function reportedAt(value, path) {
+    let current = value;
+    for (const key of path) {
+      if (!hasOwn(current, key)) return { present: false, value: undefined };
+      current = current[key];
+    }
+    return { present: true, value: current };
+  }
+
+  function formatReported(value) {
+    if (value === null) return "Reported null";
+    if (value === true) return "True";
+    if (value === false) return "False";
+    if (value === "") return "Reported empty string";
+    if (Array.isArray(value)) return value.length ? value.join(", ") : "Reported empty list";
+    if (typeof value === "object") return Object.keys(value).length ? JSON.stringify(value) : "Reported empty object";
+    return String(value);
+  }
+
+  function appendMetadataGroup(parent, title, value, fields) {
+    const card = document.createElement("section");
+    card.className = "metadata-card";
+    addText(card, "h5", title);
+    if (value === null || (typeof value === "object" && !Array.isArray(value) && Object.keys(value).length === 0)) {
+      const message = value === null
+        ? formatReported(value)
+        : "Reported object has no recognized fields.";
+      addText(card, "p", message, "metadata-empty");
+      parent.appendChild(card);
+      return;
+    }
+    const list = document.createElement("dl");
+    for (const [label, path, transform, groupStateOnly] of fields) {
+      const reported = reportedAt(value, path);
+      if (!reported.present) continue;
+      if (
+        groupStateOnly &&
+        reported.value !== null &&
+        !(typeof reported.value === "object" &&
+          !Array.isArray(reported.value) &&
+          Object.keys(reported.value).length === 0)
+      ) continue;
+      addText(list, "dt", label);
+      const shown = transform && reported.value !== null ? transform(reported.value) : reported.value;
+      addText(list, "dd", formatReported(shown));
+    }
+    if (list.childElementCount === 0) {
+      addText(card, "p", "Reported object has no recognized fields.", "metadata-empty");
+    }
+    else card.appendChild(list);
+    parent.appendChild(card);
+  }
+
+  function addSummaryChip(text) {
+    addText(el.relationshipSummary, "span", text, "relationship-summary-chip");
+  }
+
+  function renderRelationshipSummary(metadata) {
+    empty(el.relationshipSummary);
+    if (!metadata || typeof metadata !== "object") return;
+    if (hasOwn(metadata, "role")) {
+      const role = displayRole(metadata.role);
+      addSummaryChip(`${role || formatReported(metadata.role)} role`);
+    }
+    const schemaName = reportedAt(metadata, ["schema", "name"]);
+    const schemaId = reportedAt(metadata, ["schema", "id"]);
+    if (schemaName.present || schemaId.present) {
+      addSummaryChip(`Schema: ${formatReported(schemaName.present ? schemaName.value : schemaId.value)}`);
+    }
+    const namespace = reportedAt(metadata, ["identity", "namespace"]);
+    const visitorId = reportedAt(metadata, ["identity", "visitorId"]);
+    if (namespace.present || visitorId.present) {
+      addSummaryChip(`Identity: ${formatReported(namespace.present ? namespace.value : visitorId.value)}`);
+    }
+    const lookupKey = reportedAt(metadata, ["lookup", "keyField"]);
+    if (lookupKey.present) addSummaryChip(`Lookup key: ${formatReported(lookupKey.value)}`);
+    const streaming = reportedAt(metadata, ["ingestion", "streaming"]);
+    if (streaming.present) addSummaryChip(`Streaming: ${formatReported(streaming.value)}`);
+    const completed = reportedAt(metadata, ["ingestion", "backfillSummary", "completed"]);
+    const total = reportedAt(metadata, ["ingestion", "backfillSummary", "total"]);
+    if (completed.present && total.present) {
+      addSummaryChip(`Backfill: ${formatReported(completed.value)} of ${formatReported(total.value)} completed`);
+    }
+    const sourceType = reportedAt(metadata, ["dataSource", "type"]);
+    const sourceId = reportedAt(metadata, ["dataSource", "id"]);
+    if (sourceType.present || sourceId.present) {
+      addSummaryChip(`Source: ${formatReported(sourceType.present ? sourceType.value : sourceId.value)}`);
+    }
+  }
+
+  function renderRelationshipContext(view, metadata) {
+    el.relationshipContext.hidden = true;
+    el.relationshipContext.textContent = "";
+    if (!metadata || typeof metadata !== "object") return;
+    const parent = reportedAt(metadata, ["lookup", "parentDatasetId"]);
+    if (!parent.present || typeof parent.value !== "string" || !parent.value) return;
+    const dataset = maps.dataset.get(parent.value);
+    const parentLabel = dataset ? `${dataset.name} (${parent.value})` : parent.value;
+    const accessibleHere = datasetIds(view).includes(parent.value);
+    el.relationshipContext.textContent = `Lookup parent: ${parentLabel}. ${accessibleHere ? "It is present in this Connection's accessible backing set." : "It is not in this Connection's accessible backing set."}`;
+    el.relationshipContext.hidden = false;
+  }
+
+  function renderRelationshipMetadata(view) {
+    if (!state.activeDatasetId || !view.connection_id) {
+      el.relationship.hidden = true;
+      empty(el.relationshipSummary);
+      el.relationshipContext.hidden = true;
+      empty(el.relationshipMetadata);
+      return;
+    }
+    const dataset = maps.dataset.get(state.activeDatasetId);
+    const connection = maps.connection.get(view.connection_id);
+    const edge = relationshipEdge(state.activeDatasetId, view.connection_id);
+    el.relationship.hidden = false;
+    el.relationshipHeading.textContent = `${dataset.name} → ${connection ? connection.display_name : view.connection_id}`;
+    el.relationshipId.textContent = `${state.activeDatasetId} → ${view.connection_id}`;
+    empty(el.relationshipMetadata);
+    if (!edge || !hasOwn(edge, "connection_metadata")) {
+      renderRelationshipSummary(null);
+      renderRelationshipContext(view, null);
+      addText(el.relationshipMetadata, "p", "No connection-scoped dataset metadata was reported for this relationship.", "availability availability--unavailable");
+      return;
+    }
+    const metadata = edge.connection_metadata;
+    renderRelationshipSummary(metadata);
+    renderRelationshipContext(view, metadata);
+    if (metadata === null || Object.keys(metadata).length === 0) {
+      const message = metadata === null
+        ? formatReported(metadata)
+        : "Reported connection metadata object has no recognized fields.";
+      addText(el.relationshipMetadata, "p", message, "availability availability--empty");
+      return;
+    }
+    if (hasOwn(metadata, "role")) {
+      appendMetadataGroup(el.relationshipMetadata, "Connection role", { role: metadata.role }, [
+        ["Reported role", ["role"], (value) => displayRole(value) ?? value],
+      ]);
+    }
+    if (hasOwn(metadata, "schema")) {
+      appendMetadataGroup(el.relationshipMetadata, "Schema", metadata.schema, [
+        ["Schema ID", ["id"]], ["Schema name", ["name"]], ["Reference ID", ["ref", "id"]],
+        ["Reference content type", ["ref", "contentType"]],
+        ["Schema reference", ["ref"], null, true],
+      ]);
+    }
+    if (hasOwn(metadata, "identity")) {
+      appendMetadataGroup(el.relationshipMetadata, "Identity configuration", metadata.identity, [
+        ["Timestamp field", ["timestampId"]], ["Visitor ID field", ["visitorId"]],
+        ["Namespace", ["namespace"]], ["Use primary ID namespace", ["usePrimaryIdNamespace"]],
+        ["Identity map", ["identityMap"]], ["Namespace column", ["namespaceColumn"]],
+      ]);
+    }
+    if (hasOwn(metadata, "lookup")) {
+      appendMetadataGroup(el.relationshipMetadata, "Lookup configuration", metadata.lookup, [
+        ["Key field", ["keyField"]], ["Parent fields", ["parentFields"]],
+        ["Parent dataset ID", ["parentDatasetId"]], ["Parent dataset type", ["parentDatasetType"]],
+      ]);
+    }
+    if (hasOwn(metadata, "ingestion")) {
+      appendMetadataGroup(el.relationshipMetadata, "Ingestion observations", metadata.ingestion, [
+        ["Streaming", ["streaming"]], ["Backfills total", ["backfillSummary", "total"]],
+        ["Backfills failed", ["backfillSummary", "failed"]],
+        ["Backfills in progress", ["backfillSummary", "inProgress"]],
+        ["Backfills completed", ["backfillSummary", "completed"]],
+        ["Backfill summary invalid", ["backfillSummary", "invalid"]],
+        ["Backfill summary", ["backfillSummary"], null, true],
+        ["Last ingested", ["lastIngestedTime"]], ["Streaming enabled at", ["streamingEnabledAt"]],
+      ]);
+    }
+    if (hasOwn(metadata, "dataSource")) {
+      appendMetadataGroup(el.relationshipMetadata, "Data source", metadata.dataSource, [
+        ["Source ID", ["id"]], ["Type", ["type"]], ["Description", ["description"]],
+      ]);
+    }
+  }
+
+  function renderDetails() {
+    const view = selectedView();
+    if (!view) {
+      el.details.hidden = true;
+      return;
+    }
+    el.details.hidden = false;
+    document.getElementById("lineage-back-connection").hidden = !maps.connection.has(view.connection_id);
+    el.heading.textContent = view.name;
+    el.selectionId.textContent = view.id;
+    renderParent(view);
+    renderDatasets(view);
+    renderSiblings(view);
+    renderRelationshipMetadata(view);
+    renderRouteControls(view);
+  }
+
+  function parentSummary(view) {
+    if (!view.connection_id) return "Parent connection unavailable.";
+    const connection = maps.connection.get(view.connection_id);
+    if (!connection) return `Parent connection ${view.connection_id} unavailable.`;
+    if (connection.detail_availability === "unavailable") return `Parent connection name unavailable; stable identifier ${connection.id}.`;
+    return `Parent connection ${connection.display_name}, ${connection.id}.`;
+  }
+
+  function datasetSummary(view, ids) {
+    if (view.dataset_availability === "unavailable") return "Backing datasets unavailable.";
+    if (view.dataset_availability === "reported-empty" || ids.length === 0) return "No backing datasets were reported.";
+    return `${ids.length} backing datasets.`;
+  }
+
+  function selectDataView(id, control) {
+    const nextView = maps["data-view"].get(id);
+    state.selectedDataViewId = id;
+    if (nextView && nextView.connection_id) state.selectedConnectionId = nextView.connection_id;
+    state.activeDatasetId = null;
+    state.paused = false;
+    state.initiatingResult = control;
+    state.initiatingDataset = null;
+    state.datasetLimit = BATCH_SIZE;
+    state.datasetRoleFilter = "all";
+    state.siblingLimit = BATCH_SIZE;
+    state.siblingQuery = "";
+    setFullGraph(false);
+    el.showOverview.setAttribute("aria-pressed", "false");
+    renderResults();
+    renderDetails();
+    renderLocalGraph();
+    const view = selectedView();
+    setStatus(`${view.name}, ${view.id}, selected. ${parentSummary(view)} ${datasetSummary(view, datasetIds(view))} ${siblingIds(view).length} sibling data views.`);
+  }
+
+  function selectRoute(id, control) {
+    state.activeDatasetId = id;
+    state.paused = false;
+    state.initiatingDataset = control;
+    setFullGraph(false);
+    renderDetails();
+    renderLocalGraph();
+    setStatus(`${reducedMotion.matches ? "Static route selected" : "Lineage trace selected"}: ${entityLabel("dataset", id)} to ${selectedView().name}.`);
+  }
+
+  function clearRoute(restoreFocus) {
+    const datasetId = state.activeDatasetId;
+    const focusTarget = state.initiatingDataset;
+    state.activeDatasetId = null;
+    state.paused = false;
+    state.initiatingDataset = null;
+    setFullGraph(false);
+    renderDetails();
+    renderLocalGraph();
+    const view = selectedView();
+    if (view) setStatus(`${view.name} remains selected. No dataset route is selected.`);
+    if (!restoreFocus) return;
+    if (focusTarget && focusTarget.isConnected) {
+      focusTarget.focus();
+      return;
+    }
+    const replacement = Array.from(el.datasets.querySelectorAll("button")).find(
+      (button) => button.dataset.datasetId === datasetId
+    );
+    if (replacement) {
+      replacement.focus();
+      return;
+    }
+    const filter = document.getElementById("lineage-role-filter");
+    if (filter) {
+      filter.focus();
+      return;
+    }
+    el.datasets.tabIndex = -1;
+    el.datasets.focus();
+  }
+
+  function clearSelection(restoreFocus) {
+    const selectedId = state.selectedDataViewId;
+    const focusTarget = state.initiatingResult;
+    state.selectedDataViewId = null;
+    state.activeDatasetId = null;
+    state.paused = false;
+    state.initiatingResult = null;
+    state.initiatingDataset = null;
+    state.datasetLimit = BATCH_SIZE;
+    state.siblingLimit = BATCH_SIZE;
+    state.siblingQuery = "";
+    setFullGraph(false);
+    renderResults();
+    renderDetails();
+    renderConnectionOverview();
+    setStatus("Selection cleared. Static overview; no data view is selected.");
+    if (!restoreFocus) return;
+    if (focusTarget && focusTarget.isConnected) {
+      focusTarget.focus();
+      return;
+    }
+    const replacement = Array.from(el.results.querySelectorAll("button")).find(
+      (button) => button.dataset.dataViewId === selectedId
+    );
+    if (replacement) {
+      replacement.focus();
+      return;
+    }
+    const connection = state.selectedConnectionId
+      ? stage.querySelector(`[data-connection-id="${CSS.escape(state.selectedConnectionId)}"]`)
+      : null;
+    (connection || search).focus();
+  }
+
+  function connectionRoleBand(connectionId) {
+    const roles = roleIndex.connectionEntries.get(connectionId) || [];
+    if (roles.length === 0) return null;
+    const band = document.createElement("span");
+    band.className = "connection-overview-role-band";
+    band.setAttribute("role", "img");
+    band.setAttribute(
+      "aria-label",
+      `Role mix: ${roles.map((role) => `${role.label} ${role.count}`).join(", ")}`
+    );
+    for (const role of roles) {
+      const segment = document.createElement("span");
+      segment.className = "connection-overview-role-segment";
+      if (role.styleKey !== "unspecified") {
+        segment.classList.add(`relationship-role--${role.styleKey}`);
+      }
+      segment.style.flexGrow = String(role.count);
+      segment.setAttribute("aria-hidden", "true");
+      band.appendChild(segment);
+    }
+    return band;
+  }
+
+  function appendConnectionRoles(parent, connectionId) {
+    const roles = document.createElement("div");
+    roles.className = "connection-overview-roles";
+    for (const role of roleIndex.connectionEntries.get(connectionId) || []) {
+      const chip = addText(
+        roles,
+        "span",
+        `${role.label} ${role.count}`,
+        "connection-overview-role"
+      );
+      if (role.styleKey !== "unspecified") {
+        chip.classList.add(`relationship-role--${role.styleKey}`);
+      }
+    }
+    if (roles.childElementCount === 0) {
+      const connection = maps.connection.get(connectionId);
+      const message = connection && connection.dataset_availability === "reported-empty"
+        ? "No backing datasets reported" : "Dataset details unavailable";
+      addText(roles, "span", message, "connection-overview-counts");
+    }
+    parent.appendChild(roles);
+  }
+
+  function clearConnectionSelection(restoreFocus) {
+    const connectionId = state.selectedConnectionId;
+    state.selectedConnectionId = null;
+    state.connectionViewLimit = BATCH_SIZE;
+    renderConnectionOverview();
+    setStatus("Connection details closed. Choose another Connection or search for a Data View.");
+    if (!restoreFocus || !connectionId) return;
+    const replacement = stage.querySelector(
+      `[data-connection-id="${CSS.escape(connectionId)}"]`
+    );
+    if (replacement) replacement.focus();
+  }
+
+  function selectConnection(connectionId) {
+    if (selectedView()) clearSelection(false);
+    if (!connectionMatchesGlobalRole(connectionId)) {
+      state.globalRoleFilter = "all";
+      renderGlobalRoleCoverage();
+    }
+    if (state.selectedConnectionId !== connectionId) state.connectionViewLimit = BATCH_SIZE;
+    state.selectedConnectionId = connectionId;
+    renderConnectionOverview();
+    const heading = document.getElementById("lineage-connection-inspector-heading");
+    if (heading) heading.focus();
+    const connection = maps.connection.get(connectionId);
+    const views = payload.adjacency.data_view_ids_by_connection[connectionId] || [];
+    setStatus(`${connection ? connection.display_name || connection.id : connectionId} selected. Choose one of ${views.length} accessible data ${views.length === 1 ? "view" : "views"} to draw its bounded lineage neighborhood.`);
+  }
+
+  function renderConnectionInspector(connection) {
+    const datasets = payload.adjacency.dataset_ids_by_connection[connection.id] || [];
+    const views = payload.adjacency.data_view_ids_by_connection[connection.id] || [];
+    const inspector = document.createElement("aside");
+    inspector.id = "lineage-connection-inspector";
+    inspector.className = "connection-inspector";
+    inspector.setAttribute("aria-labelledby", "lineage-connection-inspector-heading");
+
+    const header = document.createElement("div");
+    header.className = "connection-inspector-header";
+    const heading = document.createElement("div");
+    addText(heading, "p", "Selected Connection", "eyebrow");
+    const title = addText(
+      heading,
+      "h4",
+      connection.display_name || connection.id,
+      "connection-inspector-heading"
+    );
+    title.id = "lineage-connection-inspector-heading";
+    title.tabIndex = -1;
+    addText(heading, "p", connection.id, "stable-id");
+    const close = document.createElement("button");
+    close.type = "button";
+    close.className = "connection-inspector-close";
+    close.textContent = "Close details";
+    close.addEventListener("click", () => clearConnectionSelection(true));
+    header.append(heading, close);
+    inspector.appendChild(header);
+
+    addText(
+      inspector,
+      "p",
+      `${datasets.length} backing ${datasets.length === 1 ? "dataset" : "datasets"}; ${views.length} accessible data ${views.length === 1 ? "view" : "views"}.`,
+      "connection-inspector-summary"
+    );
+    const band = connectionRoleBand(connection.id);
+    if (band) inspector.appendChild(band);
+    appendConnectionRoles(inspector, connection.id);
+
+    const viewsHeading = addText(
+      inspector,
+      "h5",
+      "Choose a Data View",
+      "connection-inspector-views-heading"
+    );
+    viewsHeading.id = "lineage-connection-inspector-views-heading";
+    const list = document.createElement("ul");
+    list.className = "connection-inspector-views";
+    list.setAttribute("aria-labelledby", viewsHeading.id);
+    for (const id of views.slice(0, state.connectionViewLimit)) {
+      const view = maps["data-view"].get(id);
+      if (!view) continue;
+      const row = document.createElement("li");
+      const button = document.createElement("button");
+      button.type = "button";
+      button.dataset.dataViewId = id;
+      button.setAttribute(
+        "aria-label",
+        `Inspect Data View ${view.name}, stable identifier ${view.id}`
+      );
+      addText(button, "span", view.name, "connection-inspector-view-name");
+      addText(button, "span", view.id, "stable-id");
+      button.addEventListener("click", () => selectDataView(id, button));
+      row.appendChild(button);
+      list.appendChild(row);
+    }
+    if (list.childElementCount === 0) {
+      addText(
+        inspector,
+        "p",
+        "No accessible Data Views were reported for this Connection.",
+        "availability availability--empty"
+      );
+    } else {
+      addText(
+        inspector,
+        "p",
+        `${views.length} accessible data ${views.length === 1 ? "view" : "views"}; showing ${Math.min(views.length, state.connectionViewLimit)}.`,
+        "detail-summary"
+      );
+      inspector.appendChild(list);
+      if (state.connectionViewLimit < views.length) {
+        const more = document.createElement("button");
+        more.type = "button";
+        more.className = "load-more";
+        more.textContent = `Show next ${Math.min(BATCH_SIZE, views.length - state.connectionViewLimit)} Data Views`;
+        more.addEventListener("click", () => {
+          state.connectionViewLimit += BATCH_SIZE;
+          renderConnectionOverview();
+          const next = document.querySelector("#lineage-connection-inspector .load-more");
+          const heading = document.getElementById("lineage-connection-inspector-heading");
+          (next || heading).focus();
+        });
+        inspector.appendChild(more);
+      }
+    }
+    return inspector;
+  }
+
+  function renderConnectionOverview() {
+    setFullGraph(false);
+    empty(stage);
+    clearDiagramControls();
+    stage.dataset.state = "overview";
+    el.showOverview.setAttribute("aria-pressed", "true");
+    const connections = Array.from(maps.connection.values());
+    const visible = connections.filter((connection) => connectionMatchesGlobalRole(connection.id));
+    if (
+      state.selectedConnectionId &&
+      !visible.some((connection) => connection.id === state.selectedConnectionId)
+    ) {
+      state.selectedConnectionId = null;
+    }
+    const overview = document.createElement("section");
+    overview.className = "connection-overview";
+    overview.setAttribute("aria-labelledby", "lineage-connection-overview-heading");
+    const header = document.createElement("div");
+    header.className = "connection-overview-header";
+    const heading = document.createElement("div");
+    addText(heading, "p", "Accessible scope", "eyebrow");
+    const title = addText(heading, "h3", "Connection overview");
+    title.id = "lineage-connection-overview-heading";
+    const filterEntry = state.globalRoleFilter === "all"
+      ? null
+      : roleIndex.counts.get(state.globalRoleFilter);
+    const summary = addText(
+      header,
+      "p",
+      filterEntry
+        ? `${visible.length} of ${connections.length} Connections shown for ${filterEntry.label}.`
+        : `${visible.length} of ${connections.length} Connections shown.`
+    );
+    summary.id = "lineage-connection-overview-summary";
+    header.prepend(heading);
+    const body = document.createElement("div");
+    body.className = "connection-overview-body";
+    const grid = document.createElement("div");
+    grid.className = "connection-overview-grid";
+    for (const connection of visible) {
+      const datasets = payload.adjacency.dataset_ids_by_connection[connection.id] || [];
+      const views = payload.adjacency.data_view_ids_by_connection[connection.id] || [];
+      const card = document.createElement("button");
+      card.type = "button";
+      card.className = "connection-overview-card";
+      card.dataset.connectionId = connection.id;
+      card.setAttribute("aria-pressed", String(state.selectedConnectionId === connection.id));
+      card.setAttribute("aria-controls", "lineage-connection-inspector");
+      card.title = connection.display_name || connection.id;
+      card.setAttribute(
+        "aria-label",
+        `Select Connection ${connection.display_name || connection.id}: ${datasets.length} backing datasets and ${views.length} accessible data views`
+      );
+      addText(card, "span", connection.display_name || connection.id, "connection-overview-name");
+      addText(card, "span", connection.id, "stable-id connection-overview-id");
+      addText(
+        card,
+        "span",
+        `${datasets.length} backing ${datasets.length === 1 ? "dataset" : "datasets"}; ${views.length} data ${views.length === 1 ? "view" : "views"}`,
+        "connection-overview-counts"
+      );
+      const band = connectionRoleBand(connection.id);
+      if (band) card.appendChild(band);
+      appendConnectionRoles(card, connection.id);
+      if (state.selectedConnectionId === connection.id) {
+        addText(card, "span", "Selected", "connection-overview-selected");
+      }
+      card.addEventListener("click", () => selectConnection(connection.id));
+      grid.appendChild(card);
+    }
+    if (visible.length === 0) {
+      addText(grid, "p", "No accessible Connections match this role state.", "overview-state");
+    }
+    body.appendChild(grid);
+    if (state.selectedConnectionId) {
+      const connection = maps.connection.get(state.selectedConnectionId);
+      if (connection) {
+        body.classList.add("has-selection");
+        body.appendChild(renderConnectionInspector(connection));
+      }
+    }
+    overview.append(header, body);
+    stage.appendChild(overview);
+  }
+
+  function isRouteEdge(edge, view) {
+    if (!state.activeDatasetId || !view.connection_id) return false;
+    return (
+      (edge.source_ref === `dataset:${state.activeDatasetId}` && edge.target_ref === `connection:${view.connection_id}`) ||
+      (edge.source_ref === `connection:${view.connection_id}` && edge.target_ref === `data-view:${view.id}`)
+    );
+  }
+
+  const {
+    applyCamera,
+    clearDiagramControls,
+    clearPan,
+    drawFullGraph,
+    panCamera,
+    renderLocalGraph,
+    stageDimensions,
+    zoomCamera,
+  } = window.SdrCjaLineageGraph.create({
+    addText,
+    empty,
+    el,
+    entityMatchesGlobalRole,
+    entityLabel,
+    isRouteEdge,
+    maps,
+    payload,
+    reducedMotion,
+    relationshipRole,
+    renderRouteControls,
+    selectedView,
+    setFullGraph,
+    setStatus,
+    stage,
+    state,
+  });
+
+  document.getElementById("lineage-search-kind").addEventListener("change", () => {
+    state.resultLimit = BATCH_SIZE;
+    renderResults();
+  });
+  document.getElementById("lineage-back-connection").addEventListener("click", () => {
+    const view = selectedView();
+    if (view && view.connection_id) selectConnection(view.connection_id);
+  });
+  search.addEventListener("input", () => {
+    state.resultLimit = BATCH_SIZE;
+    renderResults();
+  });
+  el.clearSelection.addEventListener("click", () => clearSelection(true));
+  el.clearRoute.addEventListener("click", () => clearRoute(true));
+  el.showOverview.addEventListener("click", () => {
+    if (selectedView()) clearSelection(false);
+    else renderConnectionOverview();
+    setStatus("Aggregated Connection overview shown. Choose a Connection, then choose a Data View, or search for a specific Data View.");
+    el.showOverview.focus();
+  });
+  el.fullGraph.addEventListener("click", drawFullGraph);
+  el.zoomIn.addEventListener("click", () => {
+    zoomCamera(0.75);
+    setStatus("Diagram zoomed in. Node labels remain available in full on hover and to assistive technology.");
+  });
+  el.zoomOut.addEventListener("click", () => {
+    zoomCamera(4 / 3);
+    setStatus("Diagram zoomed out.");
+  });
+  el.resetCamera.addEventListener("click", () => {
+    if (!state.initialCamera) return;
+    state.camera = { ...state.initialCamera };
+    applyCamera();
+    stage.focus();
+    setStatus("Diagram view reset to its readable starting position.");
+  });
+  el.flowPause.addEventListener("click", () => {
+    const svg = stage.querySelector("svg");
+    if (!svg || reducedMotion.matches) return;
+    if (state.fullGraph) state.flowPaused = !state.flowPaused;
+    else state.paused = !state.paused;
+    const paused = state.fullGraph ? state.flowPaused : state.paused;
+    if (paused) svg.pauseAnimations();
+    else svg.unpauseAnimations();
+    stage.classList.toggle("is-flow-paused", paused);
+    el.flowPause.setAttribute("aria-pressed", String(paused));
+    el.flowPause.textContent = paused ? "Resume flow" : "Pause flow";
+    setStatus(paused
+      ? "Lineage motion paused; static highlighted routes remain visible."
+      : "Lineage motion resumed; motion indicates lineage direction only.");
+  });
+  el.themeToggle.addEventListener("click", () => {
+    state.theme = state.theme === "dark" ? "light" : "dark";
+    state.themeOverridden = true;
+    document.documentElement.dataset.theme = state.theme;
+    el.themeToggle.setAttribute("aria-pressed", String(state.theme === "dark"));
+    el.themeToggle.textContent = state.theme === "dark" ? "Light mode" : "Dark mode";
+    setStatus(`${state.theme === "dark" ? "Dark" : "Light"} display mode enabled; the ${document.documentElement.dataset.colorPack} color pack remains active.`);
+  });
+  stage.addEventListener("pointerdown", (event) => {
+    if (!state.camera || event.button !== 0) return;
+    state.pointer = { id: event.pointerId, x: event.clientX, y: event.clientY, camera: { ...state.camera } };
+    stage.classList.add("is-panning");
+    stage.setPointerCapture(event.pointerId);
+  });
+  stage.addEventListener("pointermove", (event) => {
+    if (!state.pointer || state.pointer.id !== event.pointerId || !state.camera) return;
+    const dimensions = stageDimensions();
+    state.camera.x = state.pointer.camera.x - (event.clientX - state.pointer.x) * state.pointer.camera.width / dimensions.width;
+    state.camera.y = state.pointer.camera.y - (event.clientY - state.pointer.y) * state.pointer.camera.height / dimensions.height;
+    applyCamera();
+  });
+  const endPan = (event) => {
+    if (!state.pointer || state.pointer.id !== event.pointerId) return;
+    clearPan();
+  };
+  stage.addEventListener("pointerup", endPan);
+  stage.addEventListener("pointercancel", endPan);
+  document.addEventListener("keydown", (event) => {
+    if (document.activeElement === stage && state.camera) {
+      const cameraKeys = {
+        ArrowLeft: [-0.12, 0],
+        ArrowRight: [0.12, 0],
+        ArrowUp: [0, -0.12],
+        ArrowDown: [0, 0.12],
+      };
+      if (cameraKeys[event.key]) {
+        event.preventDefault();
+        panCamera(...cameraKeys[event.key]);
+        return;
+      }
+      if (event.key === "+" || event.key === "=") {
+        event.preventDefault();
+        zoomCamera(0.75);
+        return;
+      }
+      if (event.key === "-" || event.key === "_") {
+        event.preventDefault();
+        zoomCamera(4 / 3);
+        return;
+      }
+      if (event.key === "0" && state.initialCamera) {
+        event.preventDefault();
+        state.camera = { ...state.initialCamera };
+        applyCamera();
+        return;
+      }
+    }
+    if (event.key !== "Escape") return;
+    if (state.activeDatasetId) {
+      event.preventDefault();
+      clearRoute(true);
+    } else if (state.selectedDataViewId) {
+      event.preventDefault();
+      clearSelection(true);
+    } else if (state.selectedConnectionId) {
+      event.preventDefault();
+      clearConnectionSelection(true);
+    }
+  });
+  const motionChanged = () => {
+    clearPan();
+    state.paused = false;
+    if (state.fullGraph) {
+      drawFullGraph();
+      setStatus(reducedMotion.matches
+        ? "Reduced motion enabled; representative journeys remain statically highlighted."
+        : "Reduced motion disabled; representative journey motion is available and may be paused.");
+      return;
+    }
+    if (!state.activeDatasetId) return;
+    renderDetails();
+    renderLocalGraph();
+    setStatus(reducedMotion.matches ? "Static route selected; the moving marker is omitted by reduced-motion preference." : "Lineage trace marker available; static selected route remains authoritative.");
+  };
+  if (reducedMotion.addEventListener) reducedMotion.addEventListener("change", motionChanged);
+  else reducedMotion.addListener(motionChanged);
+  const colorSchemeChanged = () => {
+    if (state.themeOverridden) return;
+    state.theme = darkMode.matches ? "dark" : "light";
+    document.documentElement.dataset.theme = state.theme;
+    el.themeToggle.setAttribute("aria-pressed", String(state.theme === "dark"));
+    el.themeToggle.textContent = state.theme === "dark" ? "Light mode" : "Dark mode";
+  };
+  if (darkMode.addEventListener) darkMode.addEventListener("change", colorSchemeChanged);
+  else darkMode.addListener(colorSchemeChanged);
+  colorSchemeChanged();
+
+  renderRoleLegend();
+  renderGlobalRoleCoverage();
+  renderResults();
+  if (payload.counts.connections) renderConnectionOverview();
+  window.__cjaLineagePoc = Object.freeze({
+    getState: () => ({
+      selectedConnectionId: state.selectedConnectionId,
+      selectedDataViewId: state.selectedDataViewId, activeDatasetId: state.activeDatasetId,
+      datasetRoleFilter: state.datasetRoleFilter,
+      globalRoleFilter: state.globalRoleFilter,
+      paused: state.paused,
+      fullGraph: state.fullGraph,
+      svgCount: stage.querySelectorAll("svg").length,
+      svgNodeCount: stage.querySelectorAll(".lineage-node").length,
+      svgEdgeCount: stage.querySelectorAll(".lineage-edge").length,
+      markerCount: stage.querySelectorAll(".route-marker").length,
+      journeyCount: stage.querySelectorAll(".journey-guide").length,
+      cometCount: stage.querySelectorAll(".journey-comet").length,
+      flowPaused: state.flowPaused,
+      theme: state.theme,
+      camera: state.camera ? { ...state.camera } : null,
+      ambientJourneyComparisons: state.ambientJourneyComparisons,
+    }),
+  });
+})();
+
+  </script>
+</body>
+</html>

@@ -1,0 +1,108 @@
+{
+  "dataViews": [
+    {
+      "id": "dv-event",
+      "name": "Event view",
+      "connection": {"id": "conn-event", "name": "Event connection"},
+      "datasets": [
+        {
+          "id": "ds-shared",
+          "name": "Shared dataset",
+          "connectionMetadata": {
+            "role": "event",
+            "schema": {
+              "id": "schema-event",
+              "name": "Web Event Schema",
+              "ref": {
+                "id": "https://ns.adobe.com/example/schemas/event",
+                "contentType": "application/vnd.adobe.xed-full+json;version=1"
+              }
+            },
+            "identity": {
+              "timestampId": "timestamp",
+              "visitorId": "identityMap",
+              "namespace": "ECID",
+              "usePrimaryIdNamespace": false,
+              "identityMap": true,
+              "namespaceColumn": "identityMap"
+            },
+            "ingestion": {
+              "streaming": true,
+              "backfillSummary": {
+                "total": 2,
+                "failed": 0,
+                "inProgress": 0,
+                "completed": 2,
+                "invalid": false
+              },
+              "lastIngestedTime": "2026-08-29T12:34:56Z",
+              "streamingEnabledAt": "2026-01-02T03:04:05Z"
+            },
+            "dataSource": {
+              "id": "webData",
+              "type": "Web Data",
+              "description": "Browser event data"
+            },
+            "futureField": {"ignored": true}
+          }
+        }
+      ]
+    },
+    {
+      "id": "dv-profile",
+      "name": "Profile view",
+      "connection": {"id": "conn-profile", "name": "Profile connection"},
+      "datasets": [
+        {
+          "id": "ds-shared",
+          "name": "Shared dataset",
+          "connectionMetadata": {
+            "role": "profile",
+            "identity": {
+              "namespace": null,
+              "usePrimaryIdNamespace": false,
+              "namespaceColumn": ""
+            },
+            "dataSource": {}
+          }
+        }
+      ]
+    },
+    {
+      "id": "dv-lookup",
+      "name": "Lookup view",
+      "connection": {"id": "conn-lookup", "name": "Lookup connection"},
+      "datasets": [
+        {
+          "id": "ds-lookup",
+          "name": "Account lookup",
+          "connectionMetadata": {
+            "role": "lookup",
+            "lookup": {
+              "keyField": "accountId",
+              "parentFields": ["accountId", "accountName"],
+              "parentDatasetId": "ds-shared",
+              "parentDatasetType": "event"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "dv-summary",
+      "name": "Summary view",
+      "connection": {"id": "conn-summary", "name": "Summary connection"},
+      "datasets": [
+        {
+          "id": "ds-summary",
+          "name": "Daily summary",
+          "connectionMetadata": {
+            "role": "summary",
+            "lookup": {"parentFields": []}
+          }
+        }
+      ]
+    }
+  ],
+  "count": 4
+}

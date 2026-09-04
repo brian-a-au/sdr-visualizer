@@ -1,4 +1,4 @@
-"""Regenerate examples/cja-typical.html and aa-typical.html.
+"""Regenerate tracked CJA/AA catalog and CJA lineage HTML examples.
 
 Reads the bundled fixtures (the messy CJA fixture and the AA messy fixture)
 and writes them through the renderer. Run via:
@@ -11,7 +11,9 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+from sdr_visualizer.adapters.cja_lineage import adapt
 from sdr_visualizer.core.visualizer import build_implementation
+from sdr_visualizer.render.lineage_renderer import render as render_lineage
 from sdr_visualizer.render.renderer import build_payload_with_options, render_payload
 
 REPO = Path(__file__).resolve().parent.parent
@@ -39,6 +41,12 @@ def main() -> None:
     ]:
         target = _generate(fixture, output)
         print(f"wrote {target}")
+    source = json.loads((FIXTURES / "cja_lineage_enriched.json").read_text(encoding="utf-8"))
+    target = OUT / "cja-lineage.html"
+    target.write_text(
+        render_lineage(adapt(source, scope_label="Synthetic CJA lineage example")), encoding="utf-8"
+    )
+    print(f"wrote {target}")
 
 
 if __name__ == "__main__":

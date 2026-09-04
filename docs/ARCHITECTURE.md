@@ -146,3 +146,17 @@ Follow [`ADAPTER_GUIDE.md`](ADAPTER_GUIDE.md#adding-a-new-platform), preserve
 the stable surfaces in [`PRODUCT_CONTRACT.md`](PRODUCT_CONTRACT.md), and
 complete the current-generator and sibling-parity evidence in
 [`RELEASING.md`](RELEASING.md) before changing public compatibility claims.
+
+## CJA lineage command
+
+The package also installs `cja-lineage` (CJA only). Its independent pipeline is
+`cli/lineage.py` → `input/lineage_discovery.py` → `adapters/cja_lineage.py` →
+`core/lineage.py` → `analysis/lineage_layout.py` → `render/lineage_payload.py` →
+`render/lineage_renderer.py`. It consumes dataset discovery, not component snapshots.
+The resulting HTML embeds its own internal payload and precomputed geometry.
+
+Dataset metadata is attached to dataset–Connection relationships, never a global
+dataset property. The browser starts with a bounded Connection overview and creates
+SVG only after explicit selection or full-topology opt-in. Saved/live acquisition
+and owner-only atomic output enforce independent trust boundaries; only neutral
+output identity checks are shared with the catalog CLI. See [LINEAGE.md](LINEAGE.md).
