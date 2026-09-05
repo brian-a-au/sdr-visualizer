@@ -11,9 +11,9 @@ import argparse
 import json
 import statistics
 import sys
-import time
 from collections.abc import Callable
 from pathlib import Path
+from time import perf_counter
 from typing import Any
 
 REPO = Path(__file__).resolve().parent.parent
@@ -188,11 +188,11 @@ def _measure(factory: Callable[[], LineageTopology], *, repeats: int) -> dict[st
     payload: dict[str, Any] | None = None
     html = ""
     for _ in range(repeats):
-        started = time.perf_counter()
+        started = perf_counter()
         topology = factory()
         payload = build_payload(topology)
         html = render_payload(payload)
-        samples.append(time.perf_counter() - started)
+        samples.append(perf_counter() - started)
     assert payload is not None
     counts = payload["counts"]
     return {

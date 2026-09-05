@@ -29,6 +29,7 @@ FIXTURES = Path(__file__).parent / "fixtures"
 @pytest.fixture(scope="module", params=["chromium", "webkit"])
 def lineage_page(request):
     with playwright_sync.sync_playwright() as pw:
+        browser = None
         try:
             browser = getattr(pw, request.param).launch(headless=True)
         except Exception as exc:
@@ -39,6 +40,7 @@ def lineage_page(request):
                 browser = pw.chromium.launch(headless=True, executable_path=str(system_chrome))
             except Exception as system_exc:
                 pytest.skip(f"chromium not available: {system_exc}")
+        assert browser is not None
         try:
             yield browser.new_page()
         finally:
@@ -556,6 +558,52 @@ def test_relationship_inspector_preserves_explicit_empty_metadata_values(lineage
     assert "Reported role\nReported empty string" in inspector_text
     assert "Parent fields\nReported empty list" in inspector_text
     assert "Reported object has no recognized fields." in inspector_text
+
+
+def test_custom_roles_matching_object_properties_remain_literal(lineage_page, tmp_path):
+    roles = ["constructor", "__proto__"]
+    source = {
+        "dataViews": [
+            {
+                "id": "dv-custom",
+                "name": "Custom roles view",
+                "connection": {"id": "conn-custom", "name": "Custom roles connection"},
+                "datasets": [
+                    {
+                        "id": f"ds-{index}",
+                        "name": f"Dataset {index}",
+                        "connectionMetadata": {"role": role},
+                    }
+                    for index, role in enumerate(roles)
+                ],
+            }
+        ],
+        "count": 1,
+    }
+    path = _render_source(tmp_path, source, "custom-roles.html")
+    errors = []
+
+    def record_error(error):
+        errors.append(str(error))
+
+    lineage_page.on("pageerror", record_error)
+    try:
+        lineage_page.goto(path.as_uri())
+        assert errors == []
+        lineage_page.fill("#lineage-search", "Custom roles view")
+        lineage_page.locator("#lineage-results button").first.click()
+        for index, role in enumerate(roles):
+            lineage_page.locator("#lineage-role-filter").select_option(f"custom:{role}")
+            dataset = lineage_page.locator(f'[data-dataset-id="ds-{index}"]')
+            assert f"{role.upper()} ROLE" in dataset.inner_text()
+            dataset.click()
+            assert (
+                f"Reported role\n{role}"
+                in lineage_page.locator("#lineage-relationship-details").inner_text()
+            )
+        assert errors == []
+    finally:
+        lineage_page.remove_listener("pageerror", record_error)
 
 
 def test_role_states_custom_role_nested_sentinels_and_neutral_summary(lineage_page, tmp_path):

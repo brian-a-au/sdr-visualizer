@@ -14,12 +14,6 @@ import pytest
 
 import sdr_visualizer.input.lineage_discovery as lineage_discovery
 from sdr_visualizer.core.lineage import LineageTopology
-from sdr_visualizer.input.lineage_discovery import (
-    LineageDiscoveryFailure,
-    LineageDiscoveryFailureCode,
-    acquire_live,
-    acquire_saved,
-)
 
 FIXTURES = Path(__file__).parent / "fixtures"
 CANARY = "LINEAGE_SECRET_CANARY_7f6f9b"
@@ -68,7 +62,7 @@ raise SystemExit({exit_code})
     return executable, record
 
 
-def _assert_content_free(failure: LineageDiscoveryFailure) -> None:
+def _assert_content_free(failure: lineage_discovery.LineageDiscoveryFailure) -> None:
     assert CANARY not in str(failure)
     assert CANARY not in repr(failure)
     assert not hasattr(failure, "stdout")
@@ -85,8 +79,8 @@ def test_saved_and_live_success_return_the_same_normalized_topology(tmp_path: Pa
     config_path = tmp_path / f"{CANARY}.yaml"
     config_path.write_text("profile: existing\n", encoding="utf-8")
 
-    saved = acquire_saved(saved_path, scope_label="Synthetic scope")
-    live = acquire_live(
+    saved = lineage_discovery.acquire_saved(saved_path, scope_label="Synthetic scope")
+    live = lineage_discovery.acquire_live(
         executable,
         scope_label="Synthetic scope",
         config_file=config_path,
@@ -114,7 +108,7 @@ def test_live_312_acquires_enriched_relationship_metadata(tmp_path: Path) -> Non
         version="cja_auto_sdr 3.12.0",
     )
 
-    topology = acquire_live(executable, scope_label="Scope", profile="existing")
+    topology = lineage_discovery.acquire_live(executable, scope_label="Scope", profile="existing")
 
     edges = {(edge.dataset_id, edge.connection_id): edge for edge in topology.dataset_connections}
     assert edges[("ds-shared", "conn-event")].connection_metadata.role.value == "event"
@@ -135,7 +129,7 @@ def test_live_312_acquires_enriched_relationship_metadata(tmp_path: Path) -> Non
 def test_profile_live_uses_only_the_profile_selector(tmp_path: Path) -> None:
     executable, record_path = _fake_executable(tmp_path)
 
-    result = acquire_live(executable, scope_label="Scope", profile="existing")
+    result = lineage_discovery.acquire_live(executable, scope_label="Scope", profile="existing")
 
     assert isinstance(result, LineageTopology)
     invocation = json.loads(record_path.read_text(encoding="utf-8"))
@@ -162,14 +156,16 @@ def test_live_rejects_conflicting_credential_selectors_before_spawning(
         lambda *_args, **_kwargs: (_ for _ in ()).throw(AssertionError("must not spawn")),
     )
 
-    result = acquire_live(
+    result = lineage_discovery.acquire_live(
         executable,
         scope_label="Scope",
         profile="existing",
         config_file=Path("/tmp/config.json"),
     )
 
-    assert result == LineageDiscoveryFailure(LineageDiscoveryFailureCode.SELECTOR_INVALID)
+    assert result == lineage_discovery.LineageDiscoveryFailure(
+        lineage_discovery.LineageDiscoveryFailureCode.SELECTOR_INVALID
+    )
 
 
 def test_default_live_supports_upstream_environment_dotenv_and_config_discovery(
@@ -188,7 +184,7 @@ def test_default_live_supports_upstream_environment_dotenv_and_config_discovery(
         monkeypatch.setenv(name, value)
     monkeypatch.setenv("UNRELATED_ENV_CANARY", CANARY)
 
-    result = acquire_live(executable, scope_label="Scope")
+    result = lineage_discovery.acquire_live(executable, scope_label="Scope")
 
     assert isinstance(result, LineageTopology)
     invocation = json.loads(record_path.read_text(encoding="utf-8"))
@@ -218,7 +214,7 @@ def test_live_child_receives_only_the_minimal_environment(tmp_path: Path, monkey
 
     monkeypatch.setattr(lineage_discovery.subprocess, "Popen", recording_popen)
 
-    result = acquire_live(executable, scope_label="Scope", profile="existing")
+    result = lineage_discovery.acquire_live(executable, scope_label="Scope", profile="existing")
 
     assert isinstance(result, LineageTopology)
     child_env = json.loads(record_path.read_text(encoding="utf-8"))["env"]
@@ -232,14 +228,17 @@ def test_live_child_receives_only_the_minimal_environment(tmp_path: Path, monkey
 @pytest.mark.parametrize(
     ("setup", "expected"),
     [
-        ("relative", LineageDiscoveryFailureCode.EXECUTABLE_INVALID),
-        ("missing", LineageDiscoveryFailureCode.EXECUTABLE_INVALID),
-        ("writable", LineageDiscoveryFailureCode.EXECUTABLE_INVALID),
-        ("wrong-version", LineageDiscoveryFailureCode.EXECUTABLE_VERSION_MISMATCH),
+        ("relative", lineage_discovery.LineageDiscoveryFailureCode.EXECUTABLE_INVALID),
+        ("missing", lineage_discovery.LineageDiscoveryFailureCode.EXECUTABLE_INVALID),
+        ("writable", lineage_discovery.LineageDiscoveryFailureCode.EXECUTABLE_INVALID),
+        (
+            "wrong-version",
+            lineage_discovery.LineageDiscoveryFailureCode.EXECUTABLE_VERSION_MISMATCH,
+        ),
     ],
 )
 def test_untrusted_executable_is_rejected_content_free(
-    tmp_path: Path, setup: str, expected: LineageDiscoveryFailureCode
+    tmp_path: Path, setup: str, expected: lineage_discovery.LineageDiscoveryFailureCode
 ) -> None:
     executable, _ = _fake_executable(
         tmp_path,
@@ -254,13 +253,13 @@ def test_untrusted_executable_is_rejected_content_free(
     if setup == "writable":
         executable.chmod(executable.stat().st_mode | stat.S_IWGRP)
 
-    result = acquire_live(
+    result = lineage_discovery.acquire_live(
         candidate,
         scope_label="Scope",
         profile=f"profile-{CANARY}",
     )
 
-    assert result == LineageDiscoveryFailure(expected)
+    assert result == lineage_discovery.LineageDiscoveryFailure(expected)
     _assert_content_free(result)
 
 
@@ -271,28 +270,30 @@ def test_nonzero_exit_wins_over_valid_json_and_discards_all_output(tmp_path: Pat
         stderr=f'{{"detail": "{CANARY}"}}'.encode(),
     )
 
-    result = acquire_live(executable, scope_label="Scope", profile="existing")
+    result = lineage_discovery.acquire_live(executable, scope_label="Scope", profile="existing")
 
-    assert result == LineageDiscoveryFailure(LineageDiscoveryFailureCode.PROCESS_FAILED)
+    assert result == lineage_discovery.LineageDiscoveryFailure(
+        lineage_discovery.LineageDiscoveryFailureCode.PROCESS_FAILED
+    )
     _assert_content_free(result)
 
 
 @pytest.mark.parametrize(
     ("payload", "expected"),
     [
-        (b"\xff", LineageDiscoveryFailureCode.INVALID_UTF8),
-        (b"not-json", LineageDiscoveryFailureCode.INVALID_JSON),
-        (b"{}", LineageDiscoveryFailureCode.INVALID_STRUCTURE),
+        (b"\xff", lineage_discovery.LineageDiscoveryFailureCode.INVALID_UTF8),
+        (b"not-json", lineage_discovery.LineageDiscoveryFailureCode.INVALID_JSON),
+        (b"{}", lineage_discovery.LineageDiscoveryFailureCode.INVALID_STRUCTURE),
     ],
 )
 def test_live_decode_parse_and_normalization_failures_are_distinct_and_content_free(
-    tmp_path: Path, payload: bytes, expected: LineageDiscoveryFailureCode
+    tmp_path: Path, payload: bytes, expected: lineage_discovery.LineageDiscoveryFailureCode
 ) -> None:
     executable, _ = _fake_executable(tmp_path, payload=payload)
 
-    result = acquire_live(executable, scope_label="Scope", profile="existing")
+    result = lineage_discovery.acquire_live(executable, scope_label="Scope", profile="existing")
 
-    assert result == LineageDiscoveryFailure(expected)
+    assert result == lineage_discovery.LineageDiscoveryFailure(expected)
     _assert_content_free(result)
 
 
@@ -302,13 +303,19 @@ def test_saved_source_is_incrementally_bounded_and_has_distinct_failures(tmp_pat
     invalid_utf8 = tmp_path / "utf8.json"
     invalid_utf8.write_bytes(b"\xff")
 
-    too_large = acquire_saved(oversized, scope_label="Scope", max_bytes=16)
-    bad_encoding = acquire_saved(invalid_utf8, scope_label="Scope")
-    missing = acquire_saved(tmp_path / f"missing-{CANARY}", scope_label="Scope")
+    too_large = lineage_discovery.acquire_saved(oversized, scope_label="Scope", max_bytes=16)
+    bad_encoding = lineage_discovery.acquire_saved(invalid_utf8, scope_label="Scope")
+    missing = lineage_discovery.acquire_saved(tmp_path / f"missing-{CANARY}", scope_label="Scope")
 
-    assert too_large == LineageDiscoveryFailure(LineageDiscoveryFailureCode.SAVED_TOO_LARGE)
-    assert bad_encoding == LineageDiscoveryFailure(LineageDiscoveryFailureCode.INVALID_UTF8)
-    assert missing == LineageDiscoveryFailure(LineageDiscoveryFailureCode.SAVED_READ_FAILED)
+    assert too_large == lineage_discovery.LineageDiscoveryFailure(
+        lineage_discovery.LineageDiscoveryFailureCode.SAVED_TOO_LARGE
+    )
+    assert bad_encoding == lineage_discovery.LineageDiscoveryFailure(
+        lineage_discovery.LineageDiscoveryFailureCode.INVALID_UTF8
+    )
+    assert missing == lineage_discovery.LineageDiscoveryFailure(
+        lineage_discovery.LineageDiscoveryFailureCode.SAVED_READ_FAILED
+    )
     for failure in (too_large, bad_encoding, missing):
         _assert_content_free(failure)
 
@@ -319,7 +326,7 @@ def test_saved_source_rejects_fifo_without_waiting_for_a_writer(tmp_path: Path) 
     results = []
 
     reader = threading.Thread(
-        target=lambda: results.append(acquire_saved(fifo, scope_label="Scope")),
+        target=lambda: results.append(lineage_discovery.acquire_saved(fifo, scope_label="Scope")),
         daemon=True,
     )
     reader.start()
@@ -330,24 +337,28 @@ def test_saved_source_rejects_fifo_without_waiting_for_a_writer(tmp_path: Path) 
         reader.join(timeout=0.5)
 
     assert not reader.is_alive(), "saved acquisition blocked while opening a FIFO"
-    assert results == [LineageDiscoveryFailure(LineageDiscoveryFailureCode.SAVED_READ_FAILED)]
+    assert results == [
+        lineage_discovery.LineageDiscoveryFailure(
+            lineage_discovery.LineageDiscoveryFailureCode.SAVED_READ_FAILED
+        )
+    ]
 
 
 @pytest.mark.parametrize(
     ("channel", "expected"),
     [
-        ("stdout", LineageDiscoveryFailureCode.STDOUT_LIMIT_EXCEEDED),
-        ("stderr", LineageDiscoveryFailureCode.STDERR_LIMIT_EXCEEDED),
+        ("stdout", lineage_discovery.LineageDiscoveryFailureCode.STDOUT_LIMIT_EXCEEDED),
+        ("stderr", lineage_discovery.LineageDiscoveryFailureCode.STDERR_LIMIT_EXCEEDED),
     ],
 )
 def test_each_live_channel_is_independently_bounded(
-    tmp_path: Path, channel: str, expected: LineageDiscoveryFailureCode
+    tmp_path: Path, channel: str, expected: lineage_discovery.LineageDiscoveryFailureCode
 ) -> None:
     payload = b"x" * 65 if channel == "stdout" else json.dumps(_payload()).encode()
     stderr = b"x" * 33 if channel == "stderr" else b""
     executable, _ = _fake_executable(tmp_path, payload=payload, stderr=stderr)
 
-    result = acquire_live(
+    result = lineage_discovery.acquire_live(
         executable,
         scope_label="Scope",
         profile="existing",
@@ -355,7 +366,7 @@ def test_each_live_channel_is_independently_bounded(
         stderr_limit=32,
     )
 
-    assert result == LineageDiscoveryFailure(expected)
+    assert result == lineage_discovery.LineageDiscoveryFailure(expected)
     _assert_content_free(result)
 
 
@@ -369,7 +380,7 @@ def test_live_capture_checks_limit_before_appending_chunk(tmp_path: Path, monkey
             super().extend(chunk)
 
     monkeypatch.setattr(lineage_discovery, "bytearray", GuardedBytearray, raising=False)
-    result = acquire_live(
+    result = lineage_discovery.acquire_live(
         executable,
         scope_label="Scope",
         profile="existing",
@@ -378,7 +389,9 @@ def test_live_capture_checks_limit_before_appending_chunk(tmp_path: Path, monkey
     )
     monkeypatch.setattr(lineage_discovery, "bytearray", real_bytearray)
 
-    assert result == LineageDiscoveryFailure(LineageDiscoveryFailureCode.STDOUT_LIMIT_EXCEEDED)
+    assert result == lineage_discovery.LineageDiscoveryFailure(
+        lineage_discovery.LineageDiscoveryFailureCode.STDOUT_LIMIT_EXCEEDED
+    )
 
 
 @pytest.mark.parametrize("timeout_seconds", [float("inf"), float("nan")])
@@ -392,14 +405,16 @@ def test_non_finite_timeout_is_rejected_before_spawning(
 
     monkeypatch.setattr(lineage_discovery.subprocess, "Popen", unexpected_spawn)
 
-    result = acquire_live(
+    result = lineage_discovery.acquire_live(
         executable,
         scope_label="Scope",
         profile="existing",
         timeout_seconds=timeout_seconds,
     )
 
-    assert result == LineageDiscoveryFailure(LineageDiscoveryFailureCode.PROCESS_FAILED)
+    assert result == lineage_discovery.LineageDiscoveryFailure(
+        lineage_discovery.LineageDiscoveryFailureCode.PROCESS_FAILED
+    )
     _assert_content_free(result)
 
 
@@ -407,7 +422,7 @@ def test_live_timeout_is_content_free(tmp_path: Path) -> None:
     executable, _ = _fake_executable(tmp_path, delay=2)
 
     started = time.monotonic()
-    result = acquire_live(
+    result = lineage_discovery.acquire_live(
         executable,
         scope_label="Scope",
         profile="existing",
@@ -415,7 +430,9 @@ def test_live_timeout_is_content_free(tmp_path: Path) -> None:
     )
 
     assert time.monotonic() - started < 1.5
-    assert result == LineageDiscoveryFailure(LineageDiscoveryFailureCode.TIMEOUT)
+    assert result == lineage_discovery.LineageDiscoveryFailure(
+        lineage_discovery.LineageDiscoveryFailureCode.TIMEOUT
+    )
     _assert_content_free(result)
 
 
@@ -451,7 +468,7 @@ time.sleep(2)
     )
     executable.chmod(0o700)
 
-    result = acquire_live(
+    result = lineage_discovery.acquire_live(
         executable,
         scope_label="Scope",
         profile="existing",
@@ -461,11 +478,11 @@ time.sleep(2)
     )
 
     expected = (
-        LineageDiscoveryFailureCode.TIMEOUT
+        lineage_discovery.LineageDiscoveryFailureCode.TIMEOUT
         if failure_mode == "timeout"
-        else LineageDiscoveryFailureCode.STDOUT_LIMIT_EXCEEDED
+        else lineage_discovery.LineageDiscoveryFailureCode.STDOUT_LIMIT_EXCEEDED
     )
-    assert result == LineageDiscoveryFailure(expected)
+    assert result == lineage_discovery.LineageDiscoveryFailure(expected)
     time.sleep(0.6)
     assert not survivor.exists()
 
@@ -482,16 +499,20 @@ def test_wrong_owner_is_rejected_when_observable(tmp_path: Path, monkeypatch) ->
 
     monkeypatch.setattr(os, "lstat", wrong_owner)
 
-    result = acquire_live(executable, scope_label="Scope", profile="existing")
+    result = lineage_discovery.acquire_live(executable, scope_label="Scope", profile="existing")
 
-    assert result == LineageDiscoveryFailure(LineageDiscoveryFailureCode.EXECUTABLE_INVALID)
+    assert result == lineage_discovery.LineageDiscoveryFailure(
+        lineage_discovery.LineageDiscoveryFailureCode.EXECUTABLE_INVALID
+    )
 
 
 @pytest.mark.parametrize("limit", [0, -1, True, None])
 def test_invalid_saved_limits_rejected_before_read(tmp_path, limit):
     assert (
-        acquire_saved(tmp_path / "missing", scope_label="Scope", max_bytes=limit).code
-        == LineageDiscoveryFailureCode.SAVED_TOO_LARGE
+        lineage_discovery.acquire_saved(
+            tmp_path / "missing", scope_label="Scope", max_bytes=limit
+        ).code
+        == lineage_discovery.LineageDiscoveryFailureCode.SAVED_TOO_LARGE
     )
 
 
@@ -507,8 +528,10 @@ def test_invalid_saved_limits_rejected_before_read(tmp_path, limit):
 )
 def test_invalid_live_selectors_are_content_free(tmp_path, profile, config):
     executable, _ = _fake_executable(tmp_path)
-    result = acquire_live(executable, scope_label="Scope", profile=profile, config_file=config)
-    assert result.code == LineageDiscoveryFailureCode.SELECTOR_INVALID
+    result = lineage_discovery.acquire_live(
+        executable, scope_label="Scope", profile=profile, config_file=config
+    )
+    assert result.code == lineage_discovery.LineageDiscoveryFailureCode.SELECTOR_INVALID
     _assert_content_free(result)
 
 
@@ -517,8 +540,8 @@ def test_failed_version_probe_never_acquires(tmp_path, monkeypatch):
     monkeypatch.setattr(
         lineage_discovery, "_run_bounded", lambda *a, **kw: lineage_discovery._Capture(b"", 1)
     )
-    result = acquire_live(executable, scope_label="Scope")
-    assert result.code == LineageDiscoveryFailureCode.EXECUTABLE_INVALID
+    result = lineage_discovery.acquire_live(executable, scope_label="Scope")
+    assert result.code == lineage_discovery.LineageDiscoveryFailureCode.EXECUTABLE_INVALID
     assert not record.exists()
 
 
@@ -532,7 +555,7 @@ def test_spawn_error_is_content_free(monkeypatch):
 
     monkeypatch.setattr(lineage_discovery.subprocess, "Popen", fail)
     result = lineage_discovery._run_bounded(["missing"], **_capture_args())
-    assert result.code == LineageDiscoveryFailureCode.PROCESS_FAILED
+    assert result.code == lineage_discovery.LineageDiscoveryFailureCode.PROCESS_FAILED
     _assert_content_free(result)
 
 
@@ -542,7 +565,7 @@ def test_closed_pipes_do_not_bypass_process_timeout():
     result = lineage_discovery._run_bounded(
         [sys.executable, "-c", "import os,time;os.close(1);os.close(2);time.sleep(5)"], **args
     )
-    assert result.code == LineageDiscoveryFailureCode.TIMEOUT
+    assert result.code == lineage_discovery.LineageDiscoveryFailureCode.TIMEOUT
 
 
 def test_nonblocking_read_retry_keeps_output(monkeypatch):
@@ -599,7 +622,7 @@ def test_missing_capture_pipe_and_read_error_are_controlled(monkeypatch):
     monkeypatch.setattr(lineage_discovery, "_terminate_process_tree", terminate)
     assert (
         lineage_discovery._run_bounded(["fake"], **_capture_args()).code
-        == LineageDiscoveryFailureCode.PROCESS_FAILED
+        == lineage_discovery.LineageDiscoveryFailureCode.PROCESS_FAILED
     )
     terminate.assert_called_once_with(process)
     process.stdout = Mock()
@@ -609,6 +632,6 @@ def test_missing_capture_pipe_and_read_error_are_controlled(monkeypatch):
     )
     assert (
         lineage_discovery._run_bounded(["fake"], **_capture_args()).code
-        == LineageDiscoveryFailureCode.PROCESS_FAILED
+        == lineage_discovery.LineageDiscoveryFailureCode.PROCESS_FAILED
     )
     process.stdout.close.assert_called_once()

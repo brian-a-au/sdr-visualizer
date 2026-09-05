@@ -10,11 +10,6 @@ import pytest
 import scripts.generate_cja_lineage_poc as driver
 import sdr_visualizer.cli.lineage_output as lineage_output
 from sdr_visualizer.analysis.lineage_layout import LineageLayoutError
-from sdr_visualizer.cli.lineage_output import (
-    LineageOutputFailure,
-    LineageOutputFailureCode,
-    write_lineage_output,
-)
 from sdr_visualizer.input.lineage_discovery import (
     LineageDiscoveryFailure,
     LineageDiscoveryFailureCode,
@@ -247,7 +242,9 @@ def test_typed_acquisition_render_and_output_failures_are_content_free(
     monkeypatch.setattr(
         driver,
         "write_lineage_output",
-        lambda *_args, **_kwargs: LineageOutputFailure(LineageOutputFailureCode.WRITE_FAILED),
+        lambda *_args, **_kwargs: lineage_output.LineageOutputFailure(
+            lineage_output.LineageOutputFailureCode.WRITE_FAILED
+        ),
     )
     assert driver.main(["--saved", str(saved), "--scope-label", "Scope"]) == 1
 
@@ -299,9 +296,11 @@ def test_atomic_writer_preserves_prior_artifact_and_removes_temp(tmp_path, monke
             lineage_output.os, "replace", lambda *_args: (_ for _ in ()).throw(OSError())
         )
 
-    result = write_lineage_output(destination, "replacement")
+    result = lineage_output.write_lineage_output(destination, "replacement")
 
-    assert result == LineageOutputFailure(LineageOutputFailureCode.WRITE_FAILED)
+    assert result == lineage_output.LineageOutputFailure(
+        lineage_output.LineageOutputFailureCode.WRITE_FAILED
+    )
     assert destination.read_bytes() == b"prior-good"
     assert list(tmp_path.glob(f".{driver.OUTPUT_FILENAME}.*.tmp")) == []
 
@@ -311,7 +310,7 @@ def test_atomic_writer_replaces_permissive_file_with_owner_only_mode(tmp_path):
     destination.write_bytes(b"old")
     destination.chmod(0o666)
 
-    assert write_lineage_output(destination, "new") is None
+    assert lineage_output.write_lineage_output(destination, "new") is None
 
     assert destination.read_bytes() == b"new"
     assert stat.S_IMODE(destination.stat().st_mode) == 0o600
@@ -326,25 +325,31 @@ def test_atomic_writer_revalidates_destination_before_replace(tmp_path, monkeypa
         nonlocal validations
         validations += 1
         if validations == 2:
-            return LineageOutputFailure(LineageOutputFailureCode.UNSAFE_DESTINATION)
+            return lineage_output.LineageOutputFailure(
+                lineage_output.LineageOutputFailureCode.UNSAFE_DESTINATION
+            )
         return None
 
     monkeypatch.setattr(lineage_output, "validate_lineage_destination", change_identity)
 
-    result = write_lineage_output(destination, "replacement")
+    result = lineage_output.write_lineage_output(destination, "replacement")
 
-    assert result == LineageOutputFailure(LineageOutputFailureCode.UNSAFE_DESTINATION)
+    assert result == lineage_output.LineageOutputFailure(
+        lineage_output.LineageOutputFailureCode.UNSAFE_DESTINATION
+    )
     assert destination.read_bytes() == b"prior-good"
     assert list(tmp_path.glob(f".{driver.OUTPUT_FILENAME}.*.tmp")) == []
 
 
 def test_output_error_values_and_encoding_failure(tmp_path, monkeypatch):
-    failure = LineageOutputFailure(LineageOutputFailureCode.WRITE_FAILED)
+    failure = lineage_output.LineageOutputFailure(
+        lineage_output.LineageOutputFailureCode.WRITE_FAILED
+    )
     assert str(failure) == "write-failed"
     assert repr(failure) == "LineageOutputFailure(code='write-failed')"
     destination = tmp_path / "out.html"
     destination.write_text("prior")
-    assert write_lineage_output(destination, "\ud800") == failure
+    assert lineage_output.write_lineage_output(destination, "\ud800") == failure
     assert destination.read_text() == "prior"
     from pathlib import Path
 
@@ -358,17 +363,24 @@ def test_output_error_values_and_encoding_failure(tmp_path, monkeypatch):
     monkeypatch.setattr(Path, "lstat", fail)
     assert (
         lineage_output.validate_lineage_destination(destination).code
-        == LineageOutputFailureCode.UNSAFE_DESTINATION
+        == lineage_output.LineageOutputFailureCode.UNSAFE_DESTINATION
     )
 
 
 def test_output_protection_handles_consumed_identity_and_short_write(tmp_path, monkeypatch):
     destination = tmp_path / "out.html"
-    outcomes = iter([None, LineageOutputFailure(LineageOutputFailureCode.UNSAFE_DESTINATION)])
+    outcomes = iter(
+        [
+            None,
+            lineage_output.LineageOutputFailure(
+                lineage_output.LineageOutputFailureCode.UNSAFE_DESTINATION
+            ),
+        ]
+    )
     monkeypatch.setattr(lineage_output, "validate_lineage_destination", lambda *a: next(outcomes))
     assert (
-        write_lineage_output(destination, "data").code
-        == LineageOutputFailureCode.UNSAFE_DESTINATION
+        lineage_output.write_lineage_output(destination, "data").code
+        == lineage_output.LineageOutputFailureCode.UNSAFE_DESTINATION
     )
     assert not destination.exists()
     monkeypatch.setattr(lineage_output.os, "write", lambda *a: 0)

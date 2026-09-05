@@ -3,9 +3,13 @@
 from __future__ import annotations
 
 import json
+from itertools import count
+from pathlib import Path
 
 import pytest
+import yaml
 
+from scripts import perf_lineage_poc
 from scripts.perf_lineage_poc import (
     HTML_SIZE_BUDGET_BYTES,
     MEDIAN_BUILD_BUDGET_SECONDS,
@@ -101,7 +105,14 @@ def test_prepared_geometry_and_adjacency_are_linear_in_vertices_plus_edges(
     assert _prepared_entry_count(payload) <= 5 * (vertices + edges) + connections
 
 
-def test_synthetic_evidence_meets_provisional_poc_budgets_and_is_sanitized() -> None:
+def test_synthetic_evidence_meets_size_and_structure_budgets_and_is_sanitized(
+    monkeypatch,
+) -> None:
+    # Coverage instrumentation distorts wall-clock build time. The standalone
+    # perf_lineage_poc.py gate in test.yml and release.yml owns real timing;
+    # keep exercising the full build here for size, structure, and coverage.
+    clock = count(step=0.25)
+    monkeypatch.setattr(perf_lineage_poc, "perf_counter", lambda: next(clock))
     evidence = build_synthetic_evidence(repeats=3)
 
     assert evidence
@@ -118,3 +129,32 @@ def test_synthetic_evidence_meets_provisional_poc_budgets_and_is_sanitized() -> 
     assert "dataset-" not in serialized
     assert "connection-" not in serialized
     assert "data-view-" not in serialized
+
+
+@pytest.mark.parametrize("seconds", [MEDIAN_BUILD_BUDGET_SECONDS, 3.0])
+def test_synthetic_timing_gate_rejects_median_at_or_above_budget(monkeypatch, seconds):
+    monkeypatch.setattr(
+        perf_lineage_poc,
+        "_measure",
+        lambda *_args, **_kwargs: {"full_graph_gated_count": 0, "median_seconds": seconds},
+    )
+
+    with pytest.raises(RuntimeError, match="synthetic timing budget exceeded"):
+        build_synthetic_evidence()
+    assert perf_lineage_poc.main([]) == 1
+
+
+@pytest.mark.parametrize("workflow_name", ["test.yml", "release.yml"])
+def test_real_lineage_timing_remains_a_blocking_standalone_gate(workflow_name):
+    workflow_path = Path(__file__).resolve().parents[1] / ".github/workflows" / workflow_name
+    workflow = yaml.safe_load(workflow_path.read_text(encoding="utf-8"))
+    job = workflow["jobs"]["browser-perf"]
+    gates = [step for step in job["steps"] if step.get("name") == "Lineage performance gate"]
+
+    assert len(gates) == 1
+    assert gates[0]["run"] == "uv run python scripts/perf_lineage_poc.py"
+    for settings in (job, gates[0]):
+        assert settings.get("continue-on-error", False) is False
+        assert "if" not in settings
+    if workflow_name == "release.yml":
+        assert workflow["jobs"]["build"]["needs"] == "browser-perf"

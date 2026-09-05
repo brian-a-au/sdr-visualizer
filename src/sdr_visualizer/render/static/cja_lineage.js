@@ -136,7 +136,8 @@
 
   function displayRole(value) {
     if (typeof value !== "string" || value.length === 0) return null;
-    return ROLE_DEFINITIONS[value.toLowerCase()] || value;
+    const key = value.toLowerCase();
+    return hasOwn(ROLE_DEFINITIONS, key) ? ROLE_DEFINITIONS[key] : value;
   }
 
   function roleKey(value) {
