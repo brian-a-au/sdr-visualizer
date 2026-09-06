@@ -962,6 +962,10 @@ html[data-theme="dark"] {
   --lineage-role-other: color-mix(in srgb, var(--sdr-accent-primary) 58%, #FFFFFF);
 }
 
+html.is-theme-switching *,
+html.is-theme-switching *::before,
+html.is-theme-switching *::after { transition: none !important; }
+
 .lineage-coverage { display: flex; gap: .5rem 1rem; align-items: baseline; margin-top: 14px; font-size: 12px; }
 .lineage-coverage strong { color: var(--sdr-accent-secondary); }
 .lineage-coverage span { color: var(--sdr-text-muted); }
@@ -3358,12 +3362,20 @@ button:disabled { color: var(--sdr-text-muted); cursor: not-allowed; }
       ? "Lineage motion paused; static highlighted routes remain visible."
       : "Lineage motion resumed; motion indicates lineage direction only.");
   });
+  const applyTheme = (theme) => {
+    const root = document.documentElement;
+    root.classList.add("is-theme-switching");
+    root.dataset.theme = theme;
+    el.themeToggle.setAttribute("aria-pressed", String(theme === "dark"));
+    el.themeToggle.textContent = theme === "dark" ? "Light mode" : "Dark mode";
+    requestAnimationFrame(() =>
+      requestAnimationFrame(() => root.classList.remove("is-theme-switching")),
+    );
+  };
   el.themeToggle.addEventListener("click", () => {
     state.theme = state.theme === "dark" ? "light" : "dark";
     state.themeOverridden = true;
-    document.documentElement.dataset.theme = state.theme;
-    el.themeToggle.setAttribute("aria-pressed", String(state.theme === "dark"));
-    el.themeToggle.textContent = state.theme === "dark" ? "Light mode" : "Dark mode";
+    applyTheme(state.theme);
     setStatus(`${state.theme === "dark" ? "Dark" : "Light"} display mode enabled; the ${document.documentElement.dataset.colorPack} color pack remains active.`);
   });
   stage.addEventListener("pointerdown", (event) => {
@@ -3447,9 +3459,7 @@ button:disabled { color: var(--sdr-text-muted); cursor: not-allowed; }
   const colorSchemeChanged = () => {
     if (state.themeOverridden) return;
     state.theme = darkMode.matches ? "dark" : "light";
-    document.documentElement.dataset.theme = state.theme;
-    el.themeToggle.setAttribute("aria-pressed", String(state.theme === "dark"));
-    el.themeToggle.textContent = state.theme === "dark" ? "Light mode" : "Dark mode";
+    applyTheme(state.theme);
   };
   if (darkMode.addEventListener) darkMode.addEventListener("change", colorSchemeChanged);
   else darkMode.addListener(colorSchemeChanged);

@@ -1339,12 +1339,20 @@
       ? "Lineage motion paused; static highlighted routes remain visible."
       : "Lineage motion resumed; motion indicates lineage direction only.");
   });
+  const applyTheme = (theme) => {
+    const root = document.documentElement;
+    root.classList.add("is-theme-switching");
+    root.dataset.theme = theme;
+    el.themeToggle.setAttribute("aria-pressed", String(theme === "dark"));
+    el.themeToggle.textContent = theme === "dark" ? "Light mode" : "Dark mode";
+    requestAnimationFrame(() =>
+      requestAnimationFrame(() => root.classList.remove("is-theme-switching")),
+    );
+  };
   el.themeToggle.addEventListener("click", () => {
     state.theme = state.theme === "dark" ? "light" : "dark";
     state.themeOverridden = true;
-    document.documentElement.dataset.theme = state.theme;
-    el.themeToggle.setAttribute("aria-pressed", String(state.theme === "dark"));
-    el.themeToggle.textContent = state.theme === "dark" ? "Light mode" : "Dark mode";
+    applyTheme(state.theme);
     setStatus(`${state.theme === "dark" ? "Dark" : "Light"} display mode enabled; the ${document.documentElement.dataset.colorPack} color pack remains active.`);
   });
   stage.addEventListener("pointerdown", (event) => {
@@ -1428,9 +1436,7 @@
   const colorSchemeChanged = () => {
     if (state.themeOverridden) return;
     state.theme = darkMode.matches ? "dark" : "light";
-    document.documentElement.dataset.theme = state.theme;
-    el.themeToggle.setAttribute("aria-pressed", String(state.theme === "dark"));
-    el.themeToggle.textContent = state.theme === "dark" ? "Light mode" : "Dark mode";
+    applyTheme(state.theme);
   };
   if (darkMode.addEventListener) darkMode.addEventListener("change", colorSchemeChanged);
   else darkMode.addListener(colorSchemeChanged);

@@ -39,6 +39,10 @@ html[data-theme="dark"] {
   --lineage-role-other: color-mix(in srgb, var(--sdr-accent-primary) 58%, #FFFFFF);
 }
 
+html.is-theme-switching *,
+html.is-theme-switching *::before,
+html.is-theme-switching *::after { transition: none !important; }
+
 .lineage-coverage { display: flex; gap: .5rem 1rem; align-items: baseline; margin-top: 14px; font-size: 12px; }
 .lineage-coverage strong { color: var(--sdr-accent-secondary); }
 .lineage-coverage span { color: var(--sdr-text-muted); }
