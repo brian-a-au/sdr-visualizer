@@ -17,5 +17,5 @@ def launch_browser(playwright, engine):
             try:
                 return playwright.chromium.launch(headless=True, executable_path=str(system_chrome))
             except Exception as exc:
-                pytest.skip(f"chromium not available: {exc}")
-        pytest.skip(f"{engine} not available; install the Playwright browsers")
+                return pytest.skip(f"chromium not available: {exc}")
+        return pytest.skip(f"{engine} not available; install the Playwright browsers")
