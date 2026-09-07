@@ -4,6 +4,17 @@ All notable changes to `sdr-visualizer` will be documented here. The format foll
 
 ## [Unreleased]
 
+### Fixed
+
+- Fixed reference graph undercounts caused by shortened CJA reference IDs.
+  Exact matches take precedence; type-scoped, unique upstream-style aliases
+  resolve within each snapshot. Ambiguous and missing references remain
+  unresolved, and repeated references do not inflate counts.
+- Aligned detail links with resolved graph edges, separated unresolved outgoing
+  references, and clarified Uses / Used by labels and direct-dependency counts.
+  Zero incoming references is no longer labeled Orphaned; graph connectivity
+  still includes components with outgoing edges only.
+
 ### Changed
 
 - Clarified the CJA dataset lineage introduction and saved-file instructions,

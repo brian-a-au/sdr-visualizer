@@ -131,7 +131,38 @@ the field is absent.
 }
 ```
 
-> Edges are directed (source → target) and only emitted when the target exists in the inventory. CJA derived-field `component_references` contribute edges after adapter normalization, alongside segment and calculated-metric references. Dangling segment and calculated-metric references remain visible on the source entry's `references` array but are not included in `graph.edges`; derived-field dangles remain available only in the original snapshot because `platform_specific` is not embedded. Graph *nodes* are derivable from the catalog entries (`id`, `type`, `name`, `in_degree`) — the client builds them in one pass at load; `in_degree`/`out_degree` live on each entry. The separate `nodes`/`in_degree`/`out_degree` sections were removed in 0.2.0.
+Edges are directed (source → target), deduplicated by source/target pair, and
+only emitted when the target resolves within this snapshot. Exact IDs take
+precedence within the declared reference type. For CJA, a shortened reference
+may resolve to a unique inventory ID of that type: the part after the last
+slash, or after the last dot when the ID contains no slash. Untyped references
+require uniqueness across all component types. Legacy derived fields without a
+declared dimension/metric kind remain eligible for exact references, but not
+for typed shortened matches. Matching is case-sensitive;
+a missing full path is never reduced to a suffix to force a match. Alias targets
+whose full ID is shared by incompatible component types are ambiguous because
+graph/detail identity is ID-only. Existing exact duplicate-ID behavior and its
+warning are unchanged.
+
+CJA derived-field `component_references` also contribute edges. Segment and
+calculated-metric `references` arrays retain the adapter-normalized source IDs,
+which may be shortened or unresolved. Detail links use `graph.edges`, so links
+and degree counts agree. `in_degree` (Used by) counts distinct direct sources;
+`out_degree` (Uses) counts distinct resolved direct targets. Neither includes
+Workspace project usage or indirect dependencies.
+
+The optional, sparse `graph.unresolved` array describes references excluded
+from edges and counts, including derived-field references:
+
+```json
+{"source": "segment/example", "reference": "url", "reference_type": "dimension", "reason": "ambiguous"}
+```
+
+`reason` is `ambiguous` or `missing` (no matching target in the relevant type).
+`reference_type` is omitted for untyped references. Repeated source/reference/
+type triples produce one diagnostic. No candidate links are invented.
+Graph nodes remain derivable from catalog entries; degrees live on each entry.
+
 
 ## `changes`
 

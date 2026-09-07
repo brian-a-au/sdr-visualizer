@@ -45,6 +45,18 @@
     entry._sortName = (entry.name || "").toLowerCase();
   });
 
+  // Detail links and counts share the graph's resolved, deduplicated edges.
+  var outgoing = Object.create(null);
+  var unresolved = Object.create(null);
+  (payload.graph.edges || []).forEach(function (edge) {
+    (outgoing[edge.source] || (outgoing[edge.source] = [])).push(edge.target);
+  });
+  (payload.graph.unresolved || []).forEach(function (ref) {
+    (unresolved[ref.source] || (unresolved[ref.source] = [])).push(ref);
+  });
+  var USED_BY_HELP = "Number of components in this snapshot that directly reference this component.";
+  var USES_HELP = "Number of components in this snapshot directly referenced by this component.";
+
   /* ----- DOM refs ----- */
 
   var $body = document.getElementById("catalog-body");
@@ -443,8 +455,8 @@
     }
 
     var meta = '<dl class="detail-grid">';
-    meta += "<dt>References in</dt><dd>" + escapeHtml(entry.in_degree || 0) + "</dd>";
-    meta += "<dt>References out</dt><dd>" + escapeHtml(entry.out_degree || 0) + "</dd>";
+    meta += '<dt aria-describedby="detail-used-by-help">Used by</dt><dd>' + escapeHtml(entry.in_degree || 0) + "</dd>";
+    meta += '<dt aria-describedby="detail-uses-help">Uses</dt><dd>' + escapeHtml(entry.out_degree || 0) + "</dd>";
     meta += "<dt>Owner</dt><dd>" + escapeHtml(entry.owner || "—") + "</dd>";
     meta += "<dt>Modified</dt><dd>" + escapeHtml(formatDate(entry.modified_at)) + "</dd>";
     meta += "<dt>Created</dt><dd>" + escapeHtml(formatDate(entry.created_at)) + "</dd>";
@@ -454,18 +466,26 @@
       }).join(" ") + "</dd>";
     }
     meta += "</dl>";
-    pieces.push('<div class="detail-section"><h3>Catalog</h3>' + meta + "</div>");
+    pieces.push('<div class="detail-section"><h3>Catalog</h3>' + meta +
+      '<p id="detail-used-by-help" class="reference-help">Used by: ' + USED_BY_HELP + '</p>' +
+      '<p id="detail-uses-help" class="reference-help">Uses: ' + USES_HELP + '</p></div>');
 
-    var refs = entry.references || [];
+    var refs = outgoing[entry.id] || [];
     if (refs.length) {
       var listed = refs.map(function (r) {
-        var label = byId[r] ? byId[r].name + " · " + r : r;
-        var resolvable = !!byId[r];
-        return "<li>" + (resolvable
-          ? '<button type="button" class="ref-link" data-id="' + escapeHtml(r) + '">' + escapeHtml(label) + "</button>"
-          : '<span class="ref-dangling mono">' + escapeHtml(r) + " (not in inventory)</span>") + "</li>";
+        var label = byId[r].name + " · " + r;
+        return '<li><button type="button" class="ref-link" data-id="' + escapeHtml(r) + '">' + escapeHtml(label) + '</button></li>';
       }).join("");
-      pieces.push('<div class="detail-section"><h3>References</h3><ul class="detail-references">' + listed + "</ul></div>");
+      pieces.push('<div class="detail-section"><h3>Uses these components</h3><ul class="detail-references">' + listed + "</ul></div>");
+    }
+    var missingRefs = unresolved[entry.id] || [];
+    if (missingRefs.length) {
+      var missingList = missingRefs.map(function (ref) {
+        var reason = ref.reason === "ambiguous" ? "ambiguous in inventory" : "not in inventory";
+        var type = ref.reference_type ? " · " + ref.reference_type : "";
+        return '<li><span class="ref-dangling mono">' + escapeHtml(ref.reference + type) + " (" + reason + ")</span></li>";
+      }).join("");
+      pieces.push('<div class="detail-section"><h3>Unresolved outgoing references</h3><p>Excluded from Uses and graph edges.</p><ul class="detail-references">' + missingList + "</ul></div>");
     }
 
     return pieces.join("");

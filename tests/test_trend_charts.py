@@ -46,6 +46,7 @@ def test_build_trend_charts_threads_explicit_semantic_stroke():
     charts = build_trend_charts(trend, stroke="#B5121B")
 
     assert charts
+    assert "No incoming references" in {chart["label"] for chart in charts}
     assert all('stroke="#B5121B"' in chart["svg"] for chart in charts)
 
 

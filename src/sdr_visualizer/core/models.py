@@ -47,6 +47,8 @@ class Segment:
     created_at: str | None = None
     modified_at: str | None = None
     owner: str | None = None
+    # Visualizer graph metadata; legacy/untyped callers keep references above.
+    reference_types: dict[str, list[str]] = field(default_factory=dict)
 
 
 @dataclass
@@ -63,6 +65,8 @@ class CalculatedMetric:
     created_at: str | None = None
     modified_at: str | None = None
     owner: str | None = None
+    # Visualizer graph metadata; legacy/untyped callers keep references above.
+    reference_types: dict[str, list[str]] = field(default_factory=dict)
 
 
 @dataclass

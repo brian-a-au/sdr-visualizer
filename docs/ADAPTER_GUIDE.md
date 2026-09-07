@@ -162,3 +162,13 @@ with every explicit snapshot and every directory candidate. Resolved paths and
 existing-file identity catch lexical aliases, symlinks, symlinked parents, and
 hard links. The grader does not produce these report artifacts, so only the
 shared candidate-listing primitive belongs in its parity surface.
+
+**Visualizer-only reference type metadata — intentional divergence:** CJA
+segments and calculated metrics retain their declared reference arrays in the
+optional internal `reference_types` model field, in addition to the existing
+flattened `references` list. This graph-only metadata distinguishes shortened
+dimension, metric, and segment IDs; the grader does not build this graph.
+The `_parse_ref_list` implementation and its defensive validation are unchanged.
+The reference graph regression tests cover native/encoded arrays, collisions,
+and legacy untyped model callers. No shared coercion behavior is changed or
+requires mirroring for this patch.
