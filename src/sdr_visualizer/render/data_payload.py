@@ -79,9 +79,12 @@ def build_payload(impl: Implementation) -> dict[str, Any]:
         "components": components,
         "segments": segments,
         "calculated_metrics": calc_metrics,
-        # Only edges ship; nodes and degree maps are derivable from the
+        # Edges and unresolved diagnostics ship; nodes and degrees derive from the
         # catalog entries (which carry id/type/name/in_degree/out_degree).
-        "graph": {"edges": graph["edges"]},
+        "graph": {
+            "edges": graph["edges"],
+            **({"unresolved": graph["unresolved"]} if graph["unresolved"] else {}),
+        },
         "segment_trees": segment_trees,
         "formula_trees": formula_trees,
     }

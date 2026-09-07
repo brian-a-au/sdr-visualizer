@@ -227,14 +227,11 @@ def _calc_metric_from_record(record: dict[str, Any]) -> CalculatedMetric:
         label=f"calculated metric definition {metric_id!r}",
     )
     formula_text = record.get("formula_summary") or record.get("definition_summary") or ""
-    references = list(
-        dict.fromkeys(
-            [
-                *_parse_ref_list(record.get("metric_references")),
-                *_parse_ref_list(record.get("segment_references")),
-            ]
-        )
-    )
+    reference_types = {
+        "metric": _parse_ref_list(record.get("metric_references")),
+        "segment": _parse_ref_list(record.get("segment_references")),
+    }
+    references = list(dict.fromkeys(ref for refs in reference_types.values() for ref in refs))
     complexity = _as_float(record.get("complexity_score"))
 
     attribution_model, allocation = _extract_attribution(formula)
@@ -249,6 +246,7 @@ def _calc_metric_from_record(record: dict[str, Any]) -> CalculatedMetric:
         allocation=allocation,
         complexity_score=complexity,
         references=references,
+        reference_types=reference_types,
         created_at=_optional_timestamp(record.get("created") or record.get("created_at")),
         modified_at=_optional_timestamp(record.get("modified") or record.get("modified_at")),
         owner=_optional_str(record.get("owner")),
@@ -308,15 +306,12 @@ def _segment_from_record(record: dict[str, Any]) -> Segment:
     )
     nesting_depth = _as_int(record.get("nesting_depth"))
     container_types = _extract_container_types(record.get("container_type"), definition)
-    references = list(
-        dict.fromkeys(
-            [
-                *_parse_ref_list(record.get("dimension_references")),
-                *_parse_ref_list(record.get("metric_references")),
-                *_parse_ref_list(record.get("other_segment_references")),
-            ]
-        )
-    )
+    reference_types = {
+        "dimension": _parse_ref_list(record.get("dimension_references")),
+        "metric": _parse_ref_list(record.get("metric_references")),
+        "segment": _parse_ref_list(record.get("other_segment_references")),
+    }
+    references = list(dict.fromkeys(ref for refs in reference_types.values() for ref in refs))
 
     return Segment(
         id=str(segment_id),
@@ -326,6 +321,7 @@ def _segment_from_record(record: dict[str, Any]) -> Segment:
         nesting_depth=nesting_depth,
         container_types=container_types,
         references=references,
+        reference_types=reference_types,
         created_at=_optional_timestamp(record.get("created") or record.get("created_at")),
         modified_at=_optional_timestamp(record.get("modified") or record.get("modified_at")),
         owner=_optional_str(record.get("owner")),

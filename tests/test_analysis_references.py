@@ -149,3 +149,192 @@ def test_derived_field_references_create_unique_edges_and_drop_dangles():
     assert graph["out_degree"]["variables/derived-channel"] == 2
     assert graph["in_degree"]["metrics/orders"] == 1
     assert graph["in_degree"]["variables/channel"] == 1
+
+
+@pytest.mark.parametrize("encoded", [False, True])
+def test_short_references_resolve_with_types_and_unique_counts(encoded):
+    def refs(values):
+        return json.dumps(values) if encoded else values
+
+    snapshot = {
+        "metadata": {"Data View ID": "dv-synthetic"},
+        "metrics": [{"id": "metrics/url"}, {"id": "metrics/orders"}],
+        "dimensions": [{"id": "variables/url"}],
+        "segments": {
+            "segments": [
+                {
+                    "segment_id": "segments/consumer",
+                    "dimension_references": refs(["url", "variables/url", "url", "missing"]),
+                    "metric_references": refs(["url"]),
+                },
+            ]
+        },
+        "calculated_metrics": {
+            "metrics": [
+                {
+                    "metric_id": "calc/ratio",
+                    "metric_references": refs(["orders", "orders"]),
+                    "segment_references": refs(["consumer"]),
+                },
+            ]
+        },
+    }
+    graph = build_reference_graph(cja_adapt(snapshot))
+    assert {(e["source"], e["target"]) for e in graph["edges"]} == {
+        ("segments/consumer", "variables/url"),
+        ("segments/consumer", "metrics/url"),
+        ("calc/ratio", "metrics/orders"),
+        ("calc/ratio", "segments/consumer"),
+    }
+    assert len(graph["edges"]) == 4
+    assert graph["out_degree"]["segments/consumer"] == 2
+    assert graph["in_degree"]["variables/url"] == 1
+    assert graph["unresolved"] == [
+        {
+            "source": "segments/consumer",
+            "reference": "missing",
+            "reference_type": "dimension",
+            "reason": "missing",
+        },
+    ]
+
+
+@pytest.mark.parametrize(
+    "dimensions,metrics,ref,scope,target,reason",
+    [
+        (["url", "variables/url"], [], "url", "dimension", "url", None),
+        (["variables/url", "custom/url"], [], "url", "dimension", None, "ambiguous"),
+        (["xdm.web.url", "xdm.page.url"], [], "url", "dimension", None, "ambiguous"),
+        (["variables/url", "xdm.page.url"], [], "url", "dimension", None, "ambiguous"),
+        (["variables/url"], ["metrics/url"], "url", None, None, "ambiguous"),
+        (["variables/url"], ["url"], "url", "dimension", "variables/url", None),
+        (["variables/url"], [], "variables/url", "metric", None, "missing"),
+        (["variables/url"], [], "other/url", "dimension", None, "missing"),
+        (["variables/xdm.web.url"], [], "url", "dimension", None, "missing"),
+        (["variables/xdm.web.url"], [], "xdm.web.url", "dimension", "variables/xdm.web.url", None),
+        (["xdm.web.url"], [], "url", "dimension", "xdm.web.url", None),
+        (["variables/url"], [], "URL", "dimension", None, "missing"),
+    ],
+)
+def test_resolution_precedence_and_collisions(dimensions, metrics, ref, scope, target, reason):
+    impl = cja_adapt(
+        {
+            "metadata": {"Data View ID": "dv-resolution"},
+            "dimensions": [{"id": id_} for id_ in dimensions],
+            "metrics": [{"id": id_} for id_ in metrics],
+            "segments": {"segments": [{"segment_id": "consumer"}]},
+        }
+    )
+    segment = impl.segments[0]
+    segment.references = [ref, ref]
+    segment.reference_types = {scope: [ref, ref]} if scope else {}
+    graph = build_reference_graph(impl)
+    assert [e["target"] for e in graph["edges"]] == ([target] if target else [])
+    assert graph["out_degree"]["consumer"] == (1 if target else 0)
+    assert [d["reason"] for d in graph["unresolved"]] == ([reason] if reason else [])
+    assert sum(graph["in_degree"].values()) == len(graph["edges"])
+
+
+def test_resolution_is_snapshot_local_and_aa_keeps_exact_matching():
+    snapshot = {
+        "metadata": {"Data View ID": "dv-local"},
+        "metrics": [],
+        "dimensions": [{"id": "variables/url"}],
+        "segments": {"segments": [{"segment_id": "s", "dimension_references": ["url"]}]},
+    }
+    impl = cja_adapt(snapshot)
+    assert len(build_reference_graph(impl)["edges"]) == 1
+    impl.platform = "aa"
+    assert build_reference_graph(impl)["edges"] == []
+    impl.segments[0].reference_types = {}
+    impl.segments[0].references = ["variables/url", "variables/url"]
+    assert len(build_reference_graph(impl)["edges"]) == 1
+    snapshot["dimensions"] = []
+    assert build_reference_graph(cja_adapt(snapshot))["edges"] == []
+
+
+def test_derived_kinds_and_calculated_metric_targets():
+    impl = cja_adapt(
+        {
+            "metadata": {"Data View ID": "dv-derived"},
+            "metrics": [],
+            "dimensions": [],
+            "derived_fields": {
+                "fields": [
+                    {"component_id": "variables/url", "component_type": "Dimension"},
+                    {"component_id": "metrics/url", "component_type": "Metric"},
+                    {
+                        "component_id": "derived/untyped",
+                        "component_references": ["url", "variables/url"],
+                    },
+                ]
+            },
+            "segments": {
+                "segments": [
+                    {
+                        "segment_id": "s",
+                        "dimension_references": ["url"],
+                        "metric_references": ["url", "total"],
+                    }
+                ]
+            },
+            "calculated_metrics": {"metrics": [{"metric_id": "calc/total"}]},
+        }
+    )
+    graph = build_reference_graph(impl)
+    assert {(e["source"], e["target"]) for e in graph["edges"]} == {
+        ("s", "variables/url"),
+        ("s", "metrics/url"),
+        ("s", "calc/total"),
+        ("derived/untyped", "variables/url"),
+    }
+    assert graph["unresolved"] == [
+        {"source": "derived/untyped", "reference": "url", "reason": "ambiguous"},
+    ]
+
+
+@pytest.mark.parametrize("scope", ["dimension", "metric"])
+def test_exact_references_to_legacy_derived_fields_keep_existing_edges(scope):
+    impl = cja_adapt(
+        {
+            "metadata": {"Data View ID": "dv-legacy-derived"},
+            "metrics": [],
+            "dimensions": [],
+            "derived_fields": {"fields": [{"component_id": "variables/legacy"}]},
+            "segments": {
+                "segments": [
+                    {"segment_id": "s", f"{scope}_references": ["variables/legacy", "legacy"]}
+                ]
+            },
+        }
+    )
+    graph = build_reference_graph(impl)
+    assert graph["edges"] == [
+        {"source": "s", "target": "variables/legacy", "kind": "references"},
+    ]
+    # An absent functional kind cannot authorize a typed shortened match.
+    assert graph["unresolved"] == [
+        {"source": "s", "reference": "legacy", "reference_type": scope, "reason": "missing"},
+    ]
+
+
+@pytest.mark.parametrize("scope", ["metric", "dimension"])
+def test_short_references_do_not_link_duplicate_ids_across_types(scope):
+    impl = cja_adapt(
+        {
+            "metadata": {"Data View ID": "dv-duplicate-id"},
+            "metrics": [{"id": "shared/url", "name": "Metric URL"}],
+            "dimensions": [{"id": "shared/url", "name": "Dimension URL"}],
+            "segments": {"segments": [{"segment_id": "s", f"{scope}_references": ["url"]}]},
+        }
+    )
+    graph = build_reference_graph(impl)
+    assert graph["edges"] == []
+    assert graph["out_degree"]["s"] == 0
+    assert graph["unresolved"] == [
+        {"source": "s", "reference": "url", "reference_type": scope, "reason": "ambiguous"},
+    ]
+    # The patch does not redesign the existing duplicate-ID exact-match contract.
+    impl.segments[0].reference_types = {scope: ["shared/url"]}
+    impl.segments[0].references = ["shared/url"]
+    assert len(build_reference_graph(impl)["edges"]) == 1

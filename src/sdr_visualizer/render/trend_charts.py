@@ -25,7 +25,7 @@ CHART_SPECS = (
     ("derived_fields", "Derived"),
     ("segments", "Segments"),
     ("calculated_metrics", "Calc metrics"),
-    ("orphans", "Orphans"),
+    ("orphans", "No incoming references"),
     ("no_description", "No description"),
     ("edges", "Reference edges"),
 )

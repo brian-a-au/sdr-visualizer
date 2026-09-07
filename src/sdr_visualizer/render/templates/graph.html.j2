@@ -27,13 +27,14 @@
         <select id="graph-orphan-filter">
           <option value="connected" selected>Connected only</option>
           <option value="all">All nodes</option>
-          <option value="orphans">Orphans only</option>
+          <option value="orphans">No connections</option>
         </select>
       </fieldset>
       <button type="button" id="graph-reset" class="ghost-button ui">Reset view</button>
     </div>
   </div>
 
+  <p class="reference-help">References reflect dependencies discovered in this snapshot. Workspace project usage and indirect dependencies are not included.</p>
   <div id="graph-stage" class="graph-stage">
     <div id="graph-degraded" class="graph-degraded ui" hidden>
       <p>This implementation has more nodes or reference edges than the

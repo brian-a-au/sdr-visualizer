@@ -1013,3 +1013,84 @@ def test_trend_absent_without_flag(browser_page, tmp_path):
         browser_page.evaluate("document.querySelector('.view-button[data-view=\\'trend\\']')")
         is None
     )
+
+
+def test_reference_labels_counts_links_and_connectivity(browser_page, tmp_path):
+    snapshot = {
+        "metadata": {"Data View ID": "dv-reference-labels"},
+        "metrics": [],
+        "dimensions": [
+            {"id": "variables/url", "name": "URL"},
+            {"id": "xdm.a.collision"},
+            {"id": "xdm.b.collision"},
+        ],
+        "segments": {
+            "segments": [
+                {
+                    "segment_id": "s",
+                    "segment_name": "Consumer",
+                    "dimension_references": ["url", "variables/url", "collision", "missing"],
+                }
+            ]
+        },
+    }
+    out = tmp_path / "references.html"
+    out.write_text(render(cja_adapt(snapshot)), encoding="utf-8")
+    browser_page.goto(out.as_uri())
+    note = (
+        "References reflect dependencies discovered in this snapshot. Workspace project "
+        "usage and indirect dependencies are not included."
+    )
+    assert browser_page.locator("#catalog-view").inner_text().count(note) == 1
+    assert browser_page.locator('th[data-sort="in_degree"]').text_content() == "Used by"
+    browser_page.locator("#catalog-view details summary").click()
+    used_by = "Number of components in this snapshot that directly reference this component."
+    uses = "Number of components in this snapshot directly referenced by this component."
+    assert used_by in browser_page.locator("#catalog-used-by-help").inner_text()
+    browser_page.click('#catalog-body tr[data-id="s"]')
+    detail = browser_page.locator("#detail-body")
+    assert detail.locator('dt:has-text("Used by") + dd').inner_text() == "0"
+    assert detail.locator('dt:text-is("Uses") + dd').inner_text() == "1"
+    assert detail.locator("#detail-used-by-help").inner_text() == "Used by: " + used_by
+    assert detail.locator("#detail-uses-help").inner_text() == "Uses: " + uses
+    assert (
+        detail.locator('dt:text-is("Uses")').get_attribute("aria-describedby") == "detail-uses-help"
+    )
+    resolved = detail.locator(
+        ".detail-section",
+        has=browser_page.get_by_role("heading", name="Uses these components", exact=True),
+    )
+    assert resolved.locator("li").count() == 1
+    unresolved = detail.locator(
+        ".detail-section",
+        has=browser_page.get_by_role("heading", name="Unresolved outgoing references", exact=True),
+    )
+    assert unresolved.locator("li").count() == 2
+    assert "ambiguous in inventory" in unresolved.inner_text()
+    assert "not in inventory" in unresolved.inner_text()
+    assert unresolved.locator("button").count() == 0
+    resolved.locator('button[data-id="variables/url"]').click()
+    assert detail.locator(".detail-name").inner_text() == "URL"
+    assert detail.locator('dt:text-is("Used by") + dd').inner_text() == "1"
+    browser_page.click("#detail-close")
+    browser_page.select_option("#references-filter", "orphaned")
+    assert (
+        browser_page.locator("#references-filter option:checked").inner_text()
+        == "No incoming references"
+    )
+    assert browser_page.locator('#catalog-body tr[data-id="s"]').count() == 1
+    browser_page.click('[data-view="graph"]')
+    assert note in browser_page.locator("#graph-view").inner_text()
+    browser_page.wait_for_selector(".graph-node", state="attached")
+    visible = browser_page.locator(".graph-node").evaluate_all(
+        '(nodes) => nodes.filter(n => !n.classList.contains("is-faded")).map(n => n.__data__.id)'
+    )
+    assert "s" in visible  # outgoing-only is connected
+    browser_page.select_option("#graph-orphan-filter", "orphans")
+    browser_page.wait_for_function("""() => Array.from(document.querySelectorAll('.graph-node'))
+        .find(n => n.__data__.id === 's').classList.contains('is-faded')""")
+    visible = browser_page.locator(".graph-node").evaluate_all(
+        '(nodes) => nodes.filter(n => !n.classList.contains("is-faded")).map(n => n.__data__.id)'
+    )
+    assert "s" not in visible
+    assert "variables/url" not in visible

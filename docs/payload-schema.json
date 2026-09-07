@@ -33,7 +33,10 @@
       "type": "object",
       "required": ["edges"],
       "additionalProperties": false,
-      "properties": {"edges": {"type": "array", "items": {"$ref": "#/$defs/edge"}}}
+      "properties": {
+        "edges": {"type": "array", "items": {"$ref": "#/$defs/edge"}},
+        "unresolved": {"type": "array", "items": {"$ref": "#/$defs/unresolvedReference"}}
+      }
     },
     "segment_trees": {"type": "object", "additionalProperties": {"$ref": "#/$defs/treeNode"}},
     "formula_trees": {"type": "object", "additionalProperties": {"$ref": "#/$defs/treeNode"}},
@@ -41,6 +44,17 @@
     "trend": {"$ref": "#/$defs/trend"}
   },
   "$defs": {
+    "unresolvedReference": {
+      "type": "object",
+      "required": ["source", "reference", "reason"],
+      "additionalProperties": false,
+      "properties": {
+        "source": {"type": "string"},
+        "reference": {"type": "string"},
+        "reference_type": {"enum": ["dimension", "metric", "segment"]},
+        "reason": {"enum": ["ambiguous", "missing"]}
+      }
+    },
     "component": {
       "type": "object",
       "required": ["id", "type", "name", "in_degree", "out_degree"],
