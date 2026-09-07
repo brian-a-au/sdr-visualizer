@@ -52,13 +52,24 @@ counts, detail links, and trend aggregates use resolved edges.
 [sdr-grader #60](https://github.com/brian-a-au/sdr-grader/pull/60) is merged at
 `366b0834301c69b5a69a493a8bd77328710188bf` (1.2.7). Its adapter, fuzz,
 AA-definition, CJA-resolution, and correctness-evidence suites passed: 238 tests.
-No sibling code change is needed: this patch adopts its existing extraction
-and alias semantics while keeping visualizer-specific graph typing, readable
-summaries, inventory retention, coercion failures, and output protection.
-Shared defensive helper bodies remain unchanged. Grader built-in availability
-and grading logic are deliberately excluded. No sibling release metadata or
-publication surfaces were modified. Exact committed-SHA color-contract parity
-and final visualizer checks are recorded in the PR.
+This patch adopts its extraction and alias semantics while keeping visualizer
+graph typing, readable summaries, inventory retention, coercion failures, and
+output protection. A subsequent fuzz run reproduced a shared 1.2.7 regression:
+non-object calculated-metric definitions could crash outer-context preservation
+or contribute references despite an empty retained formula. Both adapters now
+normalize these malformed definitions to the prior empty fallback.
+
+The minimal companion [sdr-grader #62](https://github.com/brian-a-au/sdr-grader/pull/62)
+at `adb3beea12afdc683823c3158baa78573abb1d9c` contains only that guard and six
+synthetic regressions. Its full suite passed 1,149 tests (244 focused). It remains
+unmerged in this session; release parity requires its green checks and maintainer
+merge. The visualizer also keeps malformed segment definitions from acquiring
+new references; grader segment-list extraction predates 1.2.7 and is unchanged.
+
+Listed defensive helper bodies remain unchanged. Grader built-in availability
+and grading logic are excluded. No sibling release metadata or publication
+surfaces were modified. Exact committed-SHA color-contract parity and final
+visualizer checks are recorded in the PR.
 
 ## Coverage limits and intentional boundaries
 

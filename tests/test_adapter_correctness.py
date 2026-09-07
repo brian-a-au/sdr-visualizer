@@ -298,3 +298,25 @@ def test_saved_filter_uses_exact_exported_identity(reference, target):
     tree = build_payload(impl)["formula_trees"]["calc/ratio"]["filters"][0]
     assert tree["segment_id"] == reference
     assert tree["resolved_id"] == target
+
+
+@pytest.mark.parametrize(
+    "definition", [42, "invalid", [1], [[1]], [{"func": "metric", "name": "metrics/revenue"}]]
+)
+def test_malformed_aa_definition_retains_empty_fallback(definition):
+    snap = aa_case()
+    snap["calculated_metrics"][0]["definition"] = definition
+    impl = aa_adapt(snap)
+    metric = impl.calculated_metrics[0]
+    assert metric.formula == {}
+    assert metric.formula_text == ""
+    assert metric.references == []
+    build_payload(impl)
+
+
+def test_malformed_segment_definition_does_not_invent_references():
+    snap = aa_case()
+    snap["segments"][0]["definition"] = [{"func": "attr", "name": "variables/page"}]
+    segment = aa_adapt(snap).segments[0]
+    assert segment.definition == {}
+    assert segment.references == []

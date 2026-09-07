@@ -177,8 +177,8 @@ This graph/anatomy metadata distinguishes dimension, metric, and segment IDs;
 the grader does not build this graph.
 The `_parse_ref_list` implementation and its defensive validation are unchanged.
 The reference graph regression tests cover native/encoded arrays, collisions,
-and legacy untyped model callers. No shared coercion behavior is changed or
-requires mirroring for this patch.
+and legacy untyped model callers. The graph-specific metadata does not require
+a matching grader model field.
 
 ### Reference correctness parity (1.1.2)
 
@@ -187,6 +187,9 @@ semantics already merged in [sdr-grader #60](https://github.com/brian-a-au/sdr-g
 (commit `366b0834301c69b5a69a493a8bd77328710188bf`, version 1.2.7).
 Shared tag/reference-list coercion, optional-list validation, numeric coercion,
 resource limits, inventory handling, and output protection are unchanged.
+A shared malformed calculated-metric definition guard is mirrored in
+[sdr-grader #62](https://github.com/brian-a-au/sdr-grader/pull/62); non-object
+definitions retain the prior empty fallback before context/reference extraction.
 The visualizer uses readable named-operand summaries rather than the grader's
 JSON summaries, and retains typed metadata for descriptive graph resolution.
 

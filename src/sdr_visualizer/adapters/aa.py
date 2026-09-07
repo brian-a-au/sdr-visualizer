@@ -200,7 +200,9 @@ def _calc_from_record(record: Any) -> CalculatedMetric:
     name = record.get("name") or metric_id
     description = _normalize_description(record.get("description"))
     definition = record.get("definition") or {}
-    formula = definition.get("formula") if isinstance(definition, dict) else {}
+    if not isinstance(definition, dict):
+        definition = {}
+    formula = definition.get("formula")
     if isinstance(formula, dict) and set(definition) - {"func", "version", "formula"}:
         formula = definition
     if isinstance(formula, dict):
@@ -293,7 +295,9 @@ def _segment_from_record(record: Any) -> Segment:
     if isinstance(definition, dict):
         validate_definition_structure(definition, label=f"segment definition {segment_id!r}")
     nesting_depth, container_types = _walk_segment_definition(definition)
-    references, reference_types = _extract_aa_references(definition)
+    references, reference_types = _extract_aa_references(
+        definition if isinstance(definition, dict) else {}
+    )
 
     return Segment(
         id=str(segment_id),

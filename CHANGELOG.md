@@ -11,6 +11,8 @@ All notable changes to `sdr-visualizer` will be documented here. The format foll
 - Preserve AA typed component references, named calculated-metric operands,
   and outer filter context. Formula summaries, anatomy, Changes, and Trend
   retain operand and filter changes without treating predicate literals as IDs.
+- Retain the empty fallback for malformed AA definitions before extracting
+  formula context or references.
 - Resolve established CJA dimension/variable namespace aliases consistently in
   graph edges, counts, and anatomy links while preserving original IDs and
   complete paths. Missing targets and namespace collisions stay unresolved.
