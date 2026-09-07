@@ -57,37 +57,6 @@ uv sync
 uv run sdr-visualizer --help
 ```
 
-## CJA dataset lineage
-
-See which Adobe Experience Platform (AEP) datasets feed your CJA Connections
-and which Data Views use those Connections. The **`cja-lineage`** command is
-included when you install `sdr-visualizer` (version 1.1.0 or later).
-
-Start with a saved dataset discovery JSON file from
-`cja_auto_sdr --list-datasets --format json --output -`. This file lists datasets
-and their Connections and Data Views; it is different from the component
-snapshots used by the catalog command.
-
-Generate a report from your saved file:
-
-```bash
-cja-lineage --saved discovery.json --output lineage.html
-cja-lineage --help
-```
-
-Open `lineage.html` in your browser to search datasets, Connections, and Data
-Views, inspect how they connect, and filter datasets by their role in a
-Connection. Choose **Draw full topology** to see a diagram of all connections;
-large reports show a size warning. The report works offline, and generating it
-from a saved file requires no credentials.
-
-To fetch current data from CJA, use `--live` with your `cja_auto_sdr` credentials.
-See the [CJA lineage guide](https://github.com/brian-a-au/sdr-visualizer/blob/main/docs/LINEAGE.md)
-for setup, supported generator versions, report navigation, and troubleshooting.
-
-Dataset lineage supports CJA only. Use the `sdr-visualizer` command to generate
-component catalogs for either CJA or Adobe Analytics (AA).
-
 ## Quickstart with a saved snapshot
 
 Saved snapshots are the simplest and most reproducible input. You do not need
@@ -312,6 +281,37 @@ uv run python scripts/check_workflow_policy.py
 uv build --out-dir dist/packages
 uv run python scripts/package_smoke_check.py dist/packages/
 ```
+
+## CJA dataset lineage
+
+See which Adobe Experience Platform (AEP) datasets feed your CJA Connections
+and which Data Views use those Connections. The **`cja-lineage`** command is
+included when you install `sdr-visualizer` (version 1.1.0 or later).
+
+Start with a saved dataset discovery JSON file from
+`cja_auto_sdr --list-datasets --format json --output -`. This file lists datasets
+and their Connections and Data Views; it is different from the component
+snapshots used by the catalog command.
+
+Generate a report from your saved file:
+
+```bash
+cja-lineage --saved discovery.json --output lineage.html
+cja-lineage --help
+```
+
+Open `lineage.html` in your browser to search datasets, Connections, and Data
+Views, inspect how they connect, and filter datasets by their role in a
+Connection. Choose **Draw full topology** to see a diagram of all connections;
+large reports show a size warning. The report works offline, and generating it
+from a saved file requires no credentials.
+
+To fetch current data from CJA, use `--live` with your `cja_auto_sdr` credentials.
+See the [CJA lineage guide](https://github.com/brian-a-au/sdr-visualizer/blob/main/docs/LINEAGE.md)
+for setup, supported generator versions, report navigation, and troubleshooting.
+
+Dataset lineage supports CJA only. Use the `sdr-visualizer` command to generate
+component catalogs for either CJA or Adobe Analytics (AA).
 
 ## See also
 
