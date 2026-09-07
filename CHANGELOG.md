@@ -4,7 +4,7 @@ All notable changes to `sdr-visualizer` will be documented here. The format foll
 
 ## [Unreleased]
 
-## [1.1.0] - 2026-09-04
+## [1.1.0] - 2026-09-07
 
 ### Added
 
@@ -20,8 +20,7 @@ All notable changes to `sdr-visualizer` will be documented here. The format foll
 - Shared output identity checks protect both commands while preserving the
   existing CJA/AA catalog command's interface and write behavior.
 
-This is the 1.1.0 release candidate under review, not a published release.
-The catalog payload/schema contract is unchanged. The date above records candidate preparation; verify it when qualifying the approved release commit.
+The catalog payload/schema contract is unchanged.
 
 ## [1.0.8] - 2026-08-09
 
