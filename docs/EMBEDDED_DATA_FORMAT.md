@@ -1,11 +1,15 @@
 # Embedded data format
 
-Every HTML output contains a JSON payload in `<script id="sdr-data" type="application/json">…</script>`. Client-side JS reads it on load to drive every view; downstream tooling can also consume it directly via `--json PATH`.
+Every catalog HTML output contains a JSON payload in `<script id="sdr-data" type="application/json">…</script>`. Client-side JS reads it on load to drive every view; downstream tooling can also consume it directly via `--json PATH`.
 
 The payload is a stable contract: external tooling can rely on the keys
 documented below. Internal, undocumented keys may change without notice. See
 [`PRODUCT_CONTRACT.md`](PRODUCT_CONTRACT.md#stable-public-surfaces) for the
 versioning boundary and confidentiality warning.
+
+The separate CJA-only `cja-lineage` report embeds `sdr-lineage-data` instead.
+That payload is internal and is not covered by this catalog schema or its
+`--json` sidecar contract. See [LINEAGE.md](LINEAGE.md).
 
 ## Top-level shape
 

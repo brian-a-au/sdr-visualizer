@@ -4,6 +4,11 @@ This document is the tracked public contract for `sdr-visualizer`. It defines
 what the project promises, what it deliberately does not promise, and which
 surfaces require semantic-versioning discipline.
 
+The catalog contract below applies to the `sdr-visualizer` command. Starting with
+1.1.0, the package also installs the CJA-only `cja-lineage` command. Its separate
+input, command, exit-code, platform, and compatibility boundaries are documented
+in [LINEAGE.md](LINEAGE.md). It does not extend the catalog JSON schema.
+
 ## Purpose and scope
 
 `sdr-visualizer` turns Adobe Customer Journey Analytics (CJA) and Adobe

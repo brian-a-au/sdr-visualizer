@@ -27,6 +27,7 @@ from sdr_visualizer.cli.exit_codes import (
     RUNTIME_ERROR,
     SUCCESS,
 )
+from sdr_visualizer.cli.output_safety import paths_alias
 from sdr_visualizer.core.exceptions import (
     InvalidSnapshotError,
     UnknownPlatformError,
@@ -223,23 +224,11 @@ def _validate_output_destinations(
 
 
 def _paths_alias(left: Path, right: Path) -> bool:
-    """Compare lexical, symlink, and hard-link identities without writing."""
-    try:
-        if left.resolve(strict=False) == right.resolve(strict=False):
-            return True
-        left_exists = _identity_path_exists(left)
-        right_exists = _identity_path_exists(right)
-        return left_exists and right_exists and left.samefile(right)
-    except (OSError, RuntimeError) as exc:
-        raise InvalidSnapshotError("could not verify output destination identity") from exc
-
-
-def _identity_path_exists(path: Path) -> bool:
-    try:
-        path.stat()
-    except (FileNotFoundError, NotADirectoryError):
-        return False
-    return True
+    """Map the neutral identity result to the public CLI's existing error contract."""
+    alias = paths_alias(left, right)
+    if alias is None:
+        raise InvalidSnapshotError("could not verify output destination identity")
+    return alias
 
 
 def _emit_compatibility_warnings(implementations: list[Implementation]) -> None:

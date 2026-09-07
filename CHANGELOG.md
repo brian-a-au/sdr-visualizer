@@ -4,6 +4,24 @@ All notable changes to `sdr-visualizer` will be documented here. The format foll
 
 ## [Unreleased]
 
+## [1.1.0] - 2026-09-07
+
+### Added
+
+- CJA-only `cja-lineage` command, installed with `sdr-visualizer`, for saved or
+  explicit live dataset discovery and self-contained offline lineage reports.
+- Searchable datasets, Connections, and Data Views; Connection role coverage,
+  inline inspectors, relationship-scoped metadata, and bounded topology views.
+- Initial-overview theme controls, keyboard return navigation, reduced motion,
+  and synthetic lineage examples, browser tests, and performance qualification.
+
+### Changed
+
+- Shared output identity checks protect both commands while preserving the
+  existing CJA/AA catalog command's interface and write behavior.
+
+The catalog payload/schema contract is unchanged.
+
 ## [1.0.8] - 2026-08-09
 
 Maintainer-approved presentation-only patch release paired with
@@ -569,7 +587,8 @@ The following are explicitly internal and may change without notice:
 - Workspace project visualization (v0.4)
 - Schema map view (v0.5)
 
-[Unreleased]: https://github.com/brian-a-au/sdr-visualizer/compare/v1.0.8...HEAD
+[Unreleased]: https://github.com/brian-a-au/sdr-visualizer/compare/v1.1.0...HEAD
+[1.1.0]: https://github.com/brian-a-au/sdr-visualizer/releases/tag/v1.1.0
 [1.0.8]: https://github.com/brian-a-au/sdr-visualizer/releases/tag/v1.0.8
 [1.0.7]: https://github.com/brian-a-au/sdr-visualizer/releases/tag/v1.0.7
 [1.0.6]: https://github.com/brian-a-au/sdr-visualizer/releases/tag/v1.0.6

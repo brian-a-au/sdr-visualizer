@@ -1,0 +1,29 @@
+{
+  "dataViews": [
+    {
+      "id": "dv-production",
+      "name": "Production",
+      "connection": {
+        "id": "conn-shared",
+        "name": "Shared connection"
+      },
+      "datasets": [
+        {"id": "ds-web", "name": "Web events"},
+        {"id": "ds-mobile", "name": "Mobile events"}
+      ]
+    },
+    {
+      "id": "dv-exploration",
+      "name": "Exploration",
+      "connection": {
+        "id": "conn-shared",
+        "name": "Shared connection"
+      },
+      "datasets": [
+        {"id": "ds-web", "name": "Web events"},
+        {"id": "ds-mobile", "name": "Mobile events"}
+      ]
+    }
+  ],
+  "count": 2
+}

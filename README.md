@@ -57,6 +57,25 @@ uv sync
 uv run sdr-visualizer --help
 ```
 
+## CJA dataset lineage (1.1.0 candidate)
+
+The same package also installs **`cja-lineage`**, a CJA-only command for exploring
+AEP datasets → CJA Connections → CJA Data Views. This branch prepares 1.1.0;
+these additions are not available from PyPI until that release is published.
+The existing `sdr-visualizer` catalog command continues to support both CJA and AA.
+
+```bash
+cja-lineage --saved discovery.json --output lineage.html
+cja-lineage --help
+```
+
+Use CJA dataset discovery JSON (`cja_auto_sdr --list-datasets`), **not** an AA or
+CJA component snapshot. The offline report includes Connection cards, search
+for all three entity types, relationship metadata, role filters, and an optional
+full topology. Saved input needs no credentials; live acquisition is explicit.
+See the [CJA lineage guide](https://github.com/brian-a-au/sdr-visualizer/blob/main/docs/LINEAGE.md)
+for live usage, upstream compatibility, navigation, limits, and exit codes.
+
 ## Quickstart with a saved snapshot
 
 Saved snapshots are the simplest and most reproducible input. You do not need
@@ -237,11 +256,11 @@ synthetic reproduction in a public issue.
 
 From 1.0.0, [semantic versioning](https://semver.org) covers the surface below. Anything not listed is internal and may change in any release.
 
-**CLI.** The argument set: the positional `path` (snapshot file, snapshot directory, or `-` for stdin), `--dataview`, `--rsid`, `--platform`, `--at`, `--compare-to`, `--trend`, `--allow-instance-mismatch`, `--output`, `--title`, `--color-pack`, `--exclude-orphans`, `--max-graph-nodes`, `--json`, `--quiet`, `--version`. Removing or repurposing any of these is a major bump; adding flags is a minor one.
+**Catalog CLI (`sdr-visualizer`).** The argument set: the positional `path` (snapshot file, snapshot directory, or `-` for stdin), `--dataview`, `--rsid`, `--platform`, `--at`, `--compare-to`, `--trend`, `--allow-instance-mismatch`, `--output`, `--title`, `--color-pack`, `--exclude-orphans`, `--max-graph-nodes`, `--json`, `--quiet`, `--version`. Removing or repurposing any of these is a major bump; adding flags is a minor one.
 
-**Exit codes.** `0` success, `1` runtime error, `3` invalid input. `2` is never used.
+**Catalog exit codes.** `0` success, `1` runtime error, `3` invalid input. `2` is never used.
 
-**The data payload.** The JSON embedded in every report and the `--json`
+**The catalog data payload.** The JSON embedded in every catalog report and the `--json`
 sidecar share one schema, published at
 [`docs/payload-schema.json`](https://github.com/brian-a-au/sdr-visualizer/blob/main/docs/payload-schema.json) (JSON Schema 2020-12)
 and validated in CI against every payload shape produced by the bundled
@@ -250,6 +269,12 @@ minor. The `segment_trees` / `formula_trees` node internals are documented in
 the schema as loosely specified. Current-generator and private-corpus
 validation is a separate, recorded release gate; see
 [`docs/RELEASING.md`](https://github.com/brian-a-au/sdr-visualizer/blob/main/docs/RELEASING.md).
+
+**CJA lineage.** Starting with 1.1.0, `cja-lineage` adds a separate CJA-only
+command. Its documented arguments and exit codes are described in the
+[lineage guide](https://github.com/brian-a-au/sdr-visualizer/blob/main/docs/LINEAGE.md).
+Its embedded payload and Python modules are internal and do not extend the
+catalog schema or JSON sidecar contract.
 
 **Performance budgets.** The tier table above is a guarantee, not a goal: loosening a budget is a breaking change; tightening one is minor.
 
@@ -283,6 +308,8 @@ uv run python scripts/package_smoke_check.py dist/packages/
 - [`aa_auto_sdr`](https://github.com/brian-a-au/aa_auto_sdr) — generates AA snapshots.
 
 ## Documentation
+
+- [`docs/LINEAGE.md`](https://github.com/brian-a-au/sdr-visualizer/blob/main/docs/LINEAGE.md) — CJA-only lineage generation, navigation, compatibility, and limits.
 
 - [`docs/ARCHITECTURE.md`](https://github.com/brian-a-au/sdr-visualizer/blob/main/docs/ARCHITECTURE.md) — module layout, one-way data flow, design principles.
 - [`docs/ADAPTER_GUIDE.md`](https://github.com/brian-a-au/sdr-visualizer/blob/main/docs/ADAPTER_GUIDE.md) — how the CJA and AA adapters work, and how to add a new platform.

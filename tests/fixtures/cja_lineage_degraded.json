@@ -1,0 +1,24 @@
+{
+  "dataViews": [
+    {
+      "id": "dv-known-parent",
+      "name": "Known parent ID",
+      "connection": {
+        "id": "conn-restricted",
+        "name": null
+      },
+      "datasets": []
+    },
+    {
+      "id": "dv-missing-parent",
+      "name": "Missing parent",
+      "connection": {
+        "id": "N/A",
+        "name": null
+      },
+      "datasets": []
+    }
+  ],
+  "count": 2,
+  "warning": "Connection details are unavailable."
+}
