@@ -4,6 +4,8 @@ All notable changes to `sdr-visualizer` will be documented here. The format foll
 
 ## [Unreleased]
 
+## [1.1.1] - 2026-09-07
+
 ### Fixed
 
 - Fixed reference graph undercounts caused by shortened CJA reference IDs.
@@ -603,7 +605,8 @@ The following are explicitly internal and may change without notice:
 - Workspace project visualization (v0.4)
 - Schema map view (v0.5)
 
-[Unreleased]: https://github.com/brian-a-au/sdr-visualizer/compare/v1.1.0...HEAD
+[Unreleased]: https://github.com/brian-a-au/sdr-visualizer/compare/v1.1.1...HEAD
+[1.1.1]: https://github.com/brian-a-au/sdr-visualizer/releases/tag/v1.1.1
 [1.1.0]: https://github.com/brian-a-au/sdr-visualizer/releases/tag/v1.1.0
 [1.0.8]: https://github.com/brian-a-au/sdr-visualizer/releases/tag/v1.0.8
 [1.0.7]: https://github.com/brian-a-au/sdr-visualizer/releases/tag/v1.0.7

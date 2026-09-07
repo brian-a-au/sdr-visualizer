@@ -4,6 +4,7 @@ from pathlib import Path
 
 import pytest
 
+from sdr_visualizer import __version__
 from sdr_visualizer.cli import lineage
 
 FIXTURE = Path(__file__).parent / "fixtures" / "cja_lineage_shared.json"
@@ -102,4 +103,4 @@ def test_module_version(monkeypatch, capsys):
     with pytest.raises(SystemExit) as caught:
         runpy.run_module("sdr_visualizer.cli.lineage", run_name="__main__")
     assert caught.value.code == 0
-    assert "cja-lineage 1.1.0" in capsys.readouterr().out
+    assert f"cja-lineage {__version__}" in capsys.readouterr().out
