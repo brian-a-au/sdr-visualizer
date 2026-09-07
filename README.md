@@ -57,24 +57,36 @@ uv sync
 uv run sdr-visualizer --help
 ```
 
-## CJA dataset lineage (1.1.0 candidate)
+## CJA dataset lineage
 
-The same package also installs **`cja-lineage`**, a CJA-only command for exploring
-AEP datasets → CJA Connections → CJA Data Views. This branch prepares 1.1.0;
-these additions are not available from PyPI until that release is published.
-The existing `sdr-visualizer` catalog command continues to support both CJA and AA.
+See which Adobe Experience Platform (AEP) datasets feed your CJA Connections
+and which Data Views use those Connections. The **`cja-lineage`** command is
+included when you install `sdr-visualizer` (version 1.1.0 or later).
+
+Start with a saved dataset discovery JSON file from
+`cja_auto_sdr --list-datasets --format json --output -`. This file lists datasets
+and their Connections and Data Views; it is different from the component
+snapshots used by the catalog command.
+
+Generate a report from your saved file:
 
 ```bash
 cja-lineage --saved discovery.json --output lineage.html
 cja-lineage --help
 ```
 
-Use CJA dataset discovery JSON (`cja_auto_sdr --list-datasets`), **not** an AA or
-CJA component snapshot. The offline report includes Connection cards, search
-for all three entity types, relationship metadata, role filters, and an optional
-full topology. Saved input needs no credentials; live acquisition is explicit.
+Open `lineage.html` in your browser to search datasets, Connections, and Data
+Views, inspect how they connect, and filter datasets by their role in a
+Connection. Choose **Draw full topology** to see a diagram of all connections;
+large reports show a size warning. The report works offline, and generating it
+from a saved file requires no credentials.
+
+To fetch current data from CJA, use `--live` with your `cja_auto_sdr` credentials.
 See the [CJA lineage guide](https://github.com/brian-a-au/sdr-visualizer/blob/main/docs/LINEAGE.md)
-for live usage, upstream compatibility, navigation, limits, and exit codes.
+for setup, supported generator versions, report navigation, and troubleshooting.
+
+Dataset lineage supports CJA only. Use the `sdr-visualizer` command to generate
+component catalogs for either CJA or Adobe Analytics (AA).
 
 ## Quickstart with a saved snapshot
 

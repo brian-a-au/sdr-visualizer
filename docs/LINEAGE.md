@@ -1,13 +1,12 @@
 # CJA lineage reports
 
-`cja-lineage` is the CJA-only command included in the `sdr-visualizer` package
-starting with 1.1.0. This branch prepares that release; an open PR does not mean
-1.1.0 has been published. The existing `sdr-visualizer` command continues to
-generate component catalogs for both CJA and Adobe Analytics (AA).
+`cja-lineage` shows which Adobe Experience Platform (AEP) datasets feed your
+CJA Connections and which Data Views use those Connections. It is included in
+the `sdr-visualizer` package starting with version 1.1.0.
 
-Lineage shows **AEP datasets → CJA Connections → CJA Data Views**. AA report
-suites and component snapshots are not lineage inputs. Ordinary CJA component
-snapshots are not lineage inputs either: use CJA dataset discovery JSON.
+The command uses CJA dataset discovery JSON to build the report. AA report suites
+and AA or CJA component snapshots cannot be used as lineage input. To generate
+component catalogs for CJA or Adobe Analytics (AA), use `sdr-visualizer`.
 
 ## Generate a report
 
@@ -84,11 +83,12 @@ system theme until you override it. The color packs are `default`, `ADBE`,
 `OMTR`, and `BLUE`. Text labels accompany role colors. Reduced-motion preferences
 remove moving markers; static route emphasis retains the same meaning.
 
-**Draw full topology** is an explicit opt-in, available for at most 1,000 nodes
-and 8,000 relationships. Above either limit, the full diagram is withheld.
-Use zoom, reset, and selected-route centering for navigation. Large local
-neighborhoods compact their geometry and disclose lists in batches; search and
-relationship details remain available when a full graph is withheld.
+Choose **Draw full topology** to draw the complete diagram. Reports with more
+than 1,000 nodes or 8,000 relationships show a warning because drawing a large
+diagram can be slow; you can still choose to draw it. Use zoom, reset, and
+selected-route centering for navigation. Large local neighborhoods compact their
+geometry and show lists in batches. Search and relationship details are available
+without drawing the full diagram.
 
 ## Interpret coverage correctly
 
