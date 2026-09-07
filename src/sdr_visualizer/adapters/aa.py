@@ -151,11 +151,29 @@ def _index_classifications(classifications: Any) -> dict[str, list[str]]:
 def _stringify_formula(formula: dict[str, Any]) -> str:
     func = formula.get("func")
     if not func:
+        if "formula" in formula:
+            return ", ".join(
+                f"{key}={_formula_value(value)}" for key, value in sorted(formula.items())
+            )
         return ""
     args = formula.get("args") or []
     if not isinstance(args, list):
         args = [args]
-    return f"{func}({', '.join(_stringify_formula_arg(a) for a in args)})"
+    parts = [_stringify_formula_arg(a) for a in args]
+    parts.extend(
+        f"{key}={_formula_value(value)}"
+        for key, value in sorted(formula.items())
+        if key not in ("func", "args")
+    )
+    return f"{func}({', '.join(parts)})"
+
+
+def _formula_value(value: Any) -> str:
+    if isinstance(value, dict) and ("func" in value or "formula" in value):
+        return _stringify_formula(value)
+    if isinstance(value, list):
+        return "[" + ", ".join(_formula_value(item) for item in value) + "]"
+    return json.dumps(value, sort_keys=True, ensure_ascii=False)
 
 
 def _stringify_formula_arg(arg: Any) -> str:
@@ -164,7 +182,11 @@ def _stringify_formula_arg(arg: Any) -> str:
         # Python dict repr into user-facing formula summaries.
         rendered = _stringify_formula(arg)
         return rendered or str(arg.get("func") or "?")
-    return str(arg)
+    if isinstance(arg, str) and arg.startswith(
+        ("metrics/", "variables/", "segments/", "calculatedMetrics/")
+    ):
+        return arg
+    return _formula_value(arg)
 
 
 def _calc_from_record(record: Any) -> CalculatedMetric:
@@ -178,13 +200,17 @@ def _calc_from_record(record: Any) -> CalculatedMetric:
     name = record.get("name") or metric_id
     description = _normalize_description(record.get("description"))
     definition = record.get("definition") or {}
-    formula = definition.get("formula") if isinstance(definition, dict) else {}
+    if not isinstance(definition, dict):
+        definition = {}
+    formula = definition.get("formula")
+    if isinstance(formula, dict) and set(definition) - {"func", "version", "formula"}:
+        formula = definition
     if isinstance(formula, dict):
         validate_definition_structure(formula, label=f"calculated metric formula {metric_id!r}")
         formula_text = _stringify_formula(formula)
     else:
         formula_text = ""
-    references = _extract_aa_calc_refs(formula)
+    references, reference_types = _extract_aa_references(definition, include_args=True)
 
     return CalculatedMetric(
         id=str(metric_id),
@@ -196,38 +222,60 @@ def _calc_from_record(record: Any) -> CalculatedMetric:
         allocation=record.get("allocation"),
         complexity_score=_as_float(record.get("complexity_score")),
         references=references,
+        reference_types=reference_types,
         created_at=_optional_timestamp(record.get("created") or record.get("created_at")),
         modified_at=_optional_timestamp(record.get("modified") or record.get("modified_at")),
         owner=str(record.get("owner_id")) if record.get("owner_id") else None,
     )
 
 
-def _extract_aa_calc_refs(formula: Any) -> list[str]:
-    """Walk an AA calc-metric formula and collect any metrics/* args."""
-    refs: list[str] = []
-    seen: set[str] = set()
+def _extract_aa_references(
+    definition: Any, *, include_args: bool = False
+) -> tuple[list[str], dict[str, list[str]]]:
+    """Read typed AST slots and legacy formula args, never predicate literals."""
+    refs: dict[str, list[str]] = {}
+    ordered: dict[str, None] = {}
+    seen: set[tuple[str, str]] = set()
+
+    def add(scope: str, value: Any) -> None:
+        if isinstance(value, str) and value and (scope, value) not in seen:
+            seen.add((scope, value))
+            refs.setdefault(scope, []).append(value)
+            ordered[value] = None
 
     def walk(node: Any) -> None:
         if isinstance(node, dict):
-            args = node.get("args")
-            if isinstance(args, list):
-                for arg in args:
-                    if isinstance(arg, str) and arg.startswith(("metrics/", "variables/")):
-                        if arg not in seen:
-                            seen.add(arg)
-                            refs.append(arg)
-                    else:
-                        walk(arg)
-            for value in node.values():
-                if value is args:
-                    continue
-                walk(value)
+            func = node.get("func")
+            if func in ("attr", "event", "metric"):
+                add("dimension" if func == "attr" else "metric", node.get("name"))
+            elif func == "segment-ref":
+                add("segment", node.get("id"))
+            elif func == "segment" and not any(
+                k in node for k in ("container", "pred", "definition")
+            ):
+                add("segment", node.get("name") or node.get("id"))
+            for key, value in node.items():
+                if include_args and key == "args" and isinstance(value, list):
+                    for arg in value:
+                        if isinstance(arg, str):
+                            for prefix, scope in (
+                                ("metrics/", "metric"),
+                                ("variables/", "dimension"),
+                                ("segments/", "segment"),
+                                ("calculatedMetrics/", "metric"),
+                            ):
+                                if arg.startswith(prefix):
+                                    add(scope, arg)
+                        else:
+                            walk(arg)
+                else:
+                    walk(value)
         elif isinstance(node, list):
             for item in node:
                 walk(item)
 
-    walk(formula)
-    return refs
+    walk(definition)
+    return list(ordered), refs
 
 
 # ---------------------------------------------------------------------------
@@ -247,7 +295,9 @@ def _segment_from_record(record: Any) -> Segment:
     if isinstance(definition, dict):
         validate_definition_structure(definition, label=f"segment definition {segment_id!r}")
     nesting_depth, container_types = _walk_segment_definition(definition)
-    references: list[str] = []  # AA segments don't expose direct cross-refs in the basic shape
+    references, reference_types = _extract_aa_references(
+        definition if isinstance(definition, dict) else {}
+    )
 
     return Segment(
         id=str(segment_id),
@@ -257,6 +307,7 @@ def _segment_from_record(record: Any) -> Segment:
         nesting_depth=nesting_depth,
         container_types=container_types,
         references=references,
+        reference_types=reference_types,
         created_at=_optional_timestamp(record.get("created")),
         modified_at=_optional_timestamp(record.get("modified")),
         owner=str(record.get("owner_id")) if record.get("owner_id") else None,

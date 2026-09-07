@@ -125,6 +125,7 @@ def test_bare_references_and_string_literals_are_distinguished():
         "kind": "metric_ref",
         "metric_id": "variables/evar1",
         "label": "variables/evar1",
+        "reference_type": "dimension",
     }
     assert literal == {"kind": "constant", "value": "not a reference"}
 

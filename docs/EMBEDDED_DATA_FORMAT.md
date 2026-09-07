@@ -133,7 +133,9 @@ the field is absent.
 
 Edges are directed (source → target), deduplicated by source/target pair, and
 only emitted when the target resolves within this snapshot. Exact IDs take
-precedence within the declared reference type. For CJA, a shortened reference
+precedence within the declared reference type. CJA also resolves the established
+`dimensions/` ↔ `variables/` alias using the entire suffix path and an exported
+dimension target; metric namespaces remain distinct. For CJA, a shortened reference
 may resolve to a unique inventory ID of that type: the part after the last
 slash, or after the last dot when the ID contains no slash. Untyped references
 require uniqueness across all component types. Legacy derived fields without a
@@ -290,9 +292,19 @@ illustrative and the documented node `kind` values are stable. Node `kind`s:
 // segment_scope — formula scoped to a segment
 { "kind": "segment_scope", "segment_id": "segments/seg_x", "child": Node }
 
+// segment_ref — a saved segment reference operand
+{ "kind": "segment_ref", "segment_id": "segments/seg_x" }
+
+// filtered_formula — formula with saved or inline segment filters
+{ "kind": "filtered_formula", "child": Node, "filters": [SegmentTreeNode, ...] }
+
 // unknown — fallback
 { "kind": "unknown", "func": "exotic-op", "raw_keys": ["..."] }
 ```
+
+Anatomy keeps the original reference IDs and labels. Its render metadata carries
+resolved inventory destinations (or missing/ambiguous status) from the same typed
+resolver as the graph; the browser does not invent its own namespace aliases.
 
 ## Stability
 

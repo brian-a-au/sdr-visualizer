@@ -3,7 +3,8 @@
 from __future__ import annotations
 
 from collections import defaultdict
-from typing import Any
+from collections.abc import Callable
+from typing import Any, NamedTuple
 
 from sdr_visualizer.core.models import Implementation
 
@@ -15,14 +16,16 @@ def _short_id(component_id: str) -> str:
     )
 
 
-def build_reference_graph(impl: Implementation) -> dict[str, Any]:
-    """Build unique directed edges, degrees, and unresolved-reference diagnostics.
+ResolveReference = Callable[[str, str | None], tuple[str | None, str | None]]
 
-    Exact IDs win within the declared reference type. Only CJA shortened IDs
-    get a fallback, using the upstream shortening rule on inventory IDs (never
-    shortening a missing full reference). Untyped references require uniqueness
-    across the whole snapshot. No definitions or indirect dependencies are read.
-    """
+
+class ReferenceIndex(NamedTuple):
+    nodes: list[dict[str, Any]]
+    resolve: ResolveReference
+
+
+def reference_index(impl: Implementation) -> ReferenceIndex:
+    """Build one snapshot-local resolver shared by graph and anatomy links."""
     nodes: list[dict[str, Any]] = []
     seen: set[str] = set()
     identity_types: dict[str, set[str]] = defaultdict(set)
@@ -35,6 +38,14 @@ def build_reference_graph(impl: Implementation) -> dict[str, Any]:
             exact[scope].add(component_id)
             if impl.platform == "cja":
                 aliases[scope, _short_id(component_id)].add(component_id)
+                if reference_type == "dimension" or (
+                    reference_type == "derived_field"
+                    and component_id.startswith(("variables/", "dimensions/"))
+                ):
+                    prefix, separator, suffix = component_id.partition("/")
+                    if separator and prefix in ("variables", "dimensions"):
+                        alternate = "dimensions" if prefix == "variables" else "variables"
+                        aliases[scope, f"{alternate}/{suffix}"].add(component_id)
         if component_id not in seen:
             seen.add(component_id)
             nodes.append({"id": component_id, "type": type_, "label": label})
@@ -62,36 +73,42 @@ def build_reference_graph(impl: Implementation) -> dict[str, Any]:
     ambiguous_ids = {
         id_ for id_, kinds in identity_types.items() if len(kinds - {"derived_field"}) > 1
     }
+
+    def resolve(ref: str, scope: str | None = None) -> tuple[str | None, str | None]:
+        if ref in exact[scope]:
+            return ref, None
+        targets = aliases.get((scope, ref), set()) if impl.platform == "cja" else set()
+        if len(targets) != 1 or targets & ambiguous_ids:
+            return None, "ambiguous" if targets else "missing"
+        return next(iter(targets)), None
+
+    return ReferenceIndex(nodes, resolve)
+
+
+def build_reference_graph(
+    impl: Implementation, *, index: ReferenceIndex | None = None
+) -> dict[str, Any]:
+    """Exact-first typed edges; only established, unambiguous inventory aliases."""
+    nodes, resolve = index if index is not None else reference_index(impl)
     edges: list[dict[str, Any]] = []
     unresolved: list[dict[str, Any]] = []
     edge_keys: set[tuple[str, str]] = set()
     ref_keys: set[tuple[str, str, str | None]] = set()
-    in_degree = dict.fromkeys(seen, 0)
-    out_degree = dict.fromkeys(seen, 0)
+    in_degree = dict.fromkeys((node["id"] for node in nodes), 0)
+    out_degree = in_degree.copy()
 
     def add_reference(source: str, ref: str, scope: str | None = None) -> None:
         key = (source, ref, scope)
         if key in ref_keys:
             return
         ref_keys.add(key)
-        exact_match = ref in exact[scope]
-        if exact_match:
-            targets = {ref}
-        elif impl.platform == "cja":
-            targets = aliases.get((scope, ref), set())
-        else:
-            targets = set()
-        if len(targets) != 1 or (not exact_match and targets & ambiguous_ids):
-            diagnostic = {
-                "source": source,
-                "reference": ref,
-                "reason": "ambiguous" if targets else "missing",
-            }
+        target, reason = resolve(ref, scope)
+        if target is None:
+            diagnostic = {"source": source, "reference": ref, "reason": reason}
             if scope:
                 diagnostic["reference_type"] = scope
             unresolved.append(diagnostic)
             return
-        target = next(iter(targets))
         if (source, target) not in edge_keys:
             edge_keys.add((source, target))
             edges.append({"source": source, "target": target, "kind": "references"})

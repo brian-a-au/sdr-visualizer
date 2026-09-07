@@ -32,6 +32,11 @@ COMPARISON_OPS = {
     "ne",
     "neq",
     "streq",
+    "streq-in",
+    "not-streq-in",
+    "matches",
+    "event-exists",
+    "not-event-exists",
     "strne",
     "contains",
     "not-contains",
@@ -64,6 +69,8 @@ def _walk(node: Any) -> dict[str, Any]:
 
     func = node.get("func")
 
+    if func == "segment-ref":
+        return {"kind": "segment_ref", "segment_id": node.get("id") or ""}
     if func == "container":
         return _container(node)
     if func in LOGICAL_OPS:
@@ -129,8 +136,11 @@ def _criterion(node: dict[str, Any], op: str) -> dict[str, Any]:
     target_id, target_label = _criterion_target(node)
     value = _criterion_value(node)
     refs = [target_id] if target_id else []
+    val = node.get("val") or node.get("evt")
+    scope = "dimension" if isinstance(val, dict) and val.get("func") == "attr" else "metric"
     return {
         "kind": "criterion",
+        "reference_type": scope,
         "op": op,
         "target_id": target_id,
         "target_label": target_label,
@@ -142,11 +152,15 @@ def _criterion(node: dict[str, Any], op: str) -> dict[str, Any]:
 
 def _criterion_target(node: dict[str, Any]) -> tuple[str | None, str]:
     """Pull the dimension/metric reference out of a criterion node."""
-    val = node.get("val")
+    val = node.get("val") or node.get("evt")
     if isinstance(val, dict):
+        if val.get("func") == "total":
+            val = val.get("evt")
+        if not isinstance(val, dict):
+            return None, "value"
         if val.get("func") == "attr":
             return val.get("name"), str(val.get("name") or "attribute")
-        if val.get("func") == "metric":
+        if val.get("func") in ("metric", "event"):
             return val.get("name"), str(val.get("name") or "metric")
     # AA criteria sometimes carry the dimension via the parent container's
     # context; if we get here we don't have a known target.
@@ -154,8 +168,9 @@ def _criterion_target(node: dict[str, Any]) -> tuple[str | None, str]:
 
 
 def _criterion_value(node: dict[str, Any]) -> Any:
-    if "str" in node:
-        return node["str"]
+    for key in ("str", "list", "glob"):
+        if key in node:
+            return node[key]
     if "num" in node:
         return node["num"]
     val = node.get("val")
