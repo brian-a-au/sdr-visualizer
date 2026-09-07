@@ -553,7 +553,8 @@
       if (state.activeDatasetId) focusRefs.unshift(`dataset:${state.activeDatasetId}`);
       mountSvg(bounded, built, focusRefs);
       if (canvas.nodes.length > allowed.size) {
-        addText(stage, "p", `${canvas.nodes.length - allowed.size} additional local nodes are omitted from this bounded diagram; complete datasets and siblings remain listed below.`, "diagram-note");
+        el.diagramNote.textContent = `${canvas.nodes.length - allowed.size} additional local nodes are omitted from this bounded diagram; complete datasets and siblings remain listed below.`;
+        el.diagramNote.hidden = false;
       }
     }
 

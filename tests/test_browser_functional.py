@@ -14,6 +14,7 @@ from pathlib import Path
 from urllib.parse import quote
 
 import pytest
+from browser_support import launch_browser
 from conftest import extract_payload
 
 playwright_sync = pytest.importorskip("playwright.sync_api")
@@ -41,15 +42,11 @@ def browser_page(request):
     CI, and webkit coverage closes that gap.
     """
     with playwright_sync.sync_playwright() as pw:
+        browser = launch_browser(pw, request.param)
         try:
-            browser = getattr(pw, request.param).launch(headless=True)
-        except Exception as exc:  # engine not installed in this environment
-            pytest.skip(f"{request.param} not available: {exc}")
-        else:
-            try:
-                yield browser.new_page()
-            finally:
-                browser.close()
+            yield browser.new_page()
+        finally:
+            browser.close()
 
 
 def _render_to(tmp_path: Path, fixture_name: str, name: str = "out.html") -> Path:

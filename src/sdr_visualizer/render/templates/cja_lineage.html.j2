@@ -118,6 +118,7 @@
           <p class="overview-state">The initial overview is intentionally static and unselected. Prepared build-side geometry is embedded for bounded inspection.</p>
 {% endif %}
         </div>
+        <p id="lineage-diagram-note" class="diagram-note" hidden></p>
         <div id="lineage-stage-toolbar" class="stage-toolbar ui" aria-label="Diagram display controls" hidden>
           <span class="flow-indicator"><span aria-hidden="true"></span>Lineage flow</span>
           <button id="lineage-flow-pause" type="button" aria-pressed="false" hidden>Pause flow</button>
@@ -128,7 +129,7 @@
         <div class="detail-heading">
           <div>
             <p class="eyebrow">Selected data view</p>
-            <h3 id="lineage-selection-heading"></h3>
+            <h3 id="lineage-selection-heading" tabindex="-1"></h3>
             <p id="lineage-selection-id" class="stable-id"></p>
           </div>
           <button id="lineage-back-connection" type="button">Back to Connection</button>
@@ -152,7 +153,7 @@
           <div class="relationship-heading">
             <div>
               <p class="eyebrow">Selected dataset → connection</p>
-              <h4 id="lineage-relationship-heading"></h4>
+              <h4 id="lineage-relationship-heading" tabindex="-1"></h4>
               <p id="lineage-relationship-id" class="stable-id"></p>
             </div>
           </div>

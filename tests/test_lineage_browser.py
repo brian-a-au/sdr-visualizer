@@ -6,6 +6,7 @@ import json
 from pathlib import Path
 
 import pytest
+from browser_support import launch_browser
 
 playwright_sync = pytest.importorskip("playwright.sync_api")
 
@@ -29,18 +30,7 @@ FIXTURES = Path(__file__).parent / "fixtures"
 @pytest.fixture(scope="module", params=["chromium", "webkit"])
 def lineage_page(request):
     with playwright_sync.sync_playwright() as pw:
-        browser = None
-        try:
-            browser = getattr(pw, request.param).launch(headless=True)
-        except Exception as exc:
-            system_chrome = Path("/Applications/Google Chrome.app/Contents/MacOS/Google Chrome")
-            if request.param != "chromium" or not system_chrome.is_file():
-                pytest.skip(f"{request.param} not available: {exc}")
-            try:
-                browser = pw.chromium.launch(headless=True, executable_path=str(system_chrome))
-            except Exception as system_exc:
-                pytest.skip(f"chromium not available: {system_exc}")
-        assert browser is not None
+        browser = launch_browser(pw, request.param)
         try:
             yield browser.new_page()
         finally:
@@ -370,11 +360,19 @@ def test_route_pause_clear_and_escape_focus(lineage_page, tmp_path):
     lineage_page.goto(path.as_uri())
     lineage_page.fill("#lineage-search", "production")
     result = lineage_page.locator("#lineage-results button").first
-    result.click()
+    result.focus()
+    result.press("Enter")
+    assert lineage_page.evaluate("document.activeElement.id") == "lineage-selection-heading"
     assert lineage_page.locator(".route-marker").count() == 0
 
     dataset = lineage_page.locator("#lineage-datasets button").first
-    dataset.click()
+    dataset.focus()
+    dataset.press("Enter")
+    assert lineage_page.evaluate("document.activeElement.id") == "lineage-relationship-heading"
+    lineage_page.wait_for_function("""() => {
+        const box = document.activeElement.getBoundingClientRect();
+        return box.top >= 0 && box.bottom <= window.innerHeight;
+    }""")
     assert lineage_page.locator(".lineage-edge.is-route").count() == 2
     assert lineage_page.locator(".route-marker").count() == 1
     assert (
@@ -970,7 +968,9 @@ def test_unicode_search_is_shared_and_labels_preserve_code_points(lineage_page, 
     )
 
 
-def test_high_fanout_local_svg_is_capped_and_full_graph_is_lazy(lineage_page, tmp_path):
+@pytest.mark.parametrize("width", [390, 1440])
+def test_high_fanout_local_svg_is_capped_and_full_graph_is_lazy(lineage_page, tmp_path, width):
+    lineage_page.set_viewport_size({"width": width, "height": 844})
     dataset_count = 120
     view_count = 180
     topology = LineageTopology(
@@ -1021,6 +1021,16 @@ def test_high_fanout_local_svg_is_capped_and_full_graph_is_lazy(lineage_page, tm
     state = lineage_page.evaluate("window.__cjaLineagePoc.getState()")
     assert state["svgNodeCount"] <= 100
     assert state["svgEdgeCount"] <= 100
+    note = lineage_page.locator("#lineage-diagram-note")
+    assert note.is_visible()
+    assert "additional local nodes are omitted" in note.inner_text()
+    assert note.evaluate("node => node.closest('#lineage-stage') === null")
+    assert note.evaluate("""node => {
+        const box = node.getBoundingClientRect();
+        const shell = node.closest('.stage-shell').getBoundingClientRect();
+        return box.top >= shell.top && box.bottom <= shell.bottom
+            && box.left >= 0 && box.right <= document.documentElement.clientWidth;
+    }""")
     assert lineage_page.locator('[data-ref="data-view:dv-179"]').count() == 1
     assert lineage_page.locator("#lineage-datasets [data-dataset-id]").count() == 100
     assert (
@@ -1068,6 +1078,8 @@ def test_high_fanout_local_svg_is_capped_and_full_graph_is_lazy(lineage_page, tm
     lineage_page.locator("#lineage-full-graph").click()
     state = lineage_page.evaluate("window.__cjaLineagePoc.getState()")
     assert state["fullGraph"] is True
+    assert note.is_hidden()
+    assert note.inner_text() == ""
     assert state["svgNodeCount"] == dataset_count + view_count + 1
     assert state["journeyCount"] == 1
     assert state["cometCount"] == 4

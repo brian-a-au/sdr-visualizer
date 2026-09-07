@@ -15,6 +15,7 @@
     results: document.getElementById("lineage-results"),
     status: document.getElementById("lineage-status"),
     details: document.getElementById("lineage-details"),
+    diagramNote: document.getElementById("lineage-diagram-note"),
     heading: document.getElementById("lineage-selection-heading"),
     selectionId: document.getElementById("lineage-selection-id"),
     parent: document.getElementById("lineage-parent"),
@@ -103,6 +104,8 @@
 
   function setFullGraph(active) {
     state.fullGraph = active;
+    el.diagramNote.hidden = true;
+    el.diagramNote.textContent = "";
     if (!active) state.flowPaused = false;
     el.fullGraph.setAttribute("aria-pressed", String(active));
   }
@@ -913,6 +916,8 @@
     renderResults();
     renderDetails();
     renderLocalGraph();
+    el.heading.focus();
+    el.heading.scrollIntoView({ block: "center" });
     const view = selectedView();
     setStatus(`${view.name}, ${view.id}, selected. ${parentSummary(view)} ${datasetSummary(view, datasetIds(view))} ${siblingIds(view).length} sibling data views.`);
   }
@@ -924,6 +929,8 @@
     setFullGraph(false);
     renderDetails();
     renderLocalGraph();
+    el.relationshipHeading.focus();
+    el.relationshipHeading.scrollIntoView({ block: "center" });
     setStatus(`${reducedMotion.matches ? "Static route selected" : "Lineage trace selected"}: ${entityLabel("dataset", id)} to ${selectedView().name}.`);
   }
 
