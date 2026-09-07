@@ -4,6 +4,11 @@ All notable changes to `sdr-visualizer` will be documented here. The format foll
 
 ## [Unreleased]
 
+### Changed
+
+- Clarified the CJA dataset lineage introduction and saved-file instructions,
+  and removed outdated 1.1.0 candidate notices from the README and lineage guide.
+
 ## [1.1.0] - 2026-09-07
 
 ### Added
