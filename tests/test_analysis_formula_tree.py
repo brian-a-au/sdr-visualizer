@@ -165,6 +165,30 @@ def test_formula_wrapper_unwraps_real_tree():
     assert tree["metric_id"] == "metrics/visits"
 
 
+@pytest.mark.parametrize("value", [0, 0.0, False, ""])
+def test_scoped_constant_does_not_fall_through_to_formula_reference(value):
+    tree = parse_formula_tree(
+        _make_metric(
+            {
+                "func": "segment",
+                "name": "segments/saved",
+                "col": value,
+                "formula": {"func": "metric", "name": "metrics/other"},
+            }
+        )
+    )
+    assert tree["child"] == {"kind": "constant", "value": value}
+    assert collect_metric_refs(tree) == []
+
+
+@pytest.mark.parametrize("value", [None, {}, []])
+def test_empty_scoped_operand_keeps_existing_fallback(value):
+    formula = {"func": "segment", "name": "segments/saved", "col": value}
+    assert parse_formula_tree(_make_metric(formula))["child"]["kind"] == "unknown"
+    formula["formula"] = {"func": "metric", "name": "metrics/other"}
+    assert collect_metric_refs(parse_formula_tree(_make_metric(formula))) == ["metrics/other"]
+
+
 def test_reference_collection_ignores_empty_and_non_mapping_children():
     tree = {
         "kind": "operation",

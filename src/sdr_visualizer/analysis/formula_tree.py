@@ -70,7 +70,10 @@ def _walk(node: Any) -> dict[str, Any]:
         return _metric_ref(name, name)
 
     if func == "segment":
-        inner = node.get("col") or node.get("formula") or {}
+        inner = node.get("col")
+        # Falsy constants are operands; only empty non-scalars use the fallback.
+        if not isinstance(inner, (str, int, float)) and not inner:
+            inner = node.get("formula")
         return {
             "kind": "segment_scope",
             "segment_id": node.get("name") or "",

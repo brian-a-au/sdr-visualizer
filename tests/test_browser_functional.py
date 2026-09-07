@@ -1201,3 +1201,28 @@ def test_ambiguous_anatomy_reference_has_no_navigation(browser_page, tmp_path):
     assert panel.locator(".criterion-target .ref-link").count() == 0
     assert "ambiguous in inventory" in panel.locator(".criterion-target").inner_text()
     assert panel.locator(".detail-references .ref-link").count() == 0
+
+
+@pytest.mark.parametrize("slot", ["col", "formula"])
+def test_scoped_zero_renders_as_constant(browser_page, tmp_path, slot):
+    from adapter_cases import aa_case
+
+    from sdr_visualizer.adapters.aa import adapt as aa_adapt
+
+    snap = aa_case()
+    snap["calculated_metrics"][0]["definition"]["formula"] = {
+        "func": "segment",
+        "name": "segments/page",
+        slot: 0,
+    }
+    out = tmp_path / "scoped-zero.html"
+    out.write_text(render(aa_adapt(snap)), encoding="utf-8")
+    browser_page.goto(out.as_uri())
+    browser_page.locator('#catalog-body tr[data-id="calc/ratio"]').click()
+    panel = browser_page.locator("#detail-panel")
+    assert panel.locator(".formula-constant").all_text_contents() == ["0"]
+    assert panel.locator(".anatomy-unknown").count() == 0
+    assert panel.locator(".formula-metric-ref .ref-link").count() == 0
+    assert panel.locator('.detail-references .ref-link[data-id="segments/page"]').count() == 1
+    panel.locator('.formula-segment-scope .ref-link[data-id="segments/page"]').click()
+    assert "segments%2Fpage" in browser_page.url

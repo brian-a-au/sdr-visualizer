@@ -320,3 +320,29 @@ def test_malformed_segment_definition_does_not_invent_references():
     segment = aa_adapt(snap).segments[0]
     assert segment.definition == {}
     assert segment.references == []
+
+
+@pytest.mark.parametrize("slot", ["col", "formula"])
+@pytest.mark.parametrize("value", [0, 0.0, False, "", 1, "literal"])
+def test_scoped_formula_constants_survive_into_payload(slot, value):
+    from sdr_visualizer.analysis.trend import build_trend
+
+    snap = aa_case()
+    formula = {"func": "segment", "name": "segments/page", slot: value}
+    snap["calculated_metrics"][0]["definition"]["formula"] = formula
+    impl = aa_adapt(snap)
+    payload = build_payload(impl)
+    jsonschema.validate(payload, SCHEMA)
+    tree = payload["formula_trees"]["calc/ratio"]
+    assert tree["child"] == {"kind": "constant", "value": value}
+    assert tree["resolved_id"] == "segments/page"
+    assert impl.calculated_metrics[0].references == ["segments/page"]
+    assert payload["calculated_metrics"][0]["out_degree"] == 1
+    assert "unresolved" not in payload["graph"]
+    assert diff_implementations(impl, aa_adapt(copy.deepcopy(snap)))["modified"] == []
+    formula[slot] = 2
+    updated = aa_adapt(snap)
+    assert [f["field"] for f in diff_implementations(impl, updated)["modified"][0]["fields"]] == [
+        "formula_text"
+    ]
+    assert build_trend([impl, updated], capped=False)["intervals"][0]["modified"] == ["calc/ratio"]

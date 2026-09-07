@@ -4,6 +4,11 @@ All notable changes to `sdr-visualizer` will be documented here. The format foll
 
 ## [Unreleased]
 
+### Fixed
+
+- Preserve zero and other falsy constants in segment-scoped formula anatomy,
+  instead of displaying an unrecognized expression or a fallback operand.
+
 ## [1.1.2] - 2026-09-07
 
 ### Fixed
