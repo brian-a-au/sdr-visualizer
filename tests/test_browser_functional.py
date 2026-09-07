@@ -1094,3 +1094,110 @@ def test_reference_labels_counts_links_and_connectivity(browser_page, tmp_path):
     )
     assert "s" not in visible
     assert "variables/url" not in visible
+
+
+@pytest.mark.parametrize("platform", ["aa-formula", "aa-segment", "cja-alias"])
+def test_adapter_correctness_browser_path(browser_page, tmp_path, platform):
+    from adapter_cases import aa_case, cja_case
+
+    from sdr_visualizer.adapters.aa import adapt as aa_adapt
+
+    if platform == "cja-alias":
+        impl = cja_adapt(cja_case())
+        source, target = "segments/channel", "variables/channel"
+    else:
+        impl = aa_adapt(aa_case())
+        source, target = (
+            ("calc/ratio", "metrics/revenue")
+            if platform == "aa-formula"
+            else ("segments/page", "variables/page")
+        )
+    out = tmp_path / "adapter.html"
+    out.write_text(render(impl), encoding="utf-8")
+    browser_page.goto(out.as_uri())
+    browser_page.locator(f'#catalog-body tr[data-id="{source}"]').click()
+    panel = browser_page.locator("#detail-panel")
+    assert panel.locator(f'.detail-references .ref-link[data-id="{target}"]').count() == 1
+    if platform == "aa-formula":
+        assert "divide()" not in panel.inner_text()
+        assert panel.locator(f'.formula-metric-ref .ref-link[data-id="{target}"]').count() == 1
+    assert "not in inventory" not in panel.inner_text()
+
+
+@pytest.mark.parametrize("present", [True, False])
+def test_adapter_filter_anatomy_links_and_missing_inventory(browser_page, tmp_path, present):
+    from adapter_cases import aa_case
+
+    from sdr_visualizer.adapters.aa import adapt as aa_adapt
+
+    snap = aa_case()
+    snap["calculated_metrics"][0]["definition"]["filters"] = [
+        {"func": "segment-ref", "id": "segments/page"}
+    ]
+    if not present:
+        snap["segments"] = []
+        snap["metrics"] = []
+    out = tmp_path / "filters.html"
+    out.write_text(render(aa_adapt(snap)), encoding="utf-8")
+    browser_page.goto(out.as_uri())
+    browser_page.locator('#catalog-body tr[data-id="calc/ratio"]').click()
+    panel = browser_page.locator("#detail-panel")
+    assert panel.locator('.anatomy-segment-ref .ref-link[data-id="segments/page"]').count() == int(
+        present
+    )
+    assert panel.locator('.detail-references .ref-link[data-id="segments/page"]').count() == int(
+        present
+    )
+    assert ("not in inventory" in panel.inner_text()) is not present
+    if present:
+        panel.locator(".anatomy-segment-ref .ref-link").click()
+        assert "segments%2Fpage" in browser_page.url
+    else:
+        assert panel.locator(".formula-metric-ref .ref-link").count() == 0
+
+
+@pytest.mark.parametrize(
+    "ref,present",
+    [("variables/channel", True), ("dimensions/channel", True), ("dimensions/channel", False)],
+)
+def test_cja_anatomy_alias_navigation_matches_counts(browser_page, tmp_path, ref, present):
+    from adapter_cases import cja_case
+
+    snap = cja_case()
+    segment = snap["segments"]["segments"][0]
+    segment["dimension_references"] = [ref]
+    segment["definition_json"]["val"]["name"] = ref
+    if not present:
+        snap["dimensions"] = []
+    out = tmp_path / "alias.html"
+    out.write_text(render(cja_adapt(snap)), encoding="utf-8")
+    browser_page.goto(out.as_uri())
+    browser_page.locator('#catalog-body tr[data-id="segments/channel"]').click()
+    panel = browser_page.locator("#detail-panel")
+    anatomy = panel.locator('.criterion-target .ref-link[data-id="variables/channel"]')
+    assert anatomy.count() == int(present)
+    assert panel.locator(".detail-references .ref-link").count() == int(present)
+    if present:
+        assert anatomy.inner_text() == ref
+        anatomy.click()
+        assert "variables%2Fchannel" in browser_page.url
+    else:
+        assert "not in inventory" in panel.inner_text()
+
+
+def test_ambiguous_anatomy_reference_has_no_navigation(browser_page, tmp_path):
+    from adapter_cases import cja_case
+
+    snap = cja_case()
+    snap["dimensions"] = [{"id": "variables/channel"}, {"id": "custom/channel"}]
+    segment = snap["segments"]["segments"][0]
+    segment["dimension_references"] = ["channel"]
+    segment["definition_json"]["val"]["name"] = "channel"
+    out = tmp_path / "ambiguous.html"
+    out.write_text(render(cja_adapt(snap)), encoding="utf-8")
+    browser_page.goto(out.as_uri())
+    browser_page.locator('#catalog-body tr[data-id="segments/channel"]').click()
+    panel = browser_page.locator("#detail-panel")
+    assert panel.locator(".criterion-target .ref-link").count() == 0
+    assert "ambiguous in inventory" in panel.locator(".criterion-target").inner_text()
+    assert panel.locator(".detail-references .ref-link").count() == 0

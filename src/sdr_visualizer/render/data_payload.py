@@ -15,11 +15,16 @@ from __future__ import annotations
 import sys
 from collections import Counter
 from datetime import UTC, datetime
+from itertools import chain
 from typing import Any
 
 from sdr_visualizer import __version__ as VISUALIZER_VERSION
 from sdr_visualizer.analysis.formula_tree import parse_formula_tree
-from sdr_visualizer.analysis.references import build_reference_graph
+from sdr_visualizer.analysis.references import (
+    ResolveReference,
+    build_reference_graph,
+    reference_index,
+)
 from sdr_visualizer.analysis.segment_tree import parse_segment_tree
 from sdr_visualizer.core.models import (
     CalculatedMetric,
@@ -31,7 +36,8 @@ from sdr_visualizer.core.models import (
 
 def build_payload(impl: Implementation) -> dict[str, Any]:
     """Return the full embedded payload dict."""
-    graph = build_reference_graph(impl)
+    index = reference_index(impl)
+    graph = build_reference_graph(impl, index=index)
     in_degree = graph["in_degree"]
     out_degree = graph["out_degree"]
 
@@ -52,6 +58,9 @@ def build_payload(impl: Implementation) -> dict[str, Any]:
 
     segment_trees = {s.id: parse_segment_tree(s) for s in impl.segments}
     formula_trees = {c.id: parse_formula_tree(c) for c in impl.calculated_metrics}
+
+    for tree in chain(segment_trees.values(), formula_trees.values()):
+        _resolve_tree_links(tree, index.resolve)
 
     id_counts = Counter(e["id"] for e in (*components, *segments, *calc_metrics))
     duplicates = sorted(i for i, n in id_counts.items() if n > 1)
@@ -196,3 +205,29 @@ def _calc_metric_node(
             "out_degree": out_degree.get(c.id, 0),
         }
     )
+
+
+def _resolve_tree_links(node: dict[str, Any], resolve: ResolveReference) -> None:
+    """Keep original anatomy IDs; add the same inventory destination as the graph."""
+    kind = node.get("kind")
+    ref = None
+    scope = node.get("reference_type")
+    if kind == "metric_ref":
+        ref = node.get("metric_id")
+        scope = scope or "metric"
+    elif kind in ("segment_ref", "segment_scope"):
+        ref, scope = node.get("segment_id"), "segment"
+    elif kind == "criterion":
+        ref = node.get("target_id")
+    if isinstance(ref, str) and ref:
+        target, reason = resolve(ref, scope)
+        node["resolved_id"] = target
+        if reason:
+            node["resolution_reason"] = reason
+    for key in ("child",):
+        child = node.get(key)
+        if isinstance(child, dict):
+            _resolve_tree_links(child, resolve)
+    for key in ("args", "children", "filters"):
+        for child in node.get(key, []):
+            _resolve_tree_links(child, resolve)

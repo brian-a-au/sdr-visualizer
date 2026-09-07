@@ -86,7 +86,13 @@ Reads the JSON output of [`aa_auto_sdr`](https://github.com/brian-a-au/aa_auto_s
 
 - AA has no derived-field equivalent; `Implementation.derived_fields` is always `[]` for AA snapshots.
 - AA segment definitions can mix containers under different contexts. The adapter walks the full definition tree to compute `nesting_depth` and the distinct set of `container_types`.
-- AA calc-metric formulas use `args: [...]` (a flat list) rather than the CJA `col1` / `col2` pair. `analysis/formula_tree.py` handles both shapes.
+- AA calc-metric formulas support both legacy `args: [...]` and Adobe's named
+  `col1` / `col2` / `col` operands. Typed `metric/name`, `event/name`,
+  `attr/name`, and saved `segment-ref/id` nodes retain their original IDs.
+  Predicate `str`, `list`, and `glob` values are literals, not references.
+- Named operands and outer formula filter context survive normalization.
+  Readable formula summaries include that context, so AA formula/filter changes
+  reach Changes and Trend. Saved and inline filters appear in formula anatomy.
 
 ## Adding a new platform
 
@@ -163,12 +169,39 @@ existing-file identity catch lexical aliases, symlinks, symlinked parents, and
 hard links. The grader does not produce these report artifacts, so only the
 shared candidate-listing primitive belongs in its parity surface.
 
-**Visualizer-only reference type metadata — intentional divergence:** CJA
-segments and calculated metrics retain their declared reference arrays in the
-optional internal `reference_types` model field, in addition to the existing
-flattened `references` list. This graph-only metadata distinguishes shortened
-dimension, metric, and segment IDs; the grader does not build this graph.
+**Visualizer-only reference type metadata — intentional divergence:** CJA and AA
+segments and calculated metrics retain typed references in the optional internal
+`reference_types` model field, in addition to the flattened `references` list.
+CJA preserves the declared reference arrays; AA extracts types from AST slots.
+This graph/anatomy metadata distinguishes dimension, metric, and segment IDs;
+the grader does not build this graph.
 The `_parse_ref_list` implementation and its defensive validation are unchanged.
 The reference graph regression tests cover native/encoded arrays, collisions,
 and legacy untyped model callers. No shared coercion behavior is changed or
 requires mirroring for this patch.
+
+### Reference correctness parity (1.1.2)
+
+The AA typed-reference extraction and formula-context preservation follow the
+semantics already merged in [sdr-grader #60](https://github.com/brian-a-au/sdr-grader/pull/60)
+(commit `366b0834301c69b5a69a493a8bd77328710188bf`, version 1.2.7).
+Shared tag/reference-list coercion, optional-list validation, numeric coercion,
+resource limits, inventory handling, and output protection are unchanged.
+The visualizer uses readable named-operand summaries rather than the grader's
+JSON summaries, and retains typed metadata for descriptive graph resolution.
+
+CJA graph and anatomy resolution share an exact-first inventory index. The
+established `dimensions/` ↔ `variables/` alias preserves the complete suffix
+path and only targets exported dimensions (including dimension derived fields).
+Legacy derived fields without a declared kind can resolve full namespace aliases
+for untyped references; they do not authorize typed alias matching.
+The existing unique, type-scoped upstream short-ID fallback remains supported.
+Metric namespaces are never aliases of dimension namespaces; absent or ambiguous
+targets stay unresolved. Original IDs stay in references and anatomy labels;
+only graph endpoints and link destinations use resolved inventory IDs.
+
+Unlike the grader, the visualizer never treats an omitted built-in as an
+available node. Raw segment definitions remain outside snapshot comparison,
+and CJA comparison still uses exported formula summaries and reference arrays;
+this patch does not claim semantic equivalence checking for arbitrary ASTs.
+See [the adapter review](ADAPTER_CORRECTNESS_1.1.2.md) for evidence and limits.

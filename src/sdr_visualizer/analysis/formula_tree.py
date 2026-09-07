@@ -1,9 +1,9 @@
 """Calculated-metric formula -> renderable tree.
 
-Two operand shapes show up in the wild:
+Both platforms can use named operands; legacy AA exports also use args:
 
-  CJA: {"func": "divide", "col1": {...}, "col2": {...}}
-  AA : {"func": "divide", "args": ["metrics/orders", "metrics/visits"]}
+  Named: {"func": "divide", "col1": {...}, "col2": {...}}
+  Legacy: {"func": "divide", "args": ["metrics/orders", "metrics/visits"]}
 
 Operands can be:
   - metric refs   ({"func": "metric", "name": "metrics/x"} or a bare
@@ -17,6 +17,7 @@ from __future__ import annotations
 
 from typing import Any
 
+from sdr_visualizer.analysis.segment_tree import _walk as _walk_filter
 from sdr_visualizer.core.models import CalculatedMetric
 from sdr_visualizer.core.structure_limits import validate_definition_structure
 
@@ -32,7 +33,11 @@ def parse_formula_tree(metric: CalculatedMetric) -> dict[str, Any]:
 
 def _walk(node: Any) -> dict[str, Any]:
     if isinstance(node, str):
-        if node.startswith(("metrics/", "variables/")):
+        if node.startswith("segments/"):
+            return {"kind": "segment_ref", "segment_id": node}
+        if node.startswith("variables/"):
+            return {**_metric_ref(node, node), "reference_type": "dimension"}
+        if node.startswith(("metrics/", "calculatedMetrics/")):
             return _metric_ref(node, node)
         return {"kind": "constant", "value": node}
 
@@ -43,6 +48,22 @@ def _walk(node: Any) -> dict[str, Any]:
         return _unknown(node)
 
     func = node.get("func")
+    if isinstance(node.get("filters"), list) and node["filters"]:
+        return {
+            "kind": "filtered_formula",
+            "child": _walk({key: value for key, value in node.items() if key != "filters"}),
+            "filters": [_walk_filter(value) for value in node["filters"]],
+        }
+    if func == "visualization-group":
+        return {"kind": "operation", "op": func, "args": [_walk(node.get("col"))]}
+    if func in ("attr", "event"):
+        name = node.get("name") or ""
+        return {
+            **_metric_ref(name, name),
+            "reference_type": "dimension" if func == "attr" else "metric",
+        }
+    if func == "segment-ref":
+        return {"kind": "segment_ref", "segment_id": node.get("id") or ""}
 
     if func == "metric":
         name = node.get("name") or ""
@@ -119,7 +140,7 @@ def collect_metric_refs(tree: dict[str, Any]) -> list[str]:
             for arg in node.get("args", []):
                 if isinstance(arg, dict):
                     visit(arg)
-        elif kind == "segment_scope":
+        elif kind in ("segment_scope", "filtered_formula"):
             child = node.get("child")
             if isinstance(child, dict):
                 visit(child)
