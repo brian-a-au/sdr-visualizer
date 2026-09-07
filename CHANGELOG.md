@@ -4,6 +4,22 @@ All notable changes to `sdr-visualizer` will be documented here. The format foll
 
 ## [Unreleased]
 
+## [1.1.2] - 2026-09-07
+
+### Fixed
+
+- Preserve AA typed component references, named calculated-metric operands,
+  and outer filter context. Formula summaries, anatomy, Changes, and Trend
+  retain operand and filter changes without treating predicate literals as IDs.
+- Resolve established CJA dimension/variable namespace aliases consistently in
+  graph edges, counts, and anatomy links while preserving original IDs and
+  complete paths. Missing targets and namespace collisions stay unresolved.
+
+### Changed
+
+- Move the companion CJA dataset lineage introduction below the main catalog
+  and development sections in the README.
+
 ## [1.1.1] - 2026-09-07
 
 ### Fixed
@@ -605,7 +621,8 @@ The following are explicitly internal and may change without notice:
 - Workspace project visualization (v0.4)
 - Schema map view (v0.5)
 
-[Unreleased]: https://github.com/brian-a-au/sdr-visualizer/compare/v1.1.1...HEAD
+[Unreleased]: https://github.com/brian-a-au/sdr-visualizer/compare/v1.1.2...HEAD
+[1.1.2]: https://github.com/brian-a-au/sdr-visualizer/releases/tag/v1.1.2
 [1.1.1]: https://github.com/brian-a-au/sdr-visualizer/releases/tag/v1.1.1
 [1.1.0]: https://github.com/brian-a-au/sdr-visualizer/releases/tag/v1.1.0
 [1.0.8]: https://github.com/brian-a-au/sdr-visualizer/releases/tag/v1.0.8
