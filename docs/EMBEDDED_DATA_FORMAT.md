@@ -214,6 +214,24 @@ Adapter-produced scope maps follow the same normalized rule; missing raw snapsho
 keys are not a separate comparison signal.
 Historical scalar and list change records remain valid and render as before.
 
+The metadata interpretation raised in [PR #44](https://github.com/brian-a-au/sdr-visualizer/pull/44)
+is retained as this normalized-model contract, not classified as a confirmed
+defect. For example, a CJA segment with omitted reference keys and one with
+explicit empty arrays both normalize to
+`{"dimension": [], "metric": [], "segment": []}`. Adding a declared dimension
+reference to either produces both flat and typed additions; reversing the pair
+produces both removals. A manually constructed legacy model with
+`reference_types={}` instead uses flat comparison alone when paired with a typed
+model. Raw-key presence does not change these outcomes.
+
+Raw definitions remain outside comparison: changing a CJA definition while
+keeping its compared fields (including an exported formula summary) unchanged
+does not create a Changes or Trend modification. CJA declared reference arrays
+also remain authoritative for graph dependencies. When a definition names a
+different target, anatomy can link that target while the graph reports the
+declared reference as unresolved. These views describe different supplied facts;
+the adapter does not infer or reconcile missing declarations from definitions.
+
 Only the baseline reference and change summaries are embedded; the full
 baseline snapshot is not.
 

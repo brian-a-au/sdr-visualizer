@@ -17,7 +17,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from sdr_visualizer.analysis.segment_tree import _walk as _walk_filter
+from sdr_visualizer.analysis.segment_tree import parse_validated_segment_subtree
 from sdr_visualizer.core.models import CalculatedMetric
 from sdr_visualizer.core.structure_limits import validate_definition_structure
 
@@ -52,7 +52,7 @@ def _walk(node: Any) -> dict[str, Any]:
         return {
             "kind": "filtered_formula",
             "child": _walk({key: value for key, value in node.items() if key != "filters"}),
-            "filters": [_walk_filter(value) for value in node["filters"]],
+            "filters": [parse_validated_segment_subtree(value) for value in node["filters"]],
         }
     if func == "visualization-group":
         return {"kind": "operation", "op": func, "args": [_walk(node.get("col"))]}

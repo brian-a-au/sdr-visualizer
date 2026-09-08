@@ -1,5 +1,24 @@
 # Adapter correctness review for 1.1.2
 
+## Release closeout (2026-09-08)
+
+Version 1.1.2 was released after this review. The final visualizer candidate was
+`994d6bfc064782138492d5dbfc004e52ec57bf01`; the defensive-fallback companion
+[sdr-grader #62](https://github.com/brian-a-au/sdr-grader/pull/62) merged on
+2026-09-07 at `b20dde45c72d28368e58307f86805324b330dc54`.
+
+The later [candidate qualification record](https://github.com/brian-a-au/sdr-visualizer/pull/41#issuecomment-5576131593)
+includes the fresh CJA/AA exports and historical corpus qualification.
+The [public verification record](https://github.com/brian-a-au/sdr-visualizer/pull/41#issuecomment-5576213797)
+closes publication, artifact identity, provenance, and installed-package checks.
+See [PR #41](https://github.com/brian-a-au/sdr-visualizer/pull/41) for the full
+merged-candidate evidence and release links.
+
+The sections below preserve the original review and preparation scope.
+Their statements about pending merges, corpus runs, and publication describe
+that earlier stage, not the release's current readiness. The documented
+comparison and reference-inference limits still apply.
+
 ## Scope and reproductions
 
 Reviewed against visualizer main `26c19be` (1.1.1). The original investigation
