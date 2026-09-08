@@ -707,6 +707,87 @@ def test_changes_view_renders_counts_and_field_detail(browser_page, tmp_path):
     )
 
 
+@pytest.mark.parametrize(
+    "source_id",
+    ["url", '<img data-scope-probe src=x onerror="window.__scopeXss=true">'],
+    ids=["alias", "hostile-id"],
+)
+def test_typed_reference_changes_and_trend_render(browser_page, tmp_path, source_id):
+    """Generated typed-only deltas retain source text and consumer navigation."""
+    from copy import deepcopy
+
+    from adapter_cases import cja_case
+
+    old = cja_case()
+    old["dimensions"] = [{"id": "variables/url"}]
+    old["metrics"] = [{"id": "metrics/url"}]
+    segment = old["segments"]["segments"][0]
+    segment["dimension_references"] = [source_id]
+    new = deepcopy(old)
+    new_segment = new["segments"]["segments"][0]
+    new_segment["dimension_references"] = []
+    new_segment["metric_references"] = [source_id]
+    impls = [cja_adapt(old), cja_adapt(new)]
+    payload = build_payload_with_options(impls[-1])
+    payload["changes"] = diff_implementations(*impls)
+    payload["meta"]["compared_to"] = payload["changes"]["baseline"]
+    payload["trend"] = build_trend(impls, capped=False)
+    out = tmp_path / "typed-reference.html"
+    out.write_text(render_payload(payload), encoding="utf-8")
+
+    browser_page.goto(out.as_uri() + "#view=changes")
+    rows = browser_page.locator("#changes-body .change-row")
+    assert rows.count() == 1
+    rows.locator("summary").click()
+    fields = rows.locator(".change-field")
+    assert fields.count() == 2
+    assert fields.locator(".change-field-name").all_text_contents() == [
+        "reference_types.dimension",
+        "reference_types.metric",
+    ]
+    assert fields.locator(".change-list-removed").all_text_contents() == ["− " + source_id]
+    assert fields.locator(".change-list-added").all_text_contents() == ["+ " + source_id]
+    assert browser_page.locator("img[data-scope-probe]").count() == 0
+    assert browser_page.evaluate("window.__scopeXss") is None
+    rows.locator("summary button.ref-link").click()
+    assert browser_page.locator("#detail-body .detail-name").inner_text() == "segments/channel"
+    assert "segments%2Fchannel" in browser_page.url
+    browser_page.click("#detail-close")
+    browser_page.click('.view-button[data-view="trend"]')
+    interval = browser_page.locator("#trend-log details.trend-interval")
+    assert interval.count() == 1
+    interval.locator("summary").click()
+    assert interval.locator(".trend-id").all_text_contents() == ["segments/channel"]
+    assert "~1" in interval.inner_text()
+
+
+def test_historical_list_change_renders(browser_page, tmp_path):
+    """The existing flat list record needs no typed metadata to render."""
+    _, new = _compare_pair()
+    payload = build_payload_with_options(cja_adapt(new))
+    payload["changes"] = {
+        "baseline": {"source": "historical.json", "taken_at": None},
+        "added": [],
+        "removed": [],
+        "modified": [
+            {
+                "id": "metrics/m1",
+                "name": "Metric One (renamed)",
+                "type": "metric",
+                "fields": [{"field": "references", "added": ["raw/new"], "removed": ["raw/old"]}],
+            }
+        ],
+    }
+    out = tmp_path / "historical-list.html"
+    out.write_text(render_payload(payload), encoding="utf-8")
+    browser_page.goto(out.as_uri() + "#view=changes")
+    browser_page.locator("#changes-body summary").click()
+    field = browser_page.locator("#changes-body .change-field")
+    assert field.locator(".change-field-name").inner_text() == "references"
+    assert field.locator(".change-list-added").inner_text() == "+ raw/new"
+    assert field.locator(".change-list-removed").inner_text() == "− raw/old"
+
+
 def test_changes_view_shows_no_description_chip(browser_page, tmp_path):
     old = json.loads((FIXTURES / "cja_snapshot_clean.json").read_text(encoding="utf-8"))
     new = json.loads((FIXTURES / "cja_snapshot_messy.json").read_text(encoding="utf-8"))
@@ -1204,7 +1285,8 @@ def test_ambiguous_anatomy_reference_has_no_navigation(browser_page, tmp_path):
 
 
 @pytest.mark.parametrize("slot", ["col", "formula"])
-def test_scoped_zero_renders_as_constant(browser_page, tmp_path, slot):
+@pytest.mark.parametrize("constant", [0, False, ""], ids=["zero", "false", "empty-string"])
+def test_scoped_falsy_renders_as_constant(browser_page, tmp_path, slot, constant):
     from adapter_cases import aa_case
 
     from sdr_visualizer.adapters.aa import adapt as aa_adapt
@@ -1213,14 +1295,15 @@ def test_scoped_zero_renders_as_constant(browser_page, tmp_path, slot):
     snap["calculated_metrics"][0]["definition"]["formula"] = {
         "func": "segment",
         "name": "segments/page",
-        slot: 0,
+        "formula": {"func": "metric", "name": "metrics/revenue"},
+        slot: constant,
     }
     out = tmp_path / "scoped-zero.html"
     out.write_text(render(aa_adapt(snap)), encoding="utf-8")
     browser_page.goto(out.as_uri())
     browser_page.locator('#catalog-body tr[data-id="calc/ratio"]').click()
     panel = browser_page.locator("#detail-panel")
-    assert panel.locator(".formula-constant").all_text_contents() == ["0"]
+    assert panel.locator(".formula-constant").all_text_contents() == [json.dumps(constant)]
     assert panel.locator(".anatomy-unknown").count() == 0
     assert panel.locator(".formula-metric-ref .ref-link").count() == 0
     assert panel.locator('.detail-references .ref-link[data-id="segments/page"]').count() == 1

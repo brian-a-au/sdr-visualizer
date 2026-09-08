@@ -4,6 +4,12 @@ All notable changes to `sdr-visualizer` will be documented here. The format foll
 
 ## [Unreleased]
 
+### Fixed
+
+- Detect declared reference-type changes in segments and calculated metrics even
+  when reference text stays the same. Changes shows the affected scopes and exact
+  added or removed source IDs, and Trend lists each modified component once.
+
 ## [1.1.3] - 2026-09-07
 
 ### Fixed
