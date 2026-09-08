@@ -130,4 +130,18 @@ def _diff_fields(old: Any, new: Any, kind: str) -> list[dict[str, Any]]:
                     "removed": sorted(old_set - new_set),
                 }
             )
+    # An empty mapping is legacy/unavailable metadata; an all-empty scope
+    # mapping is available and can record removal of the last reference.
+    if kind in ("segment", "calculated_metric") and old.reference_types and new.reference_types:
+        for scope in sorted(old.reference_types.keys() | new.reference_types.keys()):
+            old_set = set(old.reference_types.get(scope, []))
+            new_set = set(new.reference_types.get(scope, []))
+            if old_set != new_set:
+                fields.append(
+                    {
+                        "field": f"reference_types.{scope}",
+                        "added": sorted(new_set - old_set),
+                        "removed": sorted(old_set - new_set),
+                    }
+                )
     return fields

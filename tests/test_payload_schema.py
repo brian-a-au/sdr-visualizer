@@ -68,6 +68,37 @@ def test_compare_payload_validates():
     _assert_valid(payload)
 
 
+@pytest.mark.parametrize("source_id", ["url", '<img src=x onerror="alert(1)">'])
+def test_typed_reference_payload_preserves_source_ids(source_id):
+    from copy import deepcopy
+
+    from adapter_cases import cja_case
+
+    old = cja_case()
+    old["segments"]["segments"][0]["dimension_references"] = [source_id]
+    new = deepcopy(old)
+    segment = new["segments"]["segments"][0]
+    segment["dimension_references"] = []
+    segment["metric_references"] = [source_id]
+    impls = [build_implementation(snap) for snap in (old, new)]
+    payloads = [build_payload_with_options(impl) for impl in impls]
+    for payload in payloads:
+        assert payload["segments"][0]["references"] == [source_id]
+    payload = payloads[-1]
+    payload["changes"] = diff_implementations(*impls)
+    payload["meta"]["compared_to"] = payload["changes"]["baseline"]
+    assert payload["changes"]["modified"][0]["fields"] == [
+        {"field": "reference_types.dimension", "added": [], "removed": [source_id]},
+        {"field": "reference_types.metric", "added": [source_id], "removed": []},
+    ]
+    _assert_valid(payload)
+    # Historical list records use the same schema, without any typed scope key.
+    payload["changes"]["modified"][0]["fields"] = [
+        {"field": "references", "added": [source_id], "removed": ["old/raw-id"]}
+    ]
+    _assert_valid(payload)
+
+
 def test_timestampless_compare_cli_payload_and_sidecar_validate(tmp_path):
     old_snapshot = {
         "metadata": {"Data View ID": "dv-no-timestamp"},

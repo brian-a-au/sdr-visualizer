@@ -188,6 +188,32 @@ and `meta.compared_to.taken_at`:
 `added` and `removed` entries contain `id`, `type`, and `name`. A `modified`
 entry also contains `fields`. Scalar changes use `{field, old, new}` records;
 list-valued changes use `{field, added, removed}` records.
+For segments and calculated metrics, changes in declared reference scope use
+fields such as `reference_types.dimension` and `reference_types.metric`:
+
+```json
+[
+  {"field": "reference_types.dimension", "added": [], "removed": ["url"]},
+  {"field": "reference_types.metric", "added": ["url"], "removed": []}
+]
+```
+
+Scope is carried by `field`; list values preserve exact source IDs, rather than
+resolved graph destinations such as `variables/url` or `metrics/url`. Component
+`references` arrays retain their existing string-list representation. Ordinary
+flat `references` changes are still emitted when their membership changes.
+Scope comparison uses sets, so reordering, duplicates, and empty scope entries
+do not create changes.
+
+Typed scopes are compared only when both matched components have available
+normalized type metadata: a nonempty mapping, even if all its lists are empty.
+The default empty mapping means metadata is unavailable. Historical components
+or pairs with metadata on only one side use flat-reference comparison alone;
+missing types are not inferred. No new required payload key is introduced.
+Adapter-produced scope maps follow the same normalized rule; missing raw snapshot
+keys are not a separate comparison signal.
+Historical scalar and list change records remain valid and render as before.
+
 Only the baseline reference and change summaries are embedded; the full
 baseline snapshot is not.
 

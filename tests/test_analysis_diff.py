@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import pytest
+
 from sdr_visualizer.analysis.diff import diff_implementations
 from sdr_visualizer.core.models import (
     CalculatedMetric,
@@ -226,3 +228,119 @@ def test_none_valued_scalar_changes_are_reported():
     assert changes["modified"][0]["fields"] == [
         {"field": "description", "old": None, "new": "now documented"}
     ]
+
+
+@pytest.mark.parametrize("kind", ["segment", "calculated_metric"])
+@pytest.mark.parametrize(
+    "old_refs,new_refs,old_types,new_types,expected",
+    [
+        (
+            ["url"],
+            ["url"],
+            {"metric": [], "dimension": ["url"]},
+            {"metric": ["url"]},
+            [
+                {"field": "reference_types.dimension", "added": [], "removed": ["url"]},
+                {"field": "reference_types.metric", "added": ["url"], "removed": []},
+            ],
+        ),
+        (
+            ["b", "a", "a"],
+            ["a", "b"],
+            {"metric": ["b", "a", "a"]},
+            {"segment": [], "metric": ["a", "b"]},
+            [],
+        ),
+        (["url"], ["url"], {"dimension": ["url"]}, {"dimension": ["url"]}, []),
+        (
+            ["url"],
+            [],
+            {"dimension": ["url"]},
+            {"dimension": []},
+            [
+                {"field": "references", "added": [], "removed": ["url"]},
+                {"field": "reference_types.dimension", "added": [], "removed": ["url"]},
+            ],
+        ),
+        (["url"], ["url"], {}, {}, []),
+        (["url"], ["url"], {}, {"metric": ["url"]}, []),
+        (["url"], ["url"], {"dimension": ["url"]}, {}, []),
+        (
+            ["old"],
+            ["new"],
+            {},
+            {"metric": ["new"]},
+            [
+                {"field": "references", "added": ["new"], "removed": ["old"]},
+            ],
+        ),
+        (
+            ["old"],
+            ["new"],
+            {"metric": ["old"]},
+            {},
+            [
+                {"field": "references", "added": ["new"], "removed": ["old"]},
+            ],
+        ),
+        (
+            ["old"],
+            ["new"],
+            {"metric": ["old"]},
+            {"metric": ["new"]},
+            [
+                {"field": "references", "added": ["new"], "removed": ["old"]},
+                {"field": "reference_types.metric", "added": ["new"], "removed": ["old"]},
+            ],
+        ),
+        (
+            ["url"],
+            ["url"],
+            {"dimension": ["url"], "metric": ["url"]},
+            {"metric": ["url"]},
+            [
+                {"field": "reference_types.dimension", "added": [], "removed": ["url"]},
+            ],
+        ),
+    ],
+)
+def test_typed_reference_set_comparison(kind, old_refs, new_refs, old_types, new_types, expected):
+    factory, collection = (_segment, "segments") if kind == "segment" else (_calc, "calcs")
+    old = _impl(
+        **{collection: [factory("consumer", references=old_refs, reference_types=old_types)]}
+    )
+    new = _impl(
+        **{collection: [factory("consumer", references=new_refs, reference_types=new_types)]}
+    )
+    changes = diff_implementations(old, new)
+    assert changes["added"] == changes["removed"] == []
+    assert changes["modified"] == (
+        [
+            {
+                "id": "consumer",
+                "type": kind,
+                "name": "Segment" if kind == "segment" else "Calc",
+                "fields": expected,
+            }
+        ]
+        if expected
+        else []
+    )
+
+
+def test_typed_metadata_availability_is_per_matched_entity():
+    old = _impl(
+        segments=[
+            _segment("typed", references=["url"], reference_types={"dimension": ["url"]}),
+            _segment("legacy", references=["url"]),
+            _segment("loses-metadata", references=["url"], reference_types={"dimension": ["url"]}),
+        ]
+    )
+    new = _impl(
+        segments=[
+            _segment("typed", references=["url"], reference_types={"metric": ["url"]}),
+            _segment("legacy", references=["url"], reference_types={"metric": ["url"]}),
+            _segment("loses-metadata", references=["url"]),
+        ]
+    )
+    assert [entry["id"] for entry in diff_implementations(old, new)["modified"]] == ["typed"]

@@ -97,6 +97,7 @@ def test_saved_filters_preserved_in_formula_tree_comparison_and_trend(present, o
     assert {f["field"] for f in diff_implementations(old, new)["modified"][0]["fields"]} == {
         "formula_text",
         "references",
+        "reference_types.segment",
     }
     assert build_trend([old, new], capped=False)["intervals"][0]["modified"] == [metric.id]
 
@@ -346,3 +347,121 @@ def test_scoped_formula_constants_survive_into_payload(slot, value):
         "formula_text"
     ]
     assert build_trend([impl, updated], capped=False)["intervals"][0]["modified"] == ["calc/ratio"]
+
+
+@pytest.mark.parametrize("reverse", [False, True])
+def test_cja_same_alias_type_change_reaches_diff_graph_and_trend(reverse):
+    from sdr_visualizer.analysis.trend import build_trend
+
+    snap = cja_case()
+    snap["dimensions"] = [{"id": "variables/url"}]
+    snap["metrics"] = [{"id": "metrics/url"}]
+    segment = snap["segments"]["segments"][0]
+    segment["dimension_references"] = ["url"]
+    old = cja_adapt(copy.deepcopy(snap))
+    segment["dimension_references"] = []
+    segment["metric_references"] = ["url"]
+    new = cja_adapt(snap)
+    if reverse:
+        old, new = new, old
+    assert old.segments[0].references == new.segments[0].references == ["url"]
+    assert [e["target"] for e in build_payload(old)["graph"]["edges"]] == [
+        "metrics/url" if reverse else "variables/url"
+    ]
+    assert [e["target"] for e in build_payload(new)["graph"]["edges"]] == [
+        "variables/url" if reverse else "metrics/url"
+    ]
+    assert diff_implementations(old, new)["modified"] == [
+        {
+            "id": "segments/channel",
+            "type": "segment",
+            "name": "segments/channel",
+            "fields": [
+                {
+                    "field": "reference_types.dimension",
+                    "added": ["url"] if reverse else [],
+                    "removed": [] if reverse else ["url"],
+                },
+                {
+                    "field": "reference_types.metric",
+                    "added": [] if reverse else ["url"],
+                    "removed": ["url"] if reverse else [],
+                },
+            ],
+        }
+    ]
+    assert build_trend([old, new], capped=False)["intervals"][0]["modified"] == ["segments/channel"]
+
+
+def test_cja_calculated_metric_declared_scope_change():
+    from sdr_visualizer.analysis.trend import build_trend
+
+    snap = cja_case()
+    snap["calculated_metrics"] = {
+        "metrics": [
+            {
+                "metric_id": "calc/shared",
+                "metric_references": ["shared"],
+            }
+        ]
+    }
+    old = cja_adapt(copy.deepcopy(snap))
+    record = snap["calculated_metrics"]["metrics"][0]
+    record["metric_references"] = []
+    record["segment_references"] = ["shared"]
+    new = cja_adapt(snap)
+    assert (
+        old.calculated_metrics[0].references == new.calculated_metrics[0].references == ["shared"]
+    )
+    assert diff_implementations(old, new)["modified"] == [
+        {
+            "id": "calc/shared",
+            "name": "calc/shared",
+            "type": "calculated_metric",
+            "fields": [
+                {"field": "reference_types.metric", "added": [], "removed": ["shared"]},
+                {"field": "reference_types.segment", "added": ["shared"], "removed": []},
+            ],
+        }
+    ]
+    assert build_trend([old, new], capped=False)["intervals"][0]["modified"] == ["calc/shared"]
+
+
+@pytest.mark.parametrize("inventory", [[], ["variables/url", "dimensions/url"]])
+def test_unresolved_or_ambiguous_targets_do_not_hide_declared_changes(inventory):
+    from sdr_visualizer.analysis.trend import build_trend
+
+    snap = cja_case()
+    snap["dimensions"] = [{"id": target} for target in inventory]
+    segment = snap["segments"]["segments"][0]
+    segment["dimension_references"] = ["url"]
+    old = cja_adapt(copy.deepcopy(snap))
+    segment["dimension_references"] = []
+    segment["metric_references"] = ["url"]
+    new = cja_adapt(snap)
+    assert build_payload(old)["graph"]["edges"] == build_payload(new)["graph"]["edges"] == []
+    assert diff_implementations(old, new)["modified"][0]["fields"] == [
+        {"field": "reference_types.dimension", "added": [], "removed": ["url"]},
+        {"field": "reference_types.metric", "added": ["url"], "removed": []},
+    ]
+    assert build_trend([old, new], capped=False)["intervals"][0]["modified"] == ["segments/channel"]
+
+
+def test_inventory_resolution_change_does_not_modify_consumer():
+    from sdr_visualizer.analysis.trend import build_trend
+
+    snap = cja_case()
+    snap["dimensions"] = []
+    old = cja_adapt(copy.deepcopy(snap))
+    snap["dimensions"] = [{"id": "variables/channel"}]
+    new = cja_adapt(snap)
+    assert build_payload(old)["graph"]["edges"] == []
+    assert [e["target"] for e in build_payload(new)["graph"]["edges"]] == ["variables/channel"]
+    changes = diff_implementations(old, new)
+    assert changes["modified"] == changes["removed"] == []
+    assert changes["added"] == [
+        {"id": "variables/channel", "type": "dimension", "name": "variables/channel"}
+    ]
+    interval = build_trend([old, new], capped=False)["intervals"][0]
+    assert interval["modified"] == []
+    assert interval["added"] == ["variables/channel"]
