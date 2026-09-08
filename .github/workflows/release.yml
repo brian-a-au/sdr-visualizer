@@ -8,6 +8,8 @@ on:
 jobs:
   browser-perf:
     runs-on: ubuntu-latest
+    env:
+      UV_PYTHON: "3.12"
     permissions:
       contents: read
     steps:
@@ -24,6 +26,19 @@ jobs:
 
       - name: Sync dependencies
         run: uv sync --locked --dev --group browser
+
+      - name: Verify Python runtime
+        run: |
+          uv run python - <<'PYTHON'
+          import os
+          import sys
+
+          expected = tuple(map(int, os.environ["UV_PYTHON"].split(".")))
+          actual = sys.version_info[:2]
+          print(f"Requested Python {os.environ['UV_PYTHON']}; running {sys.version}", flush=True)
+          if actual != expected:
+              raise SystemExit(f"Python version mismatch: expected {expected}, got {actual}")
+          PYTHON
 
       - name: Install browsers
         run: uv run playwright install --with-deps chromium webkit
@@ -48,6 +63,8 @@ jobs:
   build:
     needs: browser-perf
     runs-on: ubuntu-latest
+    env:
+      UV_PYTHON: "3.12"
     permissions:
       contents: read
     steps:
@@ -64,6 +81,19 @@ jobs:
 
       - name: Sync dependencies
         run: uv sync --locked --all-extras --dev
+
+      - name: Verify Python runtime
+        run: |
+          uv run python - <<'PYTHON'
+          import os
+          import sys
+
+          expected = tuple(map(int, os.environ["UV_PYTHON"].split(".")))
+          actual = sys.version_info[:2]
+          print(f"Requested Python {os.environ['UV_PYTHON']}; running {sys.version}", flush=True)
+          if actual != expected:
+              raise SystemExit(f"Python version mismatch: expected {expected}, got {actual}")
+          PYTHON
 
       - name: Lint
         run: uv run ruff check
