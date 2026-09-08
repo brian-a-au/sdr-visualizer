@@ -4,15 +4,17 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+from unittest.mock import Mock
 
 import pytest
 
 from sdr_visualizer.adapters.aa import adapt as aa_adapt
 from sdr_visualizer.adapters.cja import adapt as cja_adapt
+from sdr_visualizer.analysis import formula_tree, segment_tree
 from sdr_visualizer.analysis.formula_tree import collect_metric_refs, parse_formula_tree
 from sdr_visualizer.core.exceptions import InvalidSnapshotError
 from sdr_visualizer.core.models import CalculatedMetric
-from sdr_visualizer.core.structure_limits import MAX_STRUCTURE_DEPTH
+from sdr_visualizer.core.structure_limits import MAX_STRUCTURE_DEPTH, validate_definition_structure
 
 FIXTURES = Path(__file__).parent / "fixtures"
 
@@ -241,3 +243,73 @@ def test_direct_formula_tree_rejects_excessive_depth_before_recursive_walk():
 
     with pytest.raises(InvalidSnapshotError, match=r"calculated metric formula.*depth"):
         parse_formula_tree(_make_metric(formula))
+
+
+def test_nested_formula_filters_validate_the_complete_definition_once(monkeypatch):
+    validation = Mock(wraps=validate_definition_structure)
+    monkeypatch.setattr(formula_tree, "validate_definition_structure", validation)
+    monkeypatch.setattr(segment_tree, "validate_definition_structure", validation)
+    formula = {
+        "func": "add",
+        "filters": [{"func": "segment-ref", "id": "segments/outer"}],
+        "col1": {
+            "func": "metric",
+            "name": "metrics/orders",
+            "filters": [
+                {"context": "visits", "pred": {"func": "segment", "name": "segments/inner"}}
+            ],
+        },
+        "col2": 0,
+    }
+
+    tree = parse_formula_tree(_make_metric(formula))
+
+    validation.assert_called_once_with(formula, label="calculated metric formula 'cm_test'")
+    assert tree == {
+        "kind": "filtered_formula",
+        "filters": [{"kind": "segment_ref", "segment_id": "segments/outer"}],
+        "child": {
+            "kind": "operation",
+            "op": "add",
+            "args": [
+                {
+                    "kind": "filtered_formula",
+                    "filters": [
+                        {
+                            "kind": "container",
+                            "context": "visits",
+                            "child": {"kind": "segment_ref", "segment_id": "segments/inner"},
+                        }
+                    ],
+                    "child": {
+                        "kind": "metric_ref",
+                        "metric_id": "metrics/orders",
+                        "label": "metrics/orders",
+                    },
+                },
+                {"kind": "constant", "value": 0},
+            ],
+        },
+    }
+
+
+@pytest.mark.parametrize("filters", [None, [], {}, "segments/ignored"])
+def test_empty_or_non_list_filters_preserve_the_formula(filters):
+    tree = parse_formula_tree(_make_metric({"func": "add", "args": [0], "filters": filters}))
+
+    assert tree == {"kind": "operation", "op": "add", "args": [{"kind": "constant", "value": 0}]}
+
+
+def test_unknown_and_non_mapping_filters_keep_fallback_nodes():
+    tree = parse_formula_tree(
+        _make_metric({"func": "add", "args": [], "filters": [None, {"func": "future", "x": 1}]})
+    )
+
+    assert tree == {
+        "kind": "filtered_formula",
+        "child": {"kind": "operation", "op": "add", "args": []},
+        "filters": [
+            {"kind": "unknown", "func": None, "raw_keys": []},
+            {"kind": "unknown", "func": "future", "raw_keys": ["func", "x"]},
+        ],
+    }

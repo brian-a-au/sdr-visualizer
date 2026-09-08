@@ -63,6 +63,18 @@ def parse_segment_tree(segment: Segment) -> dict[str, Any]:
     return _walk(definition)
 
 
+def parse_validated_segment_subtree(node: Any) -> dict[str, Any]:
+    """Parse a segment subtree for internal callers in the analysis layer.
+
+    The caller must already have validated the complete enclosing definition
+    with validate_definition_structure. This includes this subtree and retains
+    the enclosing definition's depth/node budgets and error label. Do not use
+    this interface for unvalidated input: it deliberately skips validation so
+    formula filters do not repeatedly validate portions of the same definition.
+    """
+    return _walk(node)
+
+
 def _walk(node: Any) -> dict[str, Any]:
     if not isinstance(node, dict):
         return _unknown(node)
