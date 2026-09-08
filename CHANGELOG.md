@@ -4,6 +4,8 @@ All notable changes to `sdr-visualizer` will be documented here. The format foll
 
 ## [Unreleased]
 
+## [1.1.3] - 2026-09-07
+
 ### Fixed
 
 - Preserve zero and other falsy constants in segment-scoped formula anatomy,
@@ -628,7 +630,8 @@ The following are explicitly internal and may change without notice:
 - Workspace project visualization (v0.4)
 - Schema map view (v0.5)
 
-[Unreleased]: https://github.com/brian-a-au/sdr-visualizer/compare/v1.1.2...HEAD
+[Unreleased]: https://github.com/brian-a-au/sdr-visualizer/compare/v1.1.3...HEAD
+[1.1.3]: https://github.com/brian-a-au/sdr-visualizer/releases/tag/v1.1.3
 [1.1.2]: https://github.com/brian-a-au/sdr-visualizer/releases/tag/v1.1.2
 [1.1.1]: https://github.com/brian-a-au/sdr-visualizer/releases/tag/v1.1.1
 [1.1.0]: https://github.com/brian-a-au/sdr-visualizer/releases/tag/v1.1.0
