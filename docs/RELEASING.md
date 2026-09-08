@@ -243,7 +243,8 @@ requires the full sibling review above.
 Inspect repository settings immediately before the go/no-go decision and record
 the result:
 
-- `main` requires pull requests and the expected test/lint checks;
+- `main` requires pull requests and the expected test/lint checks, including
+  `test (3.11)`, `test (3.12)`, `test (3.14)`, and `browser-perf`;
 - the candidate has successful `analyze (python, none)` and
   `analyze (javascript-typescript, none)` CodeQL checks, and `main` requires
   both emitted contexts before tag authorization;
@@ -261,6 +262,19 @@ the result:
   guide, security policy, issue templates, and pull-request template; and
 - the tracked security and community documents resolve from their advertised
   public links and do not direct vulnerabilities into public issues.
+
+Inspect the emitted hosted check names and branch-protection/ruleset required
+contexts; editing the workflow does not update repository settings. Retain the
+established required contexts and add `test (3.14)` through the authorized
+hosted-control workflow. Record the settings inspection and exact-SHA run links.
+Each Python matrix lane must pass its runtime-version assertion, non-browser
+coverage gate, and Python performance gate. The test and release browser jobs,
+and the release build/test job, must assert Python 3.12 before accepting their
+evidence; browser jobs must pass Chromium and WebKit checks. `UV_PYTHON` binds
+both dependency synchronization and execution in each of these jobs. Missing,
+skipped, or mismatched-interpreter lanes do not qualify as compatibility
+evidence. Expanding Python CI does not advance generator tested-through markers
+or replace fresh-generator and private-corpus qualification.
 
 Unsupported account or plan features must be named with a compensating control
 and owner. An unexplained disabled control is a blocker.
