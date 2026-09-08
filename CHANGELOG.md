@@ -4,6 +4,8 @@ All notable changes to `sdr-visualizer` will be documented here. The format foll
 
 ## [Unreleased]
 
+## [1.1.4] - 2026-09-07
+
 ### Fixed
 
 - Detect declared reference-type changes in segments and calculated metrics even
@@ -636,7 +638,8 @@ The following are explicitly internal and may change without notice:
 - Workspace project visualization (v0.4)
 - Schema map view (v0.5)
 
-[Unreleased]: https://github.com/brian-a-au/sdr-visualizer/compare/v1.1.3...HEAD
+[Unreleased]: https://github.com/brian-a-au/sdr-visualizer/compare/v1.1.4...HEAD
+[1.1.4]: https://github.com/brian-a-au/sdr-visualizer/releases/tag/v1.1.4
 [1.1.3]: https://github.com/brian-a-au/sdr-visualizer/releases/tag/v1.1.3
 [1.1.2]: https://github.com/brian-a-au/sdr-visualizer/releases/tag/v1.1.2
 [1.1.1]: https://github.com/brian-a-au/sdr-visualizer/releases/tag/v1.1.1
