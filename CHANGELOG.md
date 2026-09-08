@@ -4,6 +4,18 @@ All notable changes to `sdr-visualizer` will be documented here. The format foll
 
 ## [Unreleased]
 
+## [1.1.5] - 2026-09-08
+
+### Changed
+
+- Pin semantic regression coverage for normalized reference scopes, typed
+  transitions, duplicate declarations, and CJA anatomy/dependency boundaries.
+- Test Python 3.14 alongside 3.11 and 3.12, and verify the selected interpreter
+  before Python, browser, and release-build checks run.
+- Make the internal validated segment-subtree parser interface explicit while
+  preserving formula filter output and full-definition resource limits.
+- Close out the historical 1.1.2 adapter audit with its later release evidence.
+
 ## [1.1.4] - 2026-09-07
 
 ### Fixed
@@ -638,7 +650,8 @@ The following are explicitly internal and may change without notice:
 - Workspace project visualization (v0.4)
 - Schema map view (v0.5)
 
-[Unreleased]: https://github.com/brian-a-au/sdr-visualizer/compare/v1.1.4...HEAD
+[Unreleased]: https://github.com/brian-a-au/sdr-visualizer/compare/v1.1.5...HEAD
+[1.1.5]: https://github.com/brian-a-au/sdr-visualizer/releases/tag/v1.1.5
 [1.1.4]: https://github.com/brian-a-au/sdr-visualizer/releases/tag/v1.1.4
 [1.1.3]: https://github.com/brian-a-au/sdr-visualizer/releases/tag/v1.1.3
 [1.1.2]: https://github.com/brian-a-au/sdr-visualizer/releases/tag/v1.1.2
