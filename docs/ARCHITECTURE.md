@@ -68,7 +68,8 @@ src/sdr_visualizer/
     │   └── trend.html.j2
     └── static/
         ├── visualizer.css
-        ├── visualizer.js     # bounded, lazy browser views and URL state
+        ├── visualizer.js     # parent controller, other views, and URL state
+        ├── visualizer_trend.js # lazy Trend interval controller factory
         └── d3.min.js         # vendored D3 v7, used only by the graph
 ```
 
@@ -126,6 +127,19 @@ dependency or working-tree read, then compares those fields using
 If a third tool creates sustained demand for the same layer, reconsider a
 shared package then; do not introduce one merely to eliminate modest,
 deliberately reviewed duplication.
+
+## Embedded browser helpers
+
+The catalog embeds D3, `visualizer_trend.js`, then `visualizer.js` in deterministic
+script order. Like the lineage graph helper, Trend exposes a factory with explicit
+context dependencies; it requires no module loader, fetch, or consumer build step.
+`SdrVisualizerTrend.create` receives the payload, Trend view/log containers, and
+shared date-formatting and escaping functions. Creating the helper does not build
+interval DOM or register listeners. Its `init` method owns one-time initialization,
+the 59-interval cap, expansion listeners, and 100-ID batches per change kind.
+The parent retains URL restoration, view activation, and overall navigation.
+Changes, graph, catalog search, and their state remain in the parent controller.
+The payload and server-rendered Trend charts are unchanged.
 
 ## Adding a new view
 

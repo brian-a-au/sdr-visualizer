@@ -118,9 +118,15 @@ artifact in its own clean environment outside the checkout:
 
 ```bash
 uv build --out-dir dist/packages
-uv run python scripts/package_smoke_check.py dist/packages/
+uv run python scripts/package_smoke_check.py dist/packages/ --browser
 (cd dist/packages && sha256sum *.whl *.tar.gz)
 ```
+
+The `--browser` smoke gate executes catalog, Trend, and lineage reports generated
+by each independently installed distribution in both Chromium and WebKit before
+temporary environments are removed. It requires both engines, checks offline
+operation and navigation, and fails on browser errors or subresource requests.
+Browser tooling stays in the development environment.
 
 Record the wheel and source-distribution filenames and SHA-256 digests. Inspect
 their metadata and confirm Jinja2 is the only direct runtime dependency,

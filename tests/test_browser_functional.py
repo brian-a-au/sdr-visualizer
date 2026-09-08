@@ -991,7 +991,7 @@ def _trend_series_snapshots():
     ]
 
 
-def _render_trend(tmp_path, name, *, added_ids=None):
+def _render_trend(tmp_path, name, *, added_ids=None, intervals=None, color_pack="default"):
     # Distinct sources per snapshot (rather than the adapter's shared
     # "<unknown>" default): with no snapshot_taken_at, interval "from"/"to"
     # fall back to snapshot_source, and identical sources would make every
@@ -1004,8 +1004,10 @@ def _render_trend(tmp_path, name, *, added_ids=None):
     payload["trend"] = build_trend(impls, capped=False)
     if added_ids is not None:
         payload["trend"]["intervals"][0]["added"] = added_ids
+    if intervals is not None:
+        payload["trend"]["intervals"] = intervals
     out = tmp_path / name
-    out.write_text(render_payload(payload), encoding="utf-8")
+    out.write_text(render_payload(payload, color_pack=color_pack), encoding="utf-8")
     return out
 
 
@@ -1084,6 +1086,76 @@ def test_trend_view_url_state_restores(browser_page, tmp_path):
     browser_page.wait_for_selector("#search-input", state="attached", timeout=10_000)
     assert browser_page.evaluate("document.getElementById('trend-view').hidden") is False
     assert browser_page.locator("#trend-log details.trend-interval").count() == 2
+
+
+@pytest.mark.parametrize(
+    "intervals",
+    [[], [{"from": "before", "to": "after", "added": [], "removed": [], "modified": []}]],
+)
+def test_trend_empty_intervals_and_unchanged_ids(browser_page, tmp_path, intervals):
+    out = _render_trend(tmp_path, "trend_empty.html", intervals=intervals)
+    browser_page.goto(out.as_uri() + "#view=trend")
+    assert browser_page.locator("#trend-log details").count() == len(intervals)
+    if intervals:
+        browser_page.locator("#trend-log summary").click()
+        assert browser_page.locator("#trend-log .trend-interval-body").inner_text() == ""
+    assert browser_page.locator("#trend-log .trend-id, #trend-log button").count() == 0
+    browser_page.click('.view-button[data-view="catalog"]')
+    browser_page.click('.view-button[data-view="trend"]')
+    assert browser_page.locator("#trend-log details").count() == len(intervals)
+
+
+@pytest.mark.parametrize("color_pack", COLOR_PACK_CODES)
+def test_trend_keyboard_offline_and_print(browser_page, tmp_path, color_pack):
+    out = _render_trend(
+        tmp_path,
+        "trend_keyboard.html",
+        color_pack=color_pack,
+        added_ids=[f"metrics/{i}" for i in range(250)],
+    )
+    errors, requests = [], []
+
+    def on_error(error):
+        errors.append(str(error))
+
+    def on_console(message):
+        if message.type == "error":
+            errors.append(message.text)
+
+    def on_request(request):
+        if request.resource_type != "document":
+            requests.append(request.url)
+
+    browser_page.on("pageerror", on_error)
+    browser_page.on("console", on_console)
+    browser_page.on("request", on_request)
+    try:
+        browser_page.emulate_media(reduced_motion="reduce")
+        browser_page.goto(out.as_uri() + "#view=trend")
+        interval = browser_page.locator("#trend-log details").first
+        assert interval.locator(".trend-id").count() == 0
+        interval.locator("summary").focus()
+        browser_page.keyboard.press("Enter")
+        browser_page.wait_for_function(
+            "document.querySelectorAll('#trend-log .trend-id').length === 100"
+        )
+        browser_page.click('.view-button[data-view="catalog"]')
+        browser_page.locator('.view-button[data-view="trend"]').press("Enter")
+        interval.locator(".trend-show-next").press("Enter")
+        assert interval.locator(".trend-id").count() == 200
+        assert browser_page.locator("#trend-log details").count() == 2
+        assert "view=trend" in browser_page.evaluate("location.hash")
+        browser_page.emulate_media(media="print")
+        assert browser_page.locator("#trend-view").is_visible()
+        assert not browser_page.locator("#catalog-view").is_visible()
+        assert not browser_page.locator("#graph-view").is_visible()
+        assert errors == []
+        assert requests == []
+    finally:
+        browser_page.emulate_media(media="screen", reduced_motion="no-preference")
+        browser_page.remove_listener("pageerror", on_error)
+        browser_page.remove_listener("console", on_console)
+        browser_page.remove_listener("request", on_request)
 
 
 def test_trend_absent_without_flag(browser_page, tmp_path):

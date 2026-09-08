@@ -492,3 +492,18 @@ def test_report_with_derived_fields_keeps_the_chip():
     snap = json.loads((FIXTURES / "cja_snapshot_clean.json").read_text(encoding="utf-8"))
     html = render(cja_adapt(snap))
     assert html.count('value="derived_field"') == 2  # catalog chip + graph chip
+
+
+def test_trend_helper_embedded_before_parent_preserves_payload():
+    from sdr_visualizer.analysis.trend import build_trend
+
+    impl = cja_adapt(json.loads((FIXTURES / "cja_snapshot_minimal.json").read_text()))
+    payload = build_payload_with_options(impl)
+    payload["trend"] = build_trend([impl, impl], capped=False)
+    html = render_payload(payload)
+    assert extract_payload(html) == payload
+    helper = (STATIC / "visualizer_trend.js").read_text(encoding="utf-8")
+    parent = (STATIC / "visualizer.js").read_text(encoding="utf-8")
+    assert html.index(helper) < html.index(parent)
+    assert "var TREND_ID_BATCH_SIZE = 100;" in helper
+    assert "var TREND_INTERVAL_CAP = 59;" in helper

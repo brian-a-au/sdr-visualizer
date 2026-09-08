@@ -50,7 +50,7 @@ uv run python scripts/perf_check.py           # build/size budgets
 uv run python scripts/perf_browser_check.py   # browser budgets
 uv run python scripts/check_workflow_policy.py
 uv build
-uv run python scripts/package_smoke_check.py dist/  # isolated wheel + sdist installs
+uv run python scripts/package_smoke_check.py dist/ --browser  # isolated wheel + sdist installs
 ```
 
 Every PR needs: tests for behavior changes, a green suite, clean

@@ -4,6 +4,11 @@ All notable changes to `sdr-visualizer` will be documented here. The format foll
 
 ## [Unreleased]
 
+### Changed
+
+- Extract the catalog Trend interval controller into an embedded helper while
+  preserving offline reports, URL restoration, and lazy 100-ID batches.
+
 ## [1.1.5] - 2026-09-08
 
 ### Changed
