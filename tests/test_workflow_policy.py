@@ -88,7 +88,7 @@ jobs:
       - name: Build distributions
         run: uv build --out-dir dist/packages
       - name: Smoke installed artifacts
-        run: uv run python scripts/package_smoke_check.py dist/packages/
+        run: uv run python scripts/package_smoke_check.py dist/packages/ --browser
       - name: Generate SHA256SUMS
         run: cd dist/packages && sha256sum *.whl *.tar.gz > ../SHA256SUMS
       - name: Store verified distributions
@@ -592,9 +592,9 @@ def test_rejects_each_unsafe_release_stage_order(tmp_path):
             "      - name: Build distributions\n"
             "        run: uv build --out-dir dist/packages\n"
             "      - name: Smoke installed artifacts\n"
-            "        run: uv run python scripts/package_smoke_check.py dist/packages/",
+            "        run: uv run python scripts/package_smoke_check.py dist/packages/ --browser",
             "      - name: Smoke installed artifacts\n"
-            "        run: uv run python scripts/package_smoke_check.py dist/packages/\n"
+            "        run: uv run python scripts/package_smoke_check.py dist/packages/ --browser\n"
             "      - name: Build distributions\n"
             "        run: uv build --out-dir dist/packages",
             "build artifact stages must be ordered",
@@ -695,3 +695,18 @@ def test_accepts_well_ordered_digest_verified_release(tmp_path):
 
 def test_all_repository_workflows_pass_policy():
     assert check_workflow_policy.check_repository(REPO) == []
+
+
+def test_release_requires_installed_artifact_browser_execution(tmp_path):
+    workflow = _write(
+        tmp_path,
+        "release.yml",
+        _release_workflow().replace(
+            "scripts/package_smoke_check.py dist/packages/ --browser",
+            "scripts/package_smoke_check.py dist/packages/",
+        ),
+    )
+    assert any(
+        "build must build, smoke, checksum, then upload distributions" in error
+        for error in check_workflow_policy.check(workflow)
+    )

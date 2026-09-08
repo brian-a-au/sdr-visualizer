@@ -251,7 +251,7 @@ def _release_errors(path: Path, workflow: dict[str, Any]) -> list[str]:
         build,
         lambda step: _run_is(
             step,
-            "uv run python scripts/package_smoke_check.py dist/packages/",
+            "uv run python scripts/package_smoke_check.py dist/packages/ --browser",
         ),
     )
     checksum = _step_index(

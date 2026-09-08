@@ -100,6 +100,7 @@ def _render_from_payload(payload: dict[str, Any], *, title: str | None, color_pa
         color_pack_css=serialize_color_pack_css(pack),
         color_pack=pack.code,
         js=js,
+        trend_js=_read_static("visualizer_trend.js"),
         d3_js=d3_js,
         payload_json=payload_json.replace("<", "\\u003c"),
         has_changes="changes" in payload,

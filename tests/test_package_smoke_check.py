@@ -3,11 +3,14 @@
 from __future__ import annotations
 
 import importlib.util
+import json
 import subprocess
+import sys
 import tarfile
 import tomllib
 import zipfile
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 
@@ -174,3 +177,93 @@ def test_project_metadata_keeps_yaml_dev_only_and_ships_referenced_documents():
         "docs/PRODUCT_CONTRACT.md",
         "docs/RELEASING.md",
     } <= package_smoke_check.REQUIRED_SDIST_PATHS
+
+
+@pytest.mark.parametrize("browser", [False, True])
+def test_browser_handoff_uses_installed_cli_outputs_before_cleanup(monkeypatch, tmp_path, browser):
+    artifact = tmp_path / "package.whl"
+    artifact.touch()
+    commands = []
+    handed_off = []
+
+    def run(command, *, label, stage, cwd, env):
+        assert not cwd.is_relative_to(REPO)
+        commands.append((command, stage))
+        output = ""
+        if stage == "create environment":
+            python, console = package_smoke_check._venv_paths(Path(command[-1]))
+            console.parent.mkdir(parents=True)
+            console.touch()
+        elif stage == "import/version":
+            output = json.dumps(
+                {
+                    "metadata_version": "1.1.5",
+                    "module_version": "1.1.5",
+                    "module_file": str(cwd.parent / "venv/lib/sdr_visualizer/__init__.py"),
+                }
+            )
+        elif stage == "console --help":
+            output = "usage: sdr-visualizer"
+        elif stage.endswith("render"):
+            report = Path(command[command.index("--output") + 1])
+            if stage == "representative render":
+                html = '<script id="sdr-data" type="application/json">Minimal Test View'
+            elif stage == "lineage render":
+                html = '<script id="sdr-lineage-data">Synthetic lineage'
+            else:
+                assert "--trend" in command
+                snapshots = sorted(Path(command[1]).glob("*.json"))
+                assert len(snapshots) == 2
+                assert [len(json.loads(path.read_text())["metrics"]) for path in snapshots] == [
+                    1,
+                    2,
+                ]
+                html = "installed trend output"
+            report.write_text(html, encoding="utf-8")
+        return subprocess.CompletedProcess(command, 0, output, "")
+
+    def handoff(catalog, trend, lineage, label):
+        assert label == "wheel"
+        assert all(path.is_file() for path in (catalog, trend, lineage))
+        assert trend.read_text() == "installed trend output"
+        handed_off.extend((catalog, trend, lineage))
+
+    monkeypatch.setattr(package_smoke_check, "run_checked", run)
+    monkeypatch.setattr(package_smoke_check, "browser_smoke_reports", handoff)
+    assert (
+        package_smoke_check.smoke_artifact(
+            artifact,
+            uv_executable="uv",
+            browser=browser,
+        )
+        == "1.1.5"
+    )
+    assert bool(handed_off) is browser
+    assert all(not path.exists() for path in handed_off)
+    assert any(stage == "trend render" for _, stage in commands) is browser
+
+
+def test_requested_browser_failure_is_not_a_skip(monkeypatch, tmp_path):
+    class MissingEngine:
+        def launch(self):
+            raise RuntimeError("engine executable absent")
+
+    class Playwright:
+        chromium = MissingEngine()
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *args):
+            pass
+
+    monkeypatch.setitem(
+        sys.modules,
+        "playwright.sync_api",
+        SimpleNamespace(sync_playwright=Playwright, expect=None),
+    )
+    with pytest.raises(
+        package_smoke_check.SmokeFailure,
+        match=r"\[sdist: browser chromium\].*engine executable absent",
+    ):
+        package_smoke_check.browser_smoke_reports(tmp_path, tmp_path, tmp_path, "sdist")

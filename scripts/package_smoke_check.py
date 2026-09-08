@@ -224,6 +224,103 @@ def validate_render(report: Path, label: str) -> None:
         raise _fail(label, "representative render", "fixture content is absent from output")
 
 
+def write_trend_series(work: Path) -> Path:
+    """Create synthetic CLI inputs without importing the source package."""
+    series = work / "trend-series"
+    series.mkdir()
+    for index, ids in enumerate((["metrics/one"], ["metrics/one", "metrics/two"])):
+        snapshot = {
+            "metadata": {"Data View ID": "dv-trend", "Data View Name": "Synthetic trend"},
+            "data_view": {"id": "dv-trend"},
+            "metrics": [{"id": item, "name": item, "description": "Synthetic"} for item in ids],
+            "dimensions": [],
+            "segments": {"segments": []},
+            "calculated_metrics": {"metrics": []},
+        }
+        (series / f"snapshot-{index}.json").write_text(json.dumps(snapshot), encoding="utf-8")
+    return series
+
+
+def browser_smoke_reports(catalog: Path, trend: Path, lineage: Path, label: str) -> None:
+    """Execute installed output offline; both engines are mandatory when requested."""
+    try:
+        from playwright.sync_api import expect, sync_playwright
+    except ImportError as exc:
+        raise _fail(
+            label, "browser", "install the development browser group and both engines"
+        ) from exc
+
+    with sync_playwright() as playwright:
+        for engine in ("chromium", "webkit"):
+            try:
+                browser = getattr(playwright, engine).launch()
+                try:
+                    context = browser.new_context()
+                    # WebKit cannot navigate file:// with offline=True. Block network
+                    # access explicitly while retaining request/error assertions below.
+                    context.route(re.compile(r"^https?://"), lambda route: route.abort())
+                    page = context.new_page()
+                    errors: list[str] = []
+                    requests: list[str] = []
+                    page.on("pageerror", lambda error, errors=errors: errors.append(str(error)))
+                    page.on(
+                        "console",
+                        lambda message, errors=errors: (
+                            errors.append(message.text) if message.type == "error" else None
+                        ),
+                    )
+                    page.on(
+                        "request",
+                        lambda request, requests=requests: (
+                            requests.append(request.url)
+                            if not request.is_navigation_request()
+                            else None
+                        ),
+                    )
+                    page.goto(catalog.as_uri())
+                    expect(page.locator('.view-button[data-view="catalog"]')).to_be_visible()
+                    expect(page.locator('.view-button[data-view="trend"]')).to_have_count(0)
+
+                    page.goto(trend.as_uri())
+                    intervals = page.locator("#trend-log details.trend-interval")
+                    expect(intervals).to_have_count(0)
+                    page.locator('.view-button[data-view="trend"]').click()
+                    expect(intervals).to_have_count(1)
+                    expect(page.locator("#trend-log .trend-id")).to_have_count(0)
+                    intervals.locator("summary").click()
+                    expect(intervals.locator(".trend-id")).to_have_text(["metrics/two"])
+                    page.locator('.view-button[data-view="catalog"]').click()
+                    page.locator('.view-button[data-view="trend"]').click()
+                    expect(intervals).to_have_count(1)
+                    expect(intervals.locator(".trend-id")).to_have_count(1)
+                    page.goto(trend.as_uri() + "#view=trend")
+                    page.reload()
+                    expect(page.locator("#trend-view")).to_be_visible()
+                    expect(intervals).to_have_count(1)
+
+                    page.goto(lineage.as_uri())
+                    page.locator('[data-connection-id="conn-smoke"]').click()
+                    inspector = page.locator("#lineage-connection-inspector")
+                    expect(inspector).to_be_visible()
+                    inspector.locator('[data-data-view-id="dv-smoke"]').click()
+                    page.locator("#lineage-back-connection").click()
+                    expect(inspector).to_be_visible()
+                    expect(page.locator("#lineage-connection-inspector-heading")).to_be_focused()
+                    if errors or requests:
+                        raise _fail(
+                            label,
+                            f"browser {engine}",
+                            f"errors={errors!r}; subresource requests={requests!r}",
+                        )
+                finally:
+                    browser.close()
+            except SmokeFailure:
+                raise
+            except Exception as exc:
+                raise _fail(label, f"browser {engine}", str(exc)) from exc
+            print(f"OK: {label} {engine} installed catalog, Trend, and lineage reports (offline)")
+
+
 def _venv_paths(venv: Path) -> tuple[Path, Path]:
     if os.name == "nt":
         return venv / "Scripts" / "python.exe", venv / "Scripts" / "sdr-visualizer.exe"
@@ -236,6 +333,7 @@ def smoke_artifact(
     fixture: Path = DEFAULT_FIXTURE,
     repo_root: Path = REPO,
     uv_executable: str | None = None,
+    browser: bool = False,
 ) -> str:
     """Install and smoke one artifact; return its installed version."""
     artifact = artifact.resolve()
@@ -351,6 +449,17 @@ def smoke_artifact(
         lineage_html = lineage_report.read_text(encoding="utf-8")
         if 'id="sdr-lineage-data"' not in lineage_html or "Synthetic lineage" not in lineage_html:
             raise _fail(label, "lineage render", "embedded lineage payload or fixture is absent")
+        if browser:
+            series = write_trend_series(work)
+            trend_report = work / "trend.html"
+            run_checked(
+                [str(console), str(series), "--trend", "--output", str(trend_report), "--quiet"],
+                label=label,
+                stage="trend render",
+                cwd=work,
+                env=env,
+            )
+            browser_smoke_reports(report, trend_report, lineage_report, label)
         return version
 
 
@@ -362,6 +471,11 @@ def main() -> int:
         type=Path,
         default=DEFAULT_FIXTURE,
         help="Representative CJA fixture copied outside the checkout",
+    )
+    parser.add_argument(
+        "--browser",
+        action="store_true",
+        help="Require Chromium and WebKit to exercise installed reports offline",
     )
     args = parser.parse_args()
     try:
@@ -383,7 +497,7 @@ def main() -> int:
                 )
             if names is not None:
                 _validate_sdist_names(names)
-            installed_version = smoke_artifact(artifact, fixture=args.fixture)
+            installed_version = smoke_artifact(artifact, fixture=args.fixture, browser=args.browser)
             if installed_version != version:
                 raise _fail(
                     label,

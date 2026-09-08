@@ -80,7 +80,7 @@ jobs:
         run: uv python install 3.12
 
       - name: Sync dependencies
-        run: uv sync --locked --all-extras --dev
+        run: uv sync --locked --all-extras --dev --group browser
 
       - name: Verify Python runtime
         run: |
@@ -130,8 +130,11 @@ jobs:
       - name: Build distributions
         run: uv build --out-dir dist/packages
 
+      - name: Install browsers
+        run: uv run playwright install --with-deps chromium webkit
+
       - name: Smoke installed artifacts
-        run: uv run python scripts/package_smoke_check.py dist/packages/
+        run: uv run python scripts/package_smoke_check.py dist/packages/ --browser
 
       - name: Generate SHA256SUMS
         run: cd dist/packages && sha256sum *.whl *.tar.gz > ../SHA256SUMS
