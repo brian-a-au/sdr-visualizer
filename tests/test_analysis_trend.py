@@ -138,3 +138,20 @@ def test_interval_from_to_source_carry_basenames():
     trend = build_trend([a, b], capped=False)
     assert trend["intervals"][0]["from_source"] == "a.json"
     assert trend["intervals"][0]["to_source"] == "b.json"
+
+
+def test_typed_reference_trend_lists_consumer_once_and_ignores_set_equivalence():
+    a = _impl(calcs=[_calc("cm/c1", references=["url"], reference_types={"dimension": ["url"]})])
+    b = _impl(calcs=[_calc("cm/c1", references=["url"], reference_types={"metric": ["url"]})])
+    c = _impl(
+        calcs=[
+            _calc(
+                "cm/c1",
+                references=["url", "url"],
+                reference_types={"metric": ["url", "url"], "dimension": []},
+            )
+        ]
+    )
+    intervals = build_trend([a, b, c, c], capped=False)["intervals"]
+    assert [interval["modified"] for interval in intervals] == [["cm/c1"], [], []]
+    assert all(interval["added"] == interval["removed"] == [] for interval in intervals)
