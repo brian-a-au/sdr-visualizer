@@ -1284,6 +1284,25 @@ def test_ambiguous_anatomy_reference_has_no_navigation(browser_page, tmp_path):
     assert panel.locator(".detail-references .ref-link").count() == 0
 
 
+def test_cja_inconsistent_declaration_keeps_anatomy_source_and_navigation(browser_page, tmp_path):
+    """Anatomy describes the definition even when declared graph references differ."""
+    from adapter_cases import cja_case
+
+    snap = cja_case()
+    snap["segments"]["segments"][0]["dimension_references"] = ["dimensions/missing"]
+    out = tmp_path / "inconsistent-declaration.html"
+    out.write_text(render(cja_adapt(snap)), encoding="utf-8")
+    browser_page.goto(out.as_uri())
+    browser_page.locator('#catalog-body tr[data-id="segments/channel"]').click()
+    panel = browser_page.locator("#detail-panel")
+    assert panel.locator(".detail-references .ref-link").count() == 0
+    assert "dimensions/missing" in panel.locator(".detail-references").inner_text()
+    anatomy = panel.locator('.criterion-target .ref-link[data-id="variables/channel"]')
+    assert anatomy.inner_text() == "dimensions/channel"
+    anatomy.click()
+    assert "variables%2Fchannel" in browser_page.url
+
+
 @pytest.mark.parametrize("slot", ["col", "formula"])
 @pytest.mark.parametrize("constant", [0, False, ""], ids=["zero", "false", "empty-string"])
 def test_scoped_falsy_renders_as_constant(browser_page, tmp_path, slot, constant):
