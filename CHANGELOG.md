@@ -4,6 +4,8 @@ All notable changes to `sdr-visualizer` will be documented here. The format foll
 
 ## [Unreleased]
 
+## [1.1.6] - 2026-09-11
+
 ### Changed
 
 - Extract the catalog Trend interval controller into an embedded helper while
@@ -657,7 +659,8 @@ The following are explicitly internal and may change without notice:
 - Workspace project visualization (v0.4)
 - Schema map view (v0.5)
 
-[Unreleased]: https://github.com/brian-a-au/sdr-visualizer/compare/v1.1.5...HEAD
+[Unreleased]: https://github.com/brian-a-au/sdr-visualizer/compare/v1.1.6...HEAD
+[1.1.6]: https://github.com/brian-a-au/sdr-visualizer/releases/tag/v1.1.6
 [1.1.5]: https://github.com/brian-a-au/sdr-visualizer/releases/tag/v1.1.5
 [1.1.4]: https://github.com/brian-a-au/sdr-visualizer/releases/tag/v1.1.4
 [1.1.3]: https://github.com/brian-a-au/sdr-visualizer/releases/tag/v1.1.3
