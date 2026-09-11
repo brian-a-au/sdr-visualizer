@@ -8,6 +8,8 @@ All notable changes to `sdr-visualizer` will be documented here. The format foll
 
 - Extract the catalog Trend interval controller into an embedded helper while
   preserving offline reports, URL restoration, and lazy 100-ID batches.
+- Extract lineage role and count preparation into an embedded helper while
+  preserving dataset–Connection metadata, overview ordering, and navigation.
 
 ## [1.1.5] - 2026-09-08
 

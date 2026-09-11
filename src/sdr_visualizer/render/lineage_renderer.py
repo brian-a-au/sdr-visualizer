@@ -53,6 +53,7 @@ def render_payload(
             base_css=_read_static("visualizer.css"),
             css=_read_static("cja_lineage.css"),
             graph_js=_read_static("cja_lineage_graph.js"),
+            roles_js=_read_static("cja_lineage_roles.js"),
             js=_read_static("cja_lineage.js"),
             color_pack_css=serialize_color_pack_css(pack),
             color_pack=pack.code,
