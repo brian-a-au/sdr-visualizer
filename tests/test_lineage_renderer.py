@@ -373,6 +373,9 @@ def test_renderer_is_byte_stable_self_contained_and_has_no_runtime_targets() -> 
     second = render(topology)
 
     assert first == second
+    assert _embedded_payload(first) == build_payload(topology)
+    assert first.index("window.SdrCjaLineageGraph") < first.index("window.SdrCjaLineageRoles")
+    assert first.index("window.SdrCjaLineageRoles") < first.index("window.__cjaLineagePoc")
     assert first.lstrip().startswith("<!doctype html>")
     assert "<style>" in first and "<script>" in first
     assert re.search(r"<(?:script|img|link)[^>]+(?:src|href)\s*=", first, re.I) is None

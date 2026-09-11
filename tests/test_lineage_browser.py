@@ -238,6 +238,67 @@ def test_live_scale_role_overview_is_immediately_discoverable(lineage_page, tmp_
     assert lineage_page.locator("#lineage-stage svg").count() == 1
 
 
+def test_shared_dataset_roles_remain_scoped_to_each_connection(lineage_page, tmp_path):
+    source = {
+        "dataViews": [
+            {
+                "id": "dv-event",
+                "name": "Event view",
+                "connection": {"id": "conn-event", "name": "Event connection"},
+                "datasets": [
+                    {
+                        "id": "ds-shared",
+                        "name": "Shared dataset",
+                        "connectionMetadata": {"role": "event"},
+                    },
+                    {
+                        "id": "ds-event-lookup",
+                        "name": "Event lookup",
+                        "connectionMetadata": {"role": "lookup"},
+                    },
+                ],
+            },
+            {
+                "id": "dv-profile",
+                "name": "Profile view",
+                "connection": {"id": "conn-profile", "name": "Profile connection"},
+                "datasets": [
+                    {
+                        "id": "ds-shared",
+                        "name": "Shared dataset",
+                        "connectionMetadata": {"role": "profile"},
+                    },
+                    {
+                        "id": "ds-profile-summary",
+                        "name": "Profile summary",
+                        "connectionMetadata": {"role": "summary"},
+                    },
+                ],
+            },
+        ],
+        "count": 2,
+    }
+    path = _render_source(tmp_path, source, "shared-dataset-roles.html")
+    lineage_page.goto(path.as_uri())
+
+    event_card = lineage_page.locator('[data-connection-id="conn-event"]')
+    profile_card = lineage_page.locator('[data-connection-id="conn-profile"]')
+    assert event_card.locator(".connection-overview-role-band").get_attribute("aria-label") == (
+        "Role mix: Event 1, Lookup 1"
+    )
+    assert profile_card.locator(".connection-overview-role-band").get_attribute("aria-label") == (
+        "Role mix: Profile 1, Summary 1"
+    )
+
+    lineage_page.locator('[data-global-role-key="event"]').click()
+    cards = lineage_page.locator(".connection-overview-card")
+    assert cards.count() == 1
+    assert cards.first.get_attribute("data-connection-id") == "conn-event"
+    lineage_page.locator('[data-global-role-key="profile"]').click()
+    assert cards.count() == 1
+    assert cards.first.get_attribute("data-connection-id") == "conn-profile"
+
+
 def test_connection_overview_selection_is_keyboard_reversible(lineage_page, tmp_path):
     path = _render_to(tmp_path, "cja_lineage_shared.json", "connection-selection.html")
     lineage_page.set_viewport_size({"width": 390, "height": 844})

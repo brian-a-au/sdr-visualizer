@@ -174,3 +174,15 @@ dataset property. The browser starts with a bounded Connection overview and crea
 SVG only after explicit selection or full-topology opt-in. Saved/live acquisition
 and owner-only atomic output enforce independent trust boundaries; only neutral
 output identity checks are shared with the catalog CLI. See [LINEAGE.md](LINEAGE.md).
+
+The lineage report embeds `cja_lineage_graph.js`, then `cja_lineage_roles.js`,
+then its parent `cja_lineage.js` controller. The role factory receives explicit
+maps, role order, and property/edge lookup dependencies. It returns role lookup,
+ordered entries, and the prepared count/membership index. It reads the existing
+embedded-payload maps; it does not infer additional relationships or analyze raw
+discovery snapshots.
+Role labels and counts remain scoped to each dataset–Connection relationship, so
+a shared dataset can have different roles in different Connections. Missing,
+reported-null, reported-empty, known, and custom roles retain their distinct states.
+The helper owns no DOM, selection, navigation, camera, focus, or rendering behavior;
+the parent keeps those responsibilities and owns graph-factory activation.
