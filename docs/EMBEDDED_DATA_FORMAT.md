@@ -164,6 +164,11 @@ from edges and counts, including derived-field references:
 `reference_type` is omitted for untyped references. Repeated source/reference/
 type triples produce one diagnostic. No candidate links are invented.
 Graph nodes remain derivable from catalog entries; degrees live on each entry.
+Inventory absence leaves availability unverified; it does not establish that a
+reference is valid, deleted, or project-only. Outgoing details and Anatomy
+explain this uncertainty for missing references. Ambiguous references retain
+their separate ambiguity wording. These display explanations do not change
+resolution, catalog links, graph connectivity, counts, comparison, or trend data.
 
 
 ## `changes`

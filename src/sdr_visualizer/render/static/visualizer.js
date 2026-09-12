@@ -481,11 +481,13 @@
     var missingRefs = unresolved[entry.id] || [];
     if (missingRefs.length) {
       var missingList = missingRefs.map(function (ref) {
-        var reason = ref.reason === "ambiguous" ? "ambiguous in inventory" : "not in inventory";
+        var reason = ref.reason === "ambiguous" ? "ambiguous in inventory" : "not in inventory; availability unverified";
         var type = ref.reference_type ? " · " + ref.reference_type : "";
         return '<li><span class="ref-dangling mono">' + escapeHtml(ref.reference + type) + " (" + reason + ")</span></li>";
       }).join("");
-      pieces.push('<div class="detail-section"><h3>Unresolved outgoing references</h3><p>Excluded from Uses and graph edges.</p><ul class="detail-references">' + missingList + "</ul></div>");
+      var absenceHelp = missingRefs.some(function (ref) { return ref.reason === "missing"; })
+        ? " Inventory absence leaves availability unverified." : "";
+      pieces.push('<div class="detail-section"><h3>Unresolved outgoing references</h3><p>Excluded from Uses and graph edges.' + absenceHelp + '</p><ul class="detail-references">' + missingList + "</ul></div>");
     }
 
     return pieces.join("");
@@ -498,7 +500,7 @@
     if (target && byId[target]) {
       return '<button type="button" class="ref-link" data-id="' + escapeHtml(target) + '">' + escapeHtml(label) + '</button>';
     }
-    var reason = node.resolution_reason === "ambiguous" ? "ambiguous in inventory" : "not in inventory";
+    var reason = node.resolution_reason === "ambiguous" ? "ambiguous in inventory" : "not in inventory; availability unverified";
     return '<span class="ref-dangling">' + escapeHtml(label) + ' (' + reason + ')</span>';
   }
 

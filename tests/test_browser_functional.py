@@ -1220,7 +1220,8 @@ def test_reference_labels_counts_links_and_connectivity(browser_page, tmp_path):
     )
     assert unresolved.locator("li").count() == 2
     assert "ambiguous in inventory" in unresolved.inner_text()
-    assert "not in inventory" in unresolved.inner_text()
+    assert "not in inventory; availability unverified" in unresolved.inner_text()
+    assert "Inventory absence leaves availability unverified." in unresolved.inner_text()
     assert unresolved.locator("button").count() == 0
     resolved.locator('button[data-id="variables/url"]').click()
     assert detail.locator(".detail-name").inner_text() == "URL"
@@ -1277,8 +1278,11 @@ def test_adapter_correctness_browser_path(browser_page, tmp_path, platform):
     assert "not in inventory" not in panel.inner_text()
 
 
+@pytest.mark.parametrize("platform", ["aa", "cja"])
 @pytest.mark.parametrize("present", [True, False])
-def test_adapter_filter_anatomy_links_and_missing_inventory(browser_page, tmp_path, present):
+def test_adapter_filter_anatomy_links_and_missing_inventory(
+    browser_page, tmp_path, present, platform
+):
     from adapter_cases import aa_case
 
     from sdr_visualizer.adapters.aa import adapt as aa_adapt
@@ -1290,8 +1294,25 @@ def test_adapter_filter_anatomy_links_and_missing_inventory(browser_page, tmp_pa
     if not present:
         snap["segments"] = []
         snap["metrics"] = []
+    if platform == "cja":
+        snap = {
+            "metadata": {"Data View ID": "synthetic"},
+            "metrics": snap["metrics"],
+            "dimensions": snap["dimensions"],
+            "segments": {"segments": [{"segment_id": "segments/page"}] if present else []},
+            "calculated_metrics": {
+                "metrics": [
+                    {
+                        "metric_id": "calc/ratio",
+                        "definition_json": snap["calculated_metrics"][0]["definition"],
+                        "segment_references": ["segments/page"],
+                    }
+                ]
+            },
+        }
+    impl = aa_adapt(snap) if platform == "aa" else cja_adapt(snap)
     out = tmp_path / "filters.html"
-    out.write_text(render(aa_adapt(snap)), encoding="utf-8")
+    out.write_text(render(impl), encoding="utf-8")
     browser_page.goto(out.as_uri())
     browser_page.locator('#catalog-body tr[data-id="calc/ratio"]').click()
     panel = browser_page.locator("#detail-panel")
@@ -1301,7 +1322,13 @@ def test_adapter_filter_anatomy_links_and_missing_inventory(browser_page, tmp_pa
     assert panel.locator('.detail-references .ref-link[data-id="segments/page"]').count() == int(
         present
     )
-    assert ("not in inventory" in panel.inner_text()) is not present
+    assert ("not in inventory; availability unverified" in panel.inner_text()) is not present
+    assert (
+        "Inventory absence leaves availability unverified." in panel.inner_text()
+    ) is not present
+    if not present:
+        assert "availability unverified" in panel.locator(".anatomy-segment-ref").inner_text()
+        assert "availability unverified" in panel.locator(".detail-references").inner_text()
     if present:
         panel.locator(".anatomy-segment-ref .ref-link").click()
         assert "segments%2Fpage" in browser_page.url
@@ -1353,6 +1380,7 @@ def test_ambiguous_anatomy_reference_has_no_navigation(browser_page, tmp_path):
     panel = browser_page.locator("#detail-panel")
     assert panel.locator(".criterion-target .ref-link").count() == 0
     assert "ambiguous in inventory" in panel.locator(".criterion-target").inner_text()
+    assert "availability unverified" not in panel.inner_text()
     assert panel.locator(".detail-references .ref-link").count() == 0
 
 
