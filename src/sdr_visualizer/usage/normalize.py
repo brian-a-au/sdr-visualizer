@@ -15,6 +15,7 @@ from sdr_visualizer.core.structure_limits import (
 
 MAX_IPC_BYTES = 16 * 1024 * 1024
 SDK_VERSIONS = {"cja": ("cjapy", "0.3.1"), "aa": ("aanalytics2", "0.5.3.post1")}
+EXCLUDED_PROJECTS_LIMITATION = "Malformed or unsupported projects were excluded from SDK matching"
 CANDIDATE_LIMITATION = (
     "SDK matching is incomplete; exact component and environment match remain unverified"
 )
@@ -113,9 +114,7 @@ def sanitize_projects(platform: str, projects: list[dict]) -> tuple[list[dict], 
         accepted[clean["id"]] = clean
     result = [accepted[key] for key in sorted(accepted)]
     bounded_json(result)
-    return result, [
-        "Malformed or unsupported projects were excluded from SDK matching"
-    ] if excluded else []
+    return result, [EXCLUDED_PROJECTS_LIMITATION] if excluded else []
 
 
 def validate_components(platform: str, components: list[dict]) -> list[dict]:

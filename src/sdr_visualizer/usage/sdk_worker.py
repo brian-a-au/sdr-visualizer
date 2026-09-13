@@ -18,6 +18,7 @@ from pathlib import Path
 
 from sdr_visualizer.core.exceptions import InvalidSnapshotError
 from sdr_visualizer.usage.normalize import (
+    EXCLUDED_PROJECTS_LIMITATION,
     MAX_IPC_BYTES,
     MatchResult,
     bounded_json,
@@ -59,7 +60,7 @@ def _run_matching(request, emit):
         emit(
             {
                 "kind": "limitation",
-                "value": "Malformed or unsupported projects were excluded from SDK matching",
+                "value": EXCLUDED_PROJECTS_LIMITATION,
             }
         )
     metadata = {project["id"]: project for project in request["projects"]}
@@ -152,10 +153,7 @@ def _receive(process, components, checked_at, metadata, timeout):
                     message = json.loads(line)
                     kind = message["kind"]
                     if kind == "limitation" and set(message) == {"kind", "value"}:
-                        if (
-                            message["value"]
-                            != "Malformed or unsupported projects were excluded from SDK matching"
-                        ):
+                        if message["value"] != EXCLUDED_PROJECTS_LIMITATION:
                             raise ValueError("Invalid limitation")
                         if message["value"] not in result.limitations:
                             result.limitations.append(message["value"])
