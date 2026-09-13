@@ -1900,10 +1900,19 @@ h1 {
         ["Projects failed", retrieval.projects_failed],
       ].map(function (pair) { return '<dt>' + escapeHtml(pair[0]) + '</dt><dd>' + escapeHtml(pair[1]) + '</dd>'; }).join("") + '</dl>';
     }
-    var limits = (row ? row.limitations : collection.limitations || []).concat(collection.retrieval ? collection.retrieval.limitations : []);
-    if (limits.length) html += '<h4>Known limits</h4><ul>' + Array.from(new Set(limits)).map(function (limit) {
+    var componentLimits = Array.from(new Set(row ? (row.component_limitations || row.limitations) : []));
+    var componentLimitSet = new Set(componentLimits);
+    var collectionLimits = Array.from(new Set(
+      (collection.limitations || []).concat(collection.retrieval ? collection.retrieval.limitations : [])
+    )).filter(function (limit) { return !componentLimitSet.has(limit); });
+    if (componentLimits.length) html += '<h4>Component limits</h4><ul>' + componentLimits.map(function (limit) {
       return '<li>' + escapeHtml(limit) + '</li>';
     }).join("") + '</ul>';
+    if (collectionLimits.length) {
+      html += '<details class="workspace-collection-limits"><summary>Collection-wide limits (' + collectionLimits.length + ')</summary><ul>' +
+        collectionLimits.map(function (limit) { return '<li>' + escapeHtml(limit) + '</li>'; }).join("") +
+        '</ul></details>';
+    }
     if (state !== "not_checked") {
       html += '<p class="workspace-qualification">Results describe the checked scope only. Other projects may be inaccessible or uncollected. An empty result does not establish that this component is unused or safe to delete.</p>';
     }

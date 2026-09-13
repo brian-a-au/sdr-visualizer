@@ -390,6 +390,18 @@ def test_stringified_tags_are_parsed_not_dropped():
     assert impl.dimensions[0].tags == ["x", "y"]
 
 
+def test_tag_objects_render_as_names_with_id_fallback():
+    snap = _minimal_aa(
+        dimensions=[
+            {
+                "id": "variables/evar1",
+                "tags": [{"id": "tag-1", "name": "Campaign"}, {"id": "tag-2"}, {}],
+            }
+        ]
+    )
+    assert adapt(snap).dimensions[0].tags == ["Campaign", "tag-2"]
+
+
 @pytest.mark.parametrize("tags", ["not json", '{"not": "a list"}'])
 def test_invalid_stringified_tags_are_dropped(tags):
     impl = adapt(

@@ -309,6 +309,7 @@ def test_incomplete_retrieval_keeps_exact_results_partial(status, limitations, p
     observed = projected["display"][0]
     assert observed["state"] == "partial"
     assert observed["limitations"] == limitations
+    assert observed["component_limitations"] == []
     assert observed["project_count"] == len(projects)
     assert projected["evidence"]["results"][observed["result_index"]]["projects"] == projects
 
@@ -329,6 +330,7 @@ def test_retrieval_limits_survive_missing_results(status):
             "No results were collected",
             "Some project details were unavailable",
         ]
+        assert observed["component_limitations"] == []
 
 
 @pytest.mark.parametrize("with_retrieval", [False, True])

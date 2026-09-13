@@ -113,6 +113,9 @@ names and IDs, check time, requested scope, component attempts, collection and
 result completion, permission visibility, source, and known limits. Project
 names and IDs are plain text; this version does not create project links.
 Lists retain all accepted projects and show 50 rows per page.
+Component-specific limits appear with that component's result. Run-wide API
+and matching limits are grouped in a collapsed collection disclosure so they
+remain available without overwhelming every component investigation.
 
 | Evidence condition | Display state |
 |---|---|

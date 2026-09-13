@@ -130,7 +130,8 @@
               "time_quality",
               "checked_at_utc",
               "age_at_generation",
-              "limitations"
+              "limitations",
+              "component_limitations"
             ],
             "properties": {
               "component": {
@@ -197,6 +198,12 @@
                 ]
               },
               "limitations": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "component_limitations": {
                 "type": "array",
                 "items": {
                   "type": "string"

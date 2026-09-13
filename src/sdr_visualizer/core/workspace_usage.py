@@ -461,6 +461,10 @@ class BoundWorkspaceUsage:
                 "checked_at_utc": None,
                 "age_at_generation": None,
                 "limitations": list(collection_limitations),
+                # Preserve the effective limitations above for compatibility and
+                # state derivation, while giving the catalog presentation the
+                # narrower limitations attached to this component's result.
+                "component_limitations": [],
             }
             if r is None:
                 if key in requested:
@@ -486,6 +490,7 @@ class BoundWorkspaceUsage:
                     project_count=len(r["projects"]),
                 )
                 row["limitations"].extend(r["limitations"])
+                row["component_limitations"].extend(r["limitations"])
                 if "failure" in r or "failure" in collection:
                     row["failure"] = r.get("failure", collection.get("failure"))
                 if checked:

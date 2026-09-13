@@ -1465,6 +1465,7 @@ def _workspace_panel_report(
         "checked_at_utc": "2026-09-10T12:00:00Z",
         "age_at_generation": age,
         "limitations": ["<img src=x onerror=alert(1)>"],
+        "component_limitations": ["<img src=x onerror=alert(1)>"],
         "result_index": 0,
         "project_count": count,
         "match_basis": "unverified_lookup" if state == "partial" else "exact_component_id",
@@ -1585,7 +1586,9 @@ def test_workspace_panel_coverage_partial_and_narrow_layout(browser_page, tmp_pa
     usage["summary"].update(attempted=2, requested=3, complete=0, partial=1, failed=1)
     collection = usage["evidence"]["collection"]
     collection.update(
-        status="partial", project_scope={"kind": "explicit_projects", "project_ids": ["p-1"]}
+        status="partial",
+        project_scope={"kind": "explicit_projects", "project_ids": ["p-1"]},
+        limitations=["Collection stopped at its project budget."],
     )
     collection["retrieval"] = {
         "status": "partial",
@@ -1616,7 +1619,16 @@ def test_workspace_panel_coverage_partial_and_narrow_layout(browser_page, tmp_pa
         assert "not recent project activity" in text
         assert "Explicit projects (1)" in text
         assert "API retrieval" in text
-        assert "A later request failed." in text
+        assert "Component limits" in text
+        collection_limits = section.locator(".workspace-collection-limits")
+        assert collection_limits.count() == 1
+        assert collection_limits.get_by_text(
+            "Collection-wide limits (2)", exact=True
+        ).is_visible()
+        assert not collection_limits.evaluate("el => el.open")
+        assert collection_limits.locator("li").count() == 2
+        assert "Collection stopped at its project budget." in collection_limits.text_content()
+        assert "A later request failed." in collection_limits.text_content()
         assert "collection_error" in text
         assert "Attempted 2 of 3 requested components" in text
         assert "0 complete; 1 partial; 1 failed" in text
