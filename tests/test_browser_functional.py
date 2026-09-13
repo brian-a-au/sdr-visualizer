@@ -1622,9 +1622,7 @@ def test_workspace_panel_coverage_partial_and_narrow_layout(browser_page, tmp_pa
         assert "Component limits" in text
         collection_limits = section.locator(".workspace-collection-limits")
         assert collection_limits.count() == 1
-        assert collection_limits.get_by_text(
-            "Collection-wide limits (2)", exact=True
-        ).is_visible()
+        assert collection_limits.get_by_text("Collection-wide limits (2)", exact=True).is_visible()
         assert not collection_limits.evaluate("el => el.open")
         assert collection_limits.locator("li").count() == 2
         assert "Collection stopped at its project budget." in collection_limits.text_content()
