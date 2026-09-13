@@ -49,7 +49,7 @@ uv run ruff format     # Auto-format
 
 ## Architectural rules of the road
 
-- **Static output, dynamic interaction.** Python emits one HTML file with embedded JSON, embedded CSS, embedded JS. No fetches, no API, no server.
+- **Static output, dynamic interaction.** Python emits one HTML file with embedded JSON, embedded CSS, embedded JS. The browser makes no fetches and needs no API or server. Explicit optional Python-side Workspace collection follows `docs/WORKSPACE_USAGE.md`; ordinary generation and saved-evidence replay stay offline.
 - **Server-side build, client-side render.** Do work in Python (where seconds are fine); the client just reads, filters, and renders.
 - **Vanilla JS, no framework.** D3 only for the reference graph. No React / Vue / Svelte.
 - **Performance is enforced.** The budgets in [`docs/PERFORMANCE.md`](docs/PERFORMANCE.md) are CI-gated. An implementation that takes 5 seconds to render 500 components is broken regardless of how it looks.

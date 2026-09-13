@@ -72,6 +72,24 @@ accept/reject limits.
 
 ## What happens when a view reaches its display limit
 
+Optional [Workspace usage](WORKSPACE_USAGE.md) adds bounded evidence without
+relaxing these budgets. Supplemented HTML must fit the smallest containing tier
+(decimal UTF-8 byte limits: 500,000; 2,000,000; 4,000,000; 8,000,000), plus the
+existing 500,000-byte comparison/trend allowance once. Outside the component/edge
+envelope, supplemented HTML is capped at 16,000,000 bytes; speed remains best-effort.
+Full JSON output with usage is capped at 16,000,000 bytes, and its normalized
+usage branch at 1,048,576 bytes. Oversized input rejects rather than dropping
+evidence; no-usage acceptance remains unchanged.
+
+The local build budget includes usage validation and rendering. Optional network
+collection has separate 180-second API and 30-second SDK-process deadlines,
+plus bounded cleanup; the existing live exporter has its own 600-second limit.
+These collection limits are not added browser latency or Adobe completeness
+guarantees. Workspace project rows appear only on detail open, 50 per page.
+The browser gate targets under 100 ms for first open and page replacement at
+10,000 project occurrences, measuring script work plus forced layout. This is
+an engineering responsiveness target, not an activity or freshness measure.
+
 Display limits reduce browser work; they do not remove entries from the
 embedded payload.
 

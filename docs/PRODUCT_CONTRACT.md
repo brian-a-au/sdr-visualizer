@@ -59,10 +59,33 @@ selected snapshot exists.
 
 ## Output and confidentiality
 
+Optional Workspace usage is specified in [WORKSPACE_USAGE.md](WORKSPACE_USAGE.md)
+and [workspace-usage-schema.json](workspace-usage-schema.json). Collection is an
+explicit Python-side API opt-in, independently supported through pinned AA and
+CJA SDK extras. It creates the usage file automatically; supplied-file replay
+and report viewing require no SDKs, credentials, or network access. Existing
+snapshots remain valid without exporter changes. The organization/company
+assertion, exact platform/instance identity, and digest bind evidence to its
+original snapshot. SDK matches remain unverified candidates, and successful
+collection does not imply visibility into every project.
+
+Workspace project evidence is separate from component-reference lists, counts,
+graph edges, comparison, and trend semantics. Empty results never establish
+non-use or deletion safety. Check time is separate from snapshot/report time;
+the 24-hour age notice supports daily review and is not a freshness guarantee.
+
 The primary output is one HTML file with JSON, CSS, JavaScript, and vendored D3
 embedded in it. It makes no network requests and needs no report server, CDN,
 or client-side build step. `--json PATH` can also write the same logical
 payload as a JSON sidecar.
+
+With usage enabled, every intended artifact is serialized and size-checked
+before staging sibling temporary files and replacing destinations. Staging
+failure preserves final outputs; a replacement failure may leave earlier
+internally complete files installed and returns 1 without success messages.
+Config and usage inputs are protected against output aliasing. Usage outputs
+and config files must stay outside snapshot directories. A recorded lookup
+failure is valid evidence: successful report persistence returns 0 with a warning.
 
 Before the first write, the visualizer verifies that the HTML and optional JSON
 destinations do not alias one another or any filesystem snapshot input. For a
@@ -78,6 +101,12 @@ timestamps, and source paths. Treat each report as derived from its source
 snapshot. Share, email, post, or attach it only in locations and with people
 allowed by the applicable organizational data-handling policy.
 
+Workspace evidence additionally contains project names/IDs, organization/company
+context, and collection limitations. It excludes raw project definitions,
+owners, credentials, raw responses, and raw SDK exception messages. Collection
+sends requested environment/project identities to Adobe; it does not upload
+snapshot or component definitions.
+
 ## Stable public surfaces
 
 For releases at or above 1.0.0, semantic versioning covers:
@@ -88,6 +117,11 @@ For releases at or above 1.0.0, semantic versioning covers:
   [`EMBEDDED_DATA_FORMAT.md`](EMBEDDED_DATA_FORMAT.md) and
   [`payload-schema.json`](payload-schema.json); and
 - the budgets in [`PERFORMANCE.md`](PERFORMANCE.md).
+
+The optional version 1 Workspace input envelope and embedded `workspace_usage`
+branch are additive public surfaces. Old payloads omit the branch. Unlike sparse
+catalog entries, its explicit empty lists, nulls, statuses, and coverage fields
+are retained. Strict input schema and identity validation are required.
 
 The built-in color-pack catalog is exactly `default`, `ADBE`, `OMTR`, and
 `BLUE`, in that order, and the identifiers are case-sensitive. The CLI accepts
@@ -153,6 +187,12 @@ Browser rendering is also bounded:
 - Trend emits at most 59 interval summaries for its 60 snapshots; and
 - Trend creates changed-ID chips only when an interval is expanded, in batches
   of 100 per change kind.
+
+Workspace project lists render lazily in pages of 50, retaining all accepted
+projects in the payload. Usage-specific file, project, subprocess, and output
+caps are documented in [WORKSPACE_USAGE.md](WORKSPACE_USAGE.md#bounds-persistence-and-privacy).
+These new rejection limits apply only when usage is enabled. They do not loosen
+the existing report budgets or change no-usage acceptance.
 
 These are display bounds, not data-loss rules: filtering and progressive
 disclosure continue to operate on the complete embedded data.

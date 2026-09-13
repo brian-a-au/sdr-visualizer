@@ -119,6 +119,34 @@ generator snapshot when you need platform-specific details that the visualizer
 does not embed. For both live modes, the upstream repository is authoritative
 for credentials, permissions, and generator compatibility.
 
+## Optional Workspace project usage
+
+Add project-usage evidence while generating the HTML. Install the independent
+extra for your platform, then opt in to collection using an existing credential
+source:
+
+```bash
+pip install 'sdr-visualizer[workspace-cja]'
+sdr-visualizer snapshots/cja.json --collect-workspace-usage \
+  --workspace-usage-org 'EXAMPLE@AdobeOrg' \
+  --workspace-usage-config ../credentials/adobe.json --output cja.html
+
+pip install 'sdr-visualizer[workspace-aa]'
+sdr-visualizer snapshots/aa.json --collect-workspace-usage \
+  --workspace-usage-org 'EXAMPLE@AdobeOrg' --workspace-usage-company example-company \
+  --workspace-usage-config ../credentials/adobe.json --output aa.html
+```
+
+Each command automatically writes HTML and `<html-stem>.workspace-usage.json`.
+Existing snapshots and live exporter modes work without exporter changes.
+The catalog shows possible project references separately from component
+dependencies, with check time and coverage limits. SDK matches remain
+unverified candidates; empty results never mean unused or safe to delete.
+Opening the HTML and replaying the saved usage file need no credentials or
+network access. See the
+[Workspace usage guide](https://github.com/brian-a-au/sdr-visualizer/blob/main/docs/WORKSPACE_USAGE.md)
+for collection scopes, offline replay, identity binding, limits, and privacy.
+
 ## Useful flags
 
 | Flag | What it does |
@@ -266,7 +294,7 @@ Warnings (snapshot generator newer than the tested version; 5,000+ component rep
 Requires Python 3.11+ and [uv](https://github.com/astral-sh/uv).
 
 ```bash
-uv sync                # Set up environment
+uv sync --all-extras    # Set up environment, including optional SDK tests
 uv run pytest          # Run tests (auto-generates the large fixture on first run)
 uv run ruff check      # Lint
 uv run ruff format     # Auto-format
@@ -320,6 +348,8 @@ component catalogs for either CJA or Adobe Analytics (AA).
 - [`aa_auto_sdr`](https://github.com/brian-a-au/aa_auto_sdr) — generates AA snapshots.
 
 ## Documentation
+
+- [`docs/WORKSPACE_USAGE.md`](https://github.com/brian-a-au/sdr-visualizer/blob/main/docs/WORKSPACE_USAGE.md) — optional AA/CJA collection, generated usage files, offline replay, and evidence limits.
 
 - [`docs/LINEAGE.md`](https://github.com/brian-a-au/sdr-visualizer/blob/main/docs/LINEAGE.md) — CJA-only lineage generation, navigation, compatibility, and limits.
 

@@ -13,7 +13,7 @@
 
 Non-negotiable per CONTRIBUTING.md. Confirm:
 
-- [ ] No network fetches, CDNs, or new JS dependencies introduced
+- [ ] No browser network fetches, CDNs, or new JS dependencies introduced; optional Python Workspace collection follows its documented boundaries
 - [ ] No JS framework; D3 stays confined to the graph view
 - [ ] Output stays descriptive — no grades, scores, or judgments
 - [ ] Perf budgets respected (`scripts/perf_check.py` / `perf_browser_check.py` green if plausibly affected)

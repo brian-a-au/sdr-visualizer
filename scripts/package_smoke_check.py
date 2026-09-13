@@ -48,6 +48,8 @@ REQUIRED_SDIST_PATHS = {
     "docs/RELEASING.md",
     "docs/LINEAGE.md",
     "docs/payload-schema.json",
+    "docs/WORKSPACE_USAGE.md",
+    "docs/workspace-usage-schema.json",
 }
 FORBIDDEN_SDIST_COMPONENTS = {"__pycache__", ".pytest_cache", ".git"}
 FORBIDDEN_SDIST_PATHS = {"SPEC-VISUALIZER.md"}
