@@ -143,6 +143,18 @@ def validate_destinations(outputs, protected, args):
             )
 
 
+def _creation_mode(destination):
+    """Observe normal file creation permissions without changing process umask."""
+    # The empty probe contains no report data; its private parent prevents access
+    # even when the process umask permits public reads. Use the destination's
+    # filesystem so inherited creation permissions apply there too.
+    with (
+        tempfile.TemporaryDirectory(dir=destination.parent, prefix=".sdr-mode-") as directory,
+        (Path(directory) / "probe").open("x", encoding="utf-8") as probe,
+    ):
+        return stat.S_IMODE(os.fstat(probe.fileno()).st_mode)
+
+
 def write_artifacts(artifacts):
     """Stage all UTF-8 files before replacing any final destination.
 
@@ -163,8 +175,13 @@ def write_artifacts(artifacts):
             ) as handle:
                 temporary = Path(handle.name)
                 staged.append((temporary, current))
-                if not private and current.exists():
-                    os.chmod(temporary, stat.S_IMODE(current.stat().st_mode))
+                if not private:
+                    mode = (
+                        stat.S_IMODE(current.stat().st_mode)
+                        if current.exists()
+                        else _creation_mode(current)
+                    )
+                    os.chmod(temporary, mode)
                 handle.write(text)
         for temporary, current in staged:
             os.replace(temporary, current)

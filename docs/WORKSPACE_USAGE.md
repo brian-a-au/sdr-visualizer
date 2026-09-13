@@ -278,10 +278,13 @@ the same 16,000,000-byte cap. Oversized evidence rejects without truncation and
 asks for a narrower scope. No-usage acceptance behavior is unchanged.
 
 All intended feature artifacts are serialized and checked before writing.
-Sibling temporary files are staged before final replacement; usage JSON uses
-owner-only permissions where supported. Staging failure preserves existing
-outputs. A replacement failure can leave earlier complete files replaced; it
-returns exit 1, names the affected artifact, and cleans remaining temporary files.
+Sibling temporary files are staged before final replacement. New HTML and full
+report JSON use normal umask-derived file creation permissions; replacements
+preserve their existing destination permissions. Standalone usage JSON uses
+owner-only permissions where supported, including when replacing an existing
+file. Staging failure preserves existing outputs. A replacement failure can
+leave earlier complete files replaced; it returns exit 1, names the affected
+artifact, and cleans remaining temporary files.
 Collection interruption terminates workers and writes no new final artifacts.
 Input/schema/identity errors return 3. Recorded API failures return 0 with a
 warning if the truthful failure evidence and report were successfully written.

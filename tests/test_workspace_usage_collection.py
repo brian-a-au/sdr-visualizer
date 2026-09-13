@@ -766,6 +766,29 @@ def test_protocol_complete_positive_and_zero_timeout():
     assert protocol([], timeout=0)["retrieval"]["status"] == "failed"
 
 
+def test_final_clock_reversal_retains_project_after_timestamped_progress():
+    stamp = "2026-09-12T12:00:00Z"
+    project = clean_project()
+    progress = retrieval(projects_discovered=1, projects_fetched=1)
+    final = {
+        **progress,
+        "started_at": None,
+        "finished_at": None,
+        "limitations": [collector.CLOCK_REVERSAL_LIMITATION],
+    }
+    result = protocol(
+        [
+            {"kind": "progress", "retrieval": progress},
+            {"kind": "project", "project": project, "received_at": stamp},
+            {"kind": "done", "retrieval": final, "checked_at": stamp, "failure": None},
+        ]
+    )
+    assert result["projects"] == [project]
+    assert result["checked_at"] == stamp
+    assert result["retrieval"] == final
+    assert result["failure"] is None
+
+
 def test_module_entry_point_without_credentials(monkeypatch):
     import io
     import runpy

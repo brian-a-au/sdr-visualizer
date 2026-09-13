@@ -1,6 +1,9 @@
 """One-command Workspace augmentation using only synthetic offline acquisition."""
 
 import json
+import os
+import subprocess
+import sys
 from pathlib import Path
 
 import pytest
@@ -508,6 +511,104 @@ def test_existing_html_permissions_preserved_when_staged(tmp_path, empty_lookup)
     html.chmod(0o640)
     assert main(args) == 0
     assert stat.S_IMODE(html.stat().st_mode) == 0o640
+
+
+@pytest.mark.skipif(os.name != "posix", reason="POSIX file permission contract")
+@pytest.mark.parametrize("mask", [0o022, 0o027, 0o077])
+def test_staged_output_permissions_follow_creation_and_replacement_policy(tmp_path, mask):
+    # Isolate umask changes from this test process and any concurrent threads.
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-c",
+            """
+import os
+import stat
+import sys
+from pathlib import Path
+from sdr_visualizer.cli.workspace_usage import write_artifacts
+
+root = Path(sys.argv[1])
+os.umask(int(sys.argv[2]))
+ordinary = root / "ordinary.html"
+ordinary.write_text("ordinary output")
+expected = stat.S_IMODE(ordinary.stat().st_mode)
+artifacts = []
+for name, private, existing_mode in [
+    ("new.html", False, None),
+    ("new.json", False, None),
+    ("new.workspace-usage.json", True, None),
+    ("existing.html", False, 0o604),
+    ("existing.json", False, 0o640),
+    ("existing.workspace-usage.json", True, 0o644),
+]:
+    path = root / name
+    if existing_mode is not None:
+        path.write_text("old")
+        path.chmod(existing_mode)
+    artifacts.append((path, "new content", private))
+write_artifacts(artifacts)
+for path, _, private in artifacts:
+    mode = 0o600 if private else {
+        "existing.html": 0o604, "existing.json": 0o640,
+    }.get(path.name, expected)
+    assert stat.S_IMODE(path.stat().st_mode) == mode, path.name
+    assert path.read_text() == "new content"
+assert len(list(root.iterdir())) == len(artifacts) + 1
+""",
+            str(tmp_path),
+            str(mask),
+        ],
+        capture_output=True,
+        text=True,
+        timeout=30,
+    )
+    assert result.returncode == 0, result.stderr
+
+
+@pytest.mark.parametrize("failure", ["create", "stat", "chmod"])
+def test_creation_mode_failure_cleans_staging_and_preserves_finals(tmp_path, monkeypatch, failure):
+    from sdr_visualizer.cli import workspace_usage as helper
+
+    existing = tmp_path / "existing.html"
+    existing.write_text("old content")
+    destination = tmp_path / "new.json"
+
+    if failure == "create":
+        original = Path.open
+
+        def open_probe(path, *args, **kwargs):
+            if path.name == "probe":
+                raise OSError("synthetic mode failure")
+            return original(path, *args, **kwargs)
+
+        monkeypatch.setattr(Path, "open", open_probe)
+    elif failure == "stat":
+        import stat
+
+        original = helper.os.fstat
+
+        def stat_probe(fd):
+            result = original(fd)
+            if stat.S_ISREG(result.st_mode):
+                raise OSError("synthetic mode failure")
+            return result
+
+        monkeypatch.setattr(helper.os, "fstat", stat_probe)
+    else:
+        original = helper.os.chmod
+
+        def chmod(path, mode):
+            if Path(path).name.startswith(".new.json."):
+                raise OSError("synthetic mode failure")
+            return original(path, mode)
+
+        monkeypatch.setattr(helper.os, "chmod", chmod)
+
+    with pytest.raises(OSError, match="could not write .*new.json: synthetic mode failure"):
+        helper.write_artifacts([(existing, "replacement", False), (destination, "new", False)])
+    assert existing.read_text() == "old content"
+    assert list(tmp_path.iterdir()) == [existing]
 
 
 @pytest.mark.parametrize(
