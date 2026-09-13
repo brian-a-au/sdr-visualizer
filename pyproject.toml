@@ -11,6 +11,10 @@ dependencies = [
     "jinja2>=3.1",
 ]
 
+[project.optional-dependencies]
+workspace-cja = ["cjapy==0.3.1", "requests>=2.32"]
+workspace-aa = ["aanalytics2==0.5.3.post1", "requests>=2.32"]
+
 [project.scripts]
 sdr-visualizer = "sdr_visualizer.cli.main:main"
 cja-lineage = "sdr_visualizer.cli.lineage:main"
