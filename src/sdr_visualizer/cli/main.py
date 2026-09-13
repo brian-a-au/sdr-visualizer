@@ -105,7 +105,38 @@ def main(argv: list[str] | None = None) -> int:
         )
         args.platform = None
 
+    usage_enabled = args.collect_workspace_usage or args.workspace_usage is not None
     try:
+        if usage_enabled or any(
+            getattr(args, name) is not None
+            for name in (
+                "workspace_usage_config",
+                "workspace_usage_scope",
+                "workspace_usage_project",
+                "workspace_usage_component",
+                "workspace_usage_output",
+            )
+        ):
+            from sdr_visualizer.cli import workspace_usage as usage_cli
+
+            usage_cli.validate_options(args)
+            known_outputs = []
+            for role, value in (
+                ("HTML output", args.output),
+                ("JSON output", args.json),
+                ("Workspace usage output", args.workspace_usage_output),
+            ):
+                if value is not None:
+                    known_outputs.append((role, Path(value)))
+            if args.collect_workspace_usage and args.output and args.workspace_usage_output is None:
+                explicit_html = Path(args.output)
+                known_outputs.append(
+                    (
+                        "Workspace usage output",
+                        explicit_html.with_name(explicit_html.stem + ".workspace-usage.json"),
+                    )
+                )
+            usage_cli.validate_destinations(known_outputs, _protected_input_paths(args), args)
         _validate_workspace_replay_options(args)
         usage = None
         if args.workspace_usage is not None:
@@ -125,7 +156,35 @@ def main(argv: list[str] | None = None) -> int:
             )
             baseline = _load_baseline(args, impl) if args.compare_to else None
             contributing_impls = [impl, *([baseline] if baseline is not None else [])]
-        if usage is not None:
+        output_path = _resolve_output_path(args.output, impl.instance_id)
+        json_output_path = Path(args.json) if args.json else None
+        usage_output_path = None
+        if usage_enabled:
+            outputs = [("HTML output", output_path)]
+            if json_output_path is not None:
+                outputs.append(("JSON output", json_output_path))
+            if args.collect_workspace_usage:
+                usage_output_path = (
+                    Path(args.workspace_usage_output)
+                    if args.workspace_usage_output is not None
+                    else output_path.with_name(output_path.stem + ".workspace-usage.json")
+                )
+                outputs.append(("Workspace usage output", usage_output_path))
+            usage_cli.validate_destinations(outputs, _protected_input_paths(args), args)
+        if args.collect_workspace_usage:
+            from sdr_visualizer.usage.collector import collect_workspace_usage
+
+            bound = collect_workspace_usage(
+                impl, config_path=args.workspace_usage_config, **usage_cli.collection_options(args)
+            )
+            impl.supplementary_data["workspace_usage"] = bound
+            usage = bound.evidence
+            if usage["collection"].get("failure"):
+                print(
+                    "sdr-visualizer: warning: Workspace lookup failed; retaining available evidence",
+                    file=sys.stderr,
+                )
+        elif usage is not None:
             from sdr_visualizer.core.workspace_usage import bind_workspace_usage
 
             impl.supplementary_data["workspace_usage"] = bind_workspace_usage(
@@ -154,8 +213,6 @@ def main(argv: list[str] | None = None) -> int:
                 file=sys.stderr,
             )
         html = render_payload(payload, title=args.title, color_pack=args.color_pack)
-        output_path = _resolve_output_path(args.output, impl.instance_id)
-        json_output_path = Path(args.json) if args.json else None
         json_text = None
         if args.json and usage is not None:
             from sdr_visualizer.render.workspace_usage import check_artifact_size
@@ -175,9 +232,41 @@ def main(argv: list[str] | None = None) -> int:
     except (InvalidSnapshotError, UnknownPlatformError) as exc:
         print(f"sdr-visualizer: {exc}", file=sys.stderr)
         return INPUT_VALIDATION_ERROR
+    except KeyboardInterrupt:
+        if not usage_enabled:
+            raise
+        print(
+            "sdr-visualizer: Workspace generation interrupted; no artifacts written",
+            file=sys.stderr,
+        )
+        return RUNTIME_ERROR
     except Exception as exc:
         print(f"sdr-visualizer: unexpected error: {exc}", file=sys.stderr)
         return RUNTIME_ERROR
+
+    if usage_enabled:
+        artifacts = [(output_path, html, False)]
+        if json_output_path is not None:
+            artifacts.append((json_output_path, json_text, False))
+        if usage_output_path is not None:
+            # The already checked 1 MiB usage branch includes this envelope.
+            # Compact UTF-8 keeps the saved file below the 2 MiB replay input cap.
+            usage_text = (
+                json.dumps(usage, ensure_ascii=False, separators=(",", ":"), allow_nan=False) + "\n"
+            )
+            artifacts.append((usage_output_path, usage_text, True))
+        try:
+            usage_cli.write_artifacts(artifacts)
+        except (OSError, KeyboardInterrupt) as exc:
+            print(
+                f"sdr-visualizer: {exc or 'Workspace artifact writing interrupted'}",
+                file=sys.stderr,
+            )
+            return RUNTIME_ERROR
+        if not args.quiet:
+            for path, _, _ in artifacts:
+                print(f"sdr-visualizer: wrote {path}", file=sys.stderr)
+        return SUCCESS
 
     try:
         output_path.write_text(html, encoding="utf-8")
@@ -210,6 +299,8 @@ def main(argv: list[str] | None = None) -> int:
 
 def _validate_workspace_replay_options(args: argparse.Namespace) -> None:
     """Reject replay-mode errors and directory pollution before selecting snapshots."""
+    if args.collect_workspace_usage:
+        return
     if args.workspace_usage is None:
         if args.workspace_usage_org is not None or args.workspace_usage_company is not None:
             raise InvalidSnapshotError("Workspace usage context requires --workspace-usage")
@@ -474,7 +565,13 @@ def _build_parser() -> argparse.ArgumentParser:
         "--output",
         help="HTML output path. Default: ./visualize-{instance_id}-{timestamp}.html",
     )
-    p.add_argument(
+    usage_modes = p.add_mutually_exclusive_group()
+    usage_modes.add_argument(
+        "--collect-workspace-usage",
+        action="store_true",
+        help="Collect optional Workspace usage using the selected platform SDK and save evidence.",
+    )
+    usage_modes.add_argument(
         "--workspace-usage",
         metavar="PATH",
         help="Replay saved Workspace usage evidence with the original snapshot.",
@@ -488,6 +585,33 @@ def _build_parser() -> argparse.ArgumentParser:
         "--workspace-usage-company",
         metavar="COMPANY_ID",
         help="Assert the Analytics company for AA Workspace evidence only.",
+    )
+    p.add_argument(
+        "--workspace-usage-config",
+        metavar="PATH",
+        help="Collection credentials file; otherwise use the complete environment quartet.",
+    )
+    p.add_argument(
+        "--workspace-usage-scope",
+        choices=("all", "owned", "shared"),
+        help="Project index scope for collection (default: all).",
+    )
+    p.add_argument(
+        "--workspace-usage-project",
+        action="append",
+        metavar="ID",
+        help="Collect an explicit project ID; repeat as needed, exclusive with scope.",
+    )
+    p.add_argument(
+        "--workspace-usage-component",
+        action="append",
+        metavar="TYPE=ID",
+        help="Check an exact catalog identity; repeat to restrict collection scope.",
+    )
+    p.add_argument(
+        "--workspace-usage-output",
+        metavar="PATH",
+        help="Collected evidence output (default: <html-stem>.workspace-usage.json).",
     )
     p.add_argument("--title", help="Override the document title.")
     p.add_argument(
