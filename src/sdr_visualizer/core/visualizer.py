@@ -25,9 +25,26 @@ def visualize(
     platform: str | None = None,
     title: str | None = None,
     color_pack: str = "default",
+    workspace_usage: dict[str, Any] | None = None,
+    organization_context: str | None = None,
+    company_context: str | None = None,
 ) -> str:
     """Adapt a parsed snapshot and return the rendered HTML string."""
+    if workspace_usage is None:
+        if organization_context is not None or company_context is not None:
+            raise InvalidSnapshotError("Workspace usage context requires usage evidence")
+    elif not organization_context:
+        raise InvalidSnapshotError("Workspace usage requires organization context")
     impl = build_implementation(snapshot, source=source, platform=platform)
+    if workspace_usage is not None:
+        from sdr_visualizer.core.workspace_usage import bind_workspace_usage
+
+        impl.supplementary_data["workspace_usage"] = bind_workspace_usage(
+            workspace_usage,
+            impl,
+            organization_context=organization_context,
+            company_context=company_context,
+        )
     return render(impl, title=title, color_pack=color_pack)
 
 
