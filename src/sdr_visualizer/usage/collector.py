@@ -578,6 +578,8 @@ def _receive(process, request, timeout=180):
                     else:
                         raise ValueError
     except (ValueError, TypeError, KeyError, IndexError, TransportError):
+        # Malformed or failed worker output falls through to a bounded partial/failure
+        # result below, retaining project observations that already passed validation.
         pass
     _limit(retrieval, LIMITATIONS["worker"])
     end = _now()

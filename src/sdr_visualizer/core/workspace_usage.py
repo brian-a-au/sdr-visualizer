@@ -203,6 +203,7 @@ def _validate(value, schema, path="$"):
                 _validate(value, branch, path)
                 matches += 1
             except InvalidSnapshotError:
+                # Rejected branches are expected; only successful matches count.
                 pass
         if matches != 1:
             _reject(path, "invalid object variant")
