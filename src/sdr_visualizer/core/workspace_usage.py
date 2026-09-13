@@ -291,6 +291,8 @@ def _retrieval(collection):
         (not explicit and discovered > 1000)
         or (explicit and discovered != len(collection["project_scope"]["project_ids"]))
         or fetched + failed > min(200, discovered)
+        or r["pages_fetched"] + fetched + failed > r["request_attempts"]
+        or (explicit and r["pages_fetched"] != 0)
     ):
         _reject("collection.retrieval", "inconsistent counters")
     if r["status"] == "complete" and (fetched != discovered or failed or r["limitations"]):

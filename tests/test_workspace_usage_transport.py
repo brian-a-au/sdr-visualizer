@@ -211,3 +211,23 @@ def test_expired_budget_stops_before_send(monkeypatch):
 def test_encoded_traversal_is_rejected(identifier):
     with pytest.raises(TransportError):
         BoundedTransport("cja").route_url("project", identifier)
+
+
+def test_attempt_observer_precedes_send_even_when_transport_stalls(monkeypatch):
+    import requests
+
+    observed = []
+
+    def failure(*args, **kwargs):
+        assert observed == [1]
+        raise requests.Timeout("private transport detail")
+
+    monkeypatch.setattr(requests.Session, "request", failure)
+    with BoundedTransport("cja", on_attempt=observed.append) as transport:
+        with pytest.raises(TransportError):
+            transport.get_json(transport.route_url("projects"))
+        assert transport.request_attempts == 1
+        transport.request_attempts = 256
+        with pytest.raises(TransportError):
+            transport.get_json(transport.route_url("projects"))
+    assert observed == [1]

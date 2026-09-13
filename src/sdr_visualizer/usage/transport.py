@@ -67,12 +67,13 @@ class Receipt:
 class BoundedTransport:
     """Guard requests before SDK authentication; use only in the API subprocess."""
 
-    def __init__(self, platform, company_id=None, deadline_seconds=180):
+    def __init__(self, platform, company_id=None, deadline_seconds=180, *, on_attempt=None):
         self.platform, self.company_id = platform, company_id
         if platform not in ("aa", "cja") or (platform == "aa" and not company_id):
             raise ValueError("Invalid transport platform context")
         self.deadline = time.monotonic() + min(deadline_seconds, 180)
         self.request_attempts = self.transferred_bytes = 0
+        self.on_attempt = on_attempt
         self.active = False
 
     def route_url(self, kind, identifier=None):
@@ -172,6 +173,8 @@ class BoundedTransport:
             if self.request_attempts >= 256 or time.monotonic() >= self.deadline:
                 raise TransportError("Workspace request budget exhausted")
             self.request_attempts += 1
+            if self.on_attempt is not None:
+                self.on_attempt(self.request_attempts)
             response = None
             try:
                 response = self.original(session, method, url, **kwargs)

@@ -137,6 +137,4 @@ def initialize_sdk(platform, credentials, transport, company_id=None):
         except (TransportError, InvalidSnapshotError):
             raise
         except Exception:
-            raise TransportError(
-                "Workspace authentication failed", failure="permission_denied"
-            ) from None
+            raise TransportError("Workspace authentication failed") from None

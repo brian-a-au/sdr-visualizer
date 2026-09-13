@@ -492,7 +492,10 @@ def test_missing_retrieval_interval_requires_clock_reversal_statement():
 def test_explicit_retrieval_counts_match_requested_scope():
     impl, value = example()
     value["collection"]["project_scope"] = {"kind": "explicit_projects", "project_ids": ["a", "b"]}
-    value["collection"]["retrieval"] = retrieval() | {"include_type": "explicit"}
+    value["collection"]["retrieval"] = retrieval() | {
+        "include_type": "explicit",
+        "pages_fetched": 0,
+    }
     with pytest.raises(InvalidSnapshotError, match="counters"):
         bind(impl, value)
     value["collection"]["retrieval"].update(projects_discovered=2, projects_fetched=2)
@@ -531,4 +534,19 @@ def test_cross_record_project_name_conflict():
     value["results"][0]["projects"] = [{"id": "p", "name": None}]
     value["results"][1]["projects"] = [{"id": "p", "name": "Named"}]
     with pytest.raises(InvalidSnapshotError, match="conflicting"):
+        bind(impl, value)
+
+
+def test_retrieval_completed_operations_require_actual_request_attempts():
+    impl, value = example()
+    value["collection"]["retrieval"] = retrieval() | {"request_attempts": 1}
+    with pytest.raises(InvalidSnapshotError, match="counters"):
+        bind(impl, value)
+
+
+def test_explicit_project_retrieval_does_not_claim_index_pages():
+    impl, value = example()
+    value["collection"]["project_scope"] = {"kind": "explicit_projects", "project_ids": ["p"]}
+    value["collection"]["retrieval"] = retrieval() | {"include_type": "explicit"}
+    with pytest.raises(InvalidSnapshotError, match="counters"):
         bind(impl, value)

@@ -140,6 +140,7 @@ def test_sdk_auth_failure_is_sanitized(monkeypatch, body, status):
         with pytest.raises(TransportError) as error:
             initialize_sdk("cja", credentials, transport)
         assert "private" not in str(error.value)
+        assert error.value.failure == ("permission_denied" if status == 401 else "collection_error")
         assert transport.request_attempts == 1
         with pytest.raises(InvalidSnapshotError):
             initialize_sdk("wrong", credentials, transport)
