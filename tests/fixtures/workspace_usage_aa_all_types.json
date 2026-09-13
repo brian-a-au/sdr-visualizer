@@ -1,0 +1,448 @@
+{
+  "schema_version": 1,
+  "target": {
+    "platform": "aa",
+    "ims_org_id": "org",
+    "snapshot_digest": {
+      "algorithm": "sdr-python-json-sha256-v1",
+      "value": "7094aba758f6a15cdb07e0d7b6cb96f49c236ed2b3e72570a4c3a2ccaad7875a"
+    },
+    "rsid": "clean.prod",
+    "global_company_id": "company"
+  },
+  "collection": {
+    "status": "complete",
+    "project_scope": {
+      "kind": "explicit_projects",
+      "project_ids": [
+        "synthetic-project"
+      ]
+    },
+    "permission_visibility": "limited",
+    "limitations": []
+  },
+  "requested_components": [
+    {
+      "type": "metric",
+      "id": "metrics/event1"
+    },
+    {
+      "type": "metric",
+      "id": "metrics/event2"
+    },
+    {
+      "type": "metric",
+      "id": "metrics/event3"
+    },
+    {
+      "type": "metric",
+      "id": "metrics/event4"
+    },
+    {
+      "type": "metric",
+      "id": "metrics/event5"
+    },
+    {
+      "type": "metric",
+      "id": "metrics/event6"
+    },
+    {
+      "type": "dimension",
+      "id": "variables/evar1"
+    },
+    {
+      "type": "dimension",
+      "id": "variables/evar2"
+    },
+    {
+      "type": "dimension",
+      "id": "variables/evar3"
+    },
+    {
+      "type": "dimension",
+      "id": "variables/evar4"
+    },
+    {
+      "type": "dimension",
+      "id": "variables/evar5"
+    },
+    {
+      "type": "dimension",
+      "id": "variables/evar6"
+    },
+    {
+      "type": "dimension",
+      "id": "variables/evar7"
+    },
+    {
+      "type": "dimension",
+      "id": "variables/evar8"
+    },
+    {
+      "type": "dimension",
+      "id": "variables/prop1"
+    },
+    {
+      "type": "dimension",
+      "id": "variables/prop2"
+    },
+    {
+      "type": "dimension",
+      "id": "variables/prop3"
+    },
+    {
+      "type": "dimension",
+      "id": "variables/prop4"
+    },
+    {
+      "type": "dimension",
+      "id": "variables/prop5"
+    },
+    {
+      "type": "segment",
+      "id": "s_clean_mobile"
+    },
+    {
+      "type": "calculated_metric",
+      "id": "cm_clean_conversion_rate"
+    }
+  ],
+  "results": [
+    {
+      "component": {
+        "type": "metric",
+        "id": "metrics/event1"
+      },
+      "status": "complete",
+      "checked_at": "2026-09-12T12:00:00Z",
+      "match_basis": "exact_component_id",
+      "projects": [
+        {
+          "id": "synthetic-project",
+          "name": "Synthetic weekly analysis"
+        }
+      ],
+      "limitations": []
+    },
+    {
+      "component": {
+        "type": "metric",
+        "id": "metrics/event2"
+      },
+      "status": "complete",
+      "checked_at": "2026-09-12T12:00:00Z",
+      "match_basis": "exact_component_id",
+      "projects": [
+        {
+          "id": "synthetic-project",
+          "name": "Synthetic weekly analysis"
+        }
+      ],
+      "limitations": []
+    },
+    {
+      "component": {
+        "type": "metric",
+        "id": "metrics/event3"
+      },
+      "status": "complete",
+      "checked_at": "2026-09-12T12:00:00Z",
+      "match_basis": "exact_component_id",
+      "projects": [
+        {
+          "id": "synthetic-project",
+          "name": "Synthetic weekly analysis"
+        }
+      ],
+      "limitations": []
+    },
+    {
+      "component": {
+        "type": "metric",
+        "id": "metrics/event4"
+      },
+      "status": "complete",
+      "checked_at": "2026-09-12T12:00:00Z",
+      "match_basis": "exact_component_id",
+      "projects": [
+        {
+          "id": "synthetic-project",
+          "name": "Synthetic weekly analysis"
+        }
+      ],
+      "limitations": []
+    },
+    {
+      "component": {
+        "type": "metric",
+        "id": "metrics/event5"
+      },
+      "status": "complete",
+      "checked_at": "2026-09-12T12:00:00Z",
+      "match_basis": "exact_component_id",
+      "projects": [
+        {
+          "id": "synthetic-project",
+          "name": "Synthetic weekly analysis"
+        }
+      ],
+      "limitations": []
+    },
+    {
+      "component": {
+        "type": "metric",
+        "id": "metrics/event6"
+      },
+      "status": "complete",
+      "checked_at": "2026-09-12T12:00:00Z",
+      "match_basis": "exact_component_id",
+      "projects": [
+        {
+          "id": "synthetic-project",
+          "name": "Synthetic weekly analysis"
+        }
+      ],
+      "limitations": []
+    },
+    {
+      "component": {
+        "type": "dimension",
+        "id": "variables/evar1"
+      },
+      "status": "complete",
+      "checked_at": "2026-09-12T12:00:00Z",
+      "match_basis": "exact_component_id",
+      "projects": [
+        {
+          "id": "synthetic-project",
+          "name": "Synthetic weekly analysis"
+        }
+      ],
+      "limitations": []
+    },
+    {
+      "component": {
+        "type": "dimension",
+        "id": "variables/evar2"
+      },
+      "status": "complete",
+      "checked_at": "2026-09-12T12:00:00Z",
+      "match_basis": "exact_component_id",
+      "projects": [
+        {
+          "id": "synthetic-project",
+          "name": "Synthetic weekly analysis"
+        }
+      ],
+      "limitations": []
+    },
+    {
+      "component": {
+        "type": "dimension",
+        "id": "variables/evar3"
+      },
+      "status": "complete",
+      "checked_at": "2026-09-12T12:00:00Z",
+      "match_basis": "exact_component_id",
+      "projects": [
+        {
+          "id": "synthetic-project",
+          "name": "Synthetic weekly analysis"
+        }
+      ],
+      "limitations": []
+    },
+    {
+      "component": {
+        "type": "dimension",
+        "id": "variables/evar4"
+      },
+      "status": "complete",
+      "checked_at": "2026-09-12T12:00:00Z",
+      "match_basis": "exact_component_id",
+      "projects": [
+        {
+          "id": "synthetic-project",
+          "name": "Synthetic weekly analysis"
+        }
+      ],
+      "limitations": []
+    },
+    {
+      "component": {
+        "type": "dimension",
+        "id": "variables/evar5"
+      },
+      "status": "complete",
+      "checked_at": "2026-09-12T12:00:00Z",
+      "match_basis": "exact_component_id",
+      "projects": [
+        {
+          "id": "synthetic-project",
+          "name": "Synthetic weekly analysis"
+        }
+      ],
+      "limitations": []
+    },
+    {
+      "component": {
+        "type": "dimension",
+        "id": "variables/evar6"
+      },
+      "status": "complete",
+      "checked_at": "2026-09-12T12:00:00Z",
+      "match_basis": "exact_component_id",
+      "projects": [
+        {
+          "id": "synthetic-project",
+          "name": "Synthetic weekly analysis"
+        }
+      ],
+      "limitations": []
+    },
+    {
+      "component": {
+        "type": "dimension",
+        "id": "variables/evar7"
+      },
+      "status": "complete",
+      "checked_at": "2026-09-12T12:00:00Z",
+      "match_basis": "exact_component_id",
+      "projects": [
+        {
+          "id": "synthetic-project",
+          "name": "Synthetic weekly analysis"
+        }
+      ],
+      "limitations": []
+    },
+    {
+      "component": {
+        "type": "dimension",
+        "id": "variables/evar8"
+      },
+      "status": "complete",
+      "checked_at": "2026-09-12T12:00:00Z",
+      "match_basis": "exact_component_id",
+      "projects": [
+        {
+          "id": "synthetic-project",
+          "name": "Synthetic weekly analysis"
+        }
+      ],
+      "limitations": []
+    },
+    {
+      "component": {
+        "type": "dimension",
+        "id": "variables/prop1"
+      },
+      "status": "complete",
+      "checked_at": "2026-09-12T12:00:00Z",
+      "match_basis": "exact_component_id",
+      "projects": [
+        {
+          "id": "synthetic-project",
+          "name": "Synthetic weekly analysis"
+        }
+      ],
+      "limitations": []
+    },
+    {
+      "component": {
+        "type": "dimension",
+        "id": "variables/prop2"
+      },
+      "status": "complete",
+      "checked_at": "2026-09-12T12:00:00Z",
+      "match_basis": "exact_component_id",
+      "projects": [
+        {
+          "id": "synthetic-project",
+          "name": "Synthetic weekly analysis"
+        }
+      ],
+      "limitations": []
+    },
+    {
+      "component": {
+        "type": "dimension",
+        "id": "variables/prop3"
+      },
+      "status": "complete",
+      "checked_at": "2026-09-12T12:00:00Z",
+      "match_basis": "exact_component_id",
+      "projects": [
+        {
+          "id": "synthetic-project",
+          "name": "Synthetic weekly analysis"
+        }
+      ],
+      "limitations": []
+    },
+    {
+      "component": {
+        "type": "dimension",
+        "id": "variables/prop4"
+      },
+      "status": "complete",
+      "checked_at": "2026-09-12T12:00:00Z",
+      "match_basis": "exact_component_id",
+      "projects": [
+        {
+          "id": "synthetic-project",
+          "name": "Synthetic weekly analysis"
+        }
+      ],
+      "limitations": []
+    },
+    {
+      "component": {
+        "type": "dimension",
+        "id": "variables/prop5"
+      },
+      "status": "complete",
+      "checked_at": "2026-09-12T12:00:00Z",
+      "match_basis": "exact_component_id",
+      "projects": [
+        {
+          "id": "synthetic-project",
+          "name": "Synthetic weekly analysis"
+        }
+      ],
+      "limitations": []
+    },
+    {
+      "component": {
+        "type": "segment",
+        "id": "s_clean_mobile"
+      },
+      "status": "complete",
+      "checked_at": "2026-09-12T12:00:00Z",
+      "match_basis": "exact_component_id",
+      "projects": [
+        {
+          "id": "synthetic-project",
+          "name": "Synthetic weekly analysis"
+        }
+      ],
+      "limitations": []
+    },
+    {
+      "component": {
+        "type": "calculated_metric",
+        "id": "cm_clean_conversion_rate"
+      },
+      "status": "complete",
+      "checked_at": "2026-09-12T12:00:00Z",
+      "match_basis": "exact_component_id",
+      "projects": [
+        {
+          "id": "synthetic-project",
+          "name": "Synthetic weekly analysis"
+        }
+      ],
+      "limitations": []
+    }
+  ]
+}
