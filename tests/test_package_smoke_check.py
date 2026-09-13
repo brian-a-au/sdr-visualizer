@@ -97,7 +97,10 @@ def test_artifact_metadata_parsers_report_only_direct_runtime_requirements(tmp_p
             "Metadata-Version: 2.4\n"
             "Name: sdr-visualizer\n"
             "Version: 1.0.3\n"
-            "Requires-Dist: jinja2>=3.1\n",
+            "Requires-Dist: jinja2>=3.1\n"
+            "Requires-Dist: cjapy==0.3.1; extra == 'workspace-cja'\n"
+            "Requires-Dist: aanalytics2==0.5.3.post1; extra == 'workspace-aa'\n"
+            "Requires-Dist: requests>=2.32; extra == 'workspace-aa' or extra == 'workspace-cja'\n",
         )
     assert package_smoke_check.artifact_metadata(wheel) == ("1.0.3", {"jinja2"})
 

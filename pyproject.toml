@@ -28,6 +28,7 @@ Issues = "https://github.com/brian-a-au/sdr-visualizer/issues"
 
 [dependency-groups]
 dev = [
+    "packaging>=24.0",
     "pytest>=8.0",
     "ruff>=0.4",
     "hypothesis>=6.100",

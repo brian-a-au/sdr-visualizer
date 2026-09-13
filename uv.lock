@@ -1295,6 +1295,7 @@ browser = [
 dev = [
     { name = "hypothesis" },
     { name = "jsonschema" },
+    { name = "packaging" },
     { name = "pytest" },
     { name = "pytest-cov" },
     { name = "pyyaml" },
@@ -1316,6 +1317,7 @@ browser = [{ name = "playwright", specifier = ">=1.43" }]
 dev = [
     { name = "hypothesis", specifier = ">=6.100" },
     { name = "jsonschema", specifier = ">=4.21" },
+    { name = "packaging", specifier = ">=24.0" },
     { name = "pytest", specifier = ">=8.0" },
     { name = "pytest-cov", specifier = ">=5.0" },
     { name = "pyyaml", specifier = ">=6.0" },
