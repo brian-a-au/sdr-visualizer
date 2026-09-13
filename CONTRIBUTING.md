@@ -11,8 +11,11 @@ These are settled decisions in the
 [`product contract`](docs/PRODUCT_CONTRACT.md), not open questions:
 
 - **Static output, dynamic interaction.** The tool emits one self-contained
-  HTML file: embedded JSON, embedded CSS, embedded JS. No fetches, no CDNs,
+  HTML file: embedded JSON, embedded CSS, embedded JS. No browser fetches, no CDNs,
   no server, no build step for the consumer.
+  Optional Python-side Workspace API collection follows
+  [WORKSPACE_USAGE.md](docs/WORKSPACE_USAGE.md); ordinary generation and replay
+  remain offline.
 - **Server-side build, client-side render.** Analysis work happens in
   Python, where seconds are fine. The client reads, filters, and renders
   against a millisecond budget.
@@ -38,7 +41,7 @@ is being met. `input/series.py` is visualizer-only and exempt.
 ## Developing
 
 ```bash
-uv sync --dev --group browser    # environment
+uv sync --all-extras --dev --group browser    # environment, including SDK tests
 uv run playwright install chromium webkit
 uv run pytest                    # tests (includes browser tests)
 uv run pytest --ignore=tests/test_browser_functional.py --cov=sdr_visualizer --cov-branch --cov-report=term-missing --cov-report=json --cov-fail-under=99  # Python coverage gate

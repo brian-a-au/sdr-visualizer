@@ -1,6 +1,6 @@
 [project]
 name = "sdr-visualizer"
-version = "1.1.7"
+version = "1.2.0"
 description = "Static-output visual catalog generator for Adobe Customer Journey Analytics and Adobe Analytics implementations."
 readme = "README.md"
 license = "MIT"
@@ -10,6 +10,10 @@ requires-python = ">=3.11"
 dependencies = [
     "jinja2>=3.1",
 ]
+
+[project.optional-dependencies]
+workspace-cja = ["cjapy==0.3.1", "requests>=2.32"]
+workspace-aa = ["aanalytics2==0.5.3.post1", "requests>=2.32"]
 
 [project.scripts]
 sdr-visualizer = "sdr_visualizer.cli.main:main"
@@ -24,6 +28,7 @@ Issues = "https://github.com/brian-a-au/sdr-visualizer/issues"
 
 [dependency-groups]
 dev = [
+    "packaging>=24.0",
     "pytest>=8.0",
     "ruff>=0.4",
     "hypothesis>=6.100",
@@ -54,6 +59,7 @@ include = [
     "scripts",
     "docs/*.md",
     "docs/payload-schema.json",
+    "docs/workspace-usage-schema.json",
     "CHANGELOG.md",
     "CODE_OF_CONDUCT.md",
     "CONTRIBUTING.md",

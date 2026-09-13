@@ -72,6 +72,15 @@ TREND_BUILD_BUDGET_S = TREND_SERIES_LEN * 1.0
 TREND_SIZE_BUDGET_MB = SIZE_BUDGET_MB + 0.5
 
 
+def _load_usage_fixture():
+    spec = importlib.util.spec_from_file_location(
+        "workspace_usage_fixture", REPO / "scripts" / "workspace_usage_fixture.py"
+    )
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
 def _load_mutate():
     spec = importlib.util.spec_from_file_location(
         "mutate_fixture", REPO / "scripts" / "mutate_fixture.py"
@@ -155,12 +164,15 @@ def _measure(
     adapt,
     build_budget_s: float = BUILD_BUDGET_S,
     size_budget_mb: float = SIZE_BUDGET_MB,
+    usage: bytes | None = None,
 ) -> tuple[list[str], str]:
     times = []
     html = ""
     for _ in range(3):
         start = time.perf_counter()
         impl = adapt(snap)
+        if usage is not None:
+            _load_usage_fixture().attach_usage(impl, usage)
         html = render(impl)
         times.append(time.perf_counter() - start)
     elapsed = statistics.median(times)
@@ -236,7 +248,35 @@ def main() -> int:
     else:
         print("note: cja_snapshot_xl.json not generated; skipping 2,000-component gate")
 
+    # Preserve every original gate, then repeat its tier with bounded evidence.
+    # Small approaches the HTML cap; XL approaches the normalized 1 MiB cap.
+    usage_fixture = _load_usage_fixture()
+    usage_failures = []
+    for path, adapter, build_b, size_b, projects in [
+        (CJA_SMALL, cja_adapt, SMALL_BUILD_BUDGET_S, SMALL_SIZE_BUDGET_MB, 500),
+        (CJA_MEDIUM, cja_adapt, MEDIUM_BUILD_BUDGET_S, MEDIUM_SIZE_BUDGET_MB, 10_000),
+        (CJA_LARGE, cja_adapt, BUILD_BUDGET_S, SIZE_BUDGET_MB, 10_000),
+        (AA_LARGE, aa_adapt, BUILD_BUDGET_S, SIZE_BUDGET_MB, 10_000),
+        (CJA_XL, cja_adapt, XL_BUILD_BUDGET_S, XL_SIZE_BUDGET_MB, 10_000),
+    ]:
+        if not path.exists():
+            continue  # Same optional fixtures as the original Python matrix.
+        snap = json.loads(path.read_text(encoding="utf-8"))
+        encoded = usage_fixture.usage_json(adapter(snap), project_count=projects, pad_input=True)
+        errors, report = _measure(
+            f"{path.stem}-usage", snap, adapter, build_b, size_b, usage=encoded
+        )
+        usage_failures += errors
+        print(report)
+    repeated = usage_fixture.usage_json(
+        cja_adapt(cja_snap), project_count=20, component_count=500, pad_input=True
+    )
+    errors, report = _measure("CJA-usage-repeated", cja_snap, cja_adapt, usage=repeated)
+    usage_failures += errors
+    print(report)
+
     failed = [
+        *usage_failures,
         *small_failures,
         *cja_failures,
         *aa_failures,

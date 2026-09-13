@@ -97,7 +97,10 @@ def test_artifact_metadata_parsers_report_only_direct_runtime_requirements(tmp_p
             "Metadata-Version: 2.4\n"
             "Name: sdr-visualizer\n"
             "Version: 1.0.3\n"
-            "Requires-Dist: jinja2>=3.1\n",
+            "Requires-Dist: jinja2>=3.1\n"
+            "Requires-Dist: cjapy==0.3.1; extra == 'workspace-cja'\n"
+            "Requires-Dist: aanalytics2==0.5.3.post1; extra == 'workspace-aa'\n"
+            "Requires-Dist: requests>=2.32; extra == 'workspace-aa' or extra == 'workspace-cja'\n",
         )
     assert package_smoke_check.artifact_metadata(wheel) == ("1.0.3", {"jinja2"})
 
@@ -159,6 +162,7 @@ def test_project_metadata_keeps_yaml_dev_only_and_ships_referenced_documents():
     assert {
         "docs/*.md",
         "docs/payload-schema.json",
+        "docs/workspace-usage-schema.json",
         "CHANGELOG.md",
         "CODE_OF_CONDUCT.md",
         "CONTRIBUTING.md",
@@ -176,6 +180,8 @@ def test_project_metadata_keeps_yaml_dev_only_and_ships_referenced_documents():
     assert {
         "docs/PRODUCT_CONTRACT.md",
         "docs/RELEASING.md",
+        "docs/WORKSPACE_USAGE.md",
+        "docs/workspace-usage-schema.json",
     } <= package_smoke_check.REQUIRED_SDIST_PATHS
 
 

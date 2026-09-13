@@ -27,6 +27,8 @@ from email.parser import Parser
 from pathlib import Path
 from typing import Any
 
+from packaging.requirements import Requirement
+
 REPO = Path(__file__).resolve().parent.parent
 DEFAULT_FIXTURE = REPO / "tests" / "fixtures" / "cja_snapshot_minimal.json"
 EXPECTED_RUNTIME_DEPENDENCIES = {"jinja2"}
@@ -46,6 +48,8 @@ REQUIRED_SDIST_PATHS = {
     "docs/RELEASING.md",
     "docs/LINEAGE.md",
     "docs/payload-schema.json",
+    "docs/WORKSPACE_USAGE.md",
+    "docs/workspace-usage-schema.json",
 }
 FORBIDDEN_SDIST_COMPONENTS = {"__pycache__", ".pytest_cache", ".git"}
 FORBIDDEN_SDIST_PATHS = {"SPEC-VISUALIZER.md"}
@@ -140,8 +144,11 @@ def _wheel_metadata(artifact: Path) -> tuple[str, set[str]]:
         if len(names) != 1:
             raise _fail("wheel", "metadata", f"expected one METADATA file, found {len(names)}")
         metadata = Parser().parsestr(archive.read(names[0]).decode("utf-8"))
+    requirements = [Requirement(value) for value in metadata.get_all("Requires-Dist", [])]
     return metadata["Version"], {
-        _requirement_name(value) for value in metadata.get_all("Requires-Dist", [])
+        _requirement_name(str(requirement))
+        for requirement in requirements
+        if requirement.marker is None or requirement.marker.evaluate({"extra": ""})
     }
 
 

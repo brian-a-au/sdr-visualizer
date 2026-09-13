@@ -41,9 +41,695 @@
     "segment_trees": {"type": "object", "additionalProperties": {"$ref": "#/$defs/treeNode"}},
     "formula_trees": {"type": "object", "additionalProperties": {"$ref": "#/$defs/treeNode"}},
     "changes": {"$ref": "#/$defs/changes"},
-    "trend": {"$ref": "#/$defs/trend"}
+    "trend": {"$ref": "#/$defs/trend"},
+    "workspace_usage": {"$ref": "#/$defs/workspaceUsage"}
   },
   "$defs": {
+    "workspaceUsage": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "evidence",
+        "binding",
+        "generated_at",
+        "summary",
+        "display"
+      ],
+      "properties": {
+        "schema_version": {
+          "const": 1
+        },
+        "evidence": {
+          "$ref": "#/$defs/workspaceEvidence"
+        },
+        "binding": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "organization_context",
+            "snapshot"
+          ],
+          "properties": {
+            "organization_context": {
+              "const": "operator_asserted"
+            },
+            "snapshot": {
+              "const": "matched"
+            },
+            "company_context": {
+              "const": "operator_asserted"
+            }
+          }
+        },
+        "generated_at": {
+          "type": "string"
+        },
+        "summary": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "complete",
+            "partial",
+            "failed",
+            "attempted",
+            "requested"
+          ],
+          "properties": {
+            "complete": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "partial": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "failed": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "attempted": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "requested": {
+              "type": "integer",
+              "minimum": 0
+            }
+          }
+        },
+        "display": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "component",
+              "state",
+              "reason",
+              "time_quality",
+              "checked_at_utc",
+              "age_at_generation",
+              "limitations",
+              "component_limitations"
+            ],
+            "properties": {
+              "component": {
+                "type": "object",
+                "properties": {
+                  "type": {
+                    "enum": [
+                      "metric",
+                      "dimension",
+                      "derived_field",
+                      "segment",
+                      "calculated_metric"
+                    ]
+                  },
+                  "id": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 512,
+                    "pattern": "^[^\\u0000-\\u001f\\u007f-\\u009f]+$"
+                  }
+                },
+                "required": [
+                  "type",
+                  "id"
+                ],
+                "additionalProperties": false
+              },
+              "state": {
+                "enum": [
+                  "not_checked",
+                  "failed",
+                  "partial",
+                  "references_found",
+                  "no_references_found"
+                ]
+              },
+              "reason": {
+                "enum": [
+                  "component_not_included",
+                  "collection_failed",
+                  "no_result_collected",
+                  "attempted_result"
+                ]
+              },
+              "time_quality": {
+                "enum": [
+                  "missing",
+                  "invalid",
+                  "future",
+                  "valid"
+                ]
+              },
+              "checked_at_utc": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "age_at_generation": {
+                "enum": [
+                  null,
+                  "older_than_24h",
+                  "within_24h"
+                ]
+              },
+              "limitations": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "component_limitations": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "result_index": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "project_count": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "match_basis": {
+                "enum": [
+                  "exact_component_id",
+                  "unverified_lookup"
+                ]
+              },
+              "status": {
+                "enum": [
+                  "complete",
+                  "partial",
+                  "failed"
+                ]
+              },
+              "checked_at": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "failure": {
+                "enum": [
+                  "permission_denied",
+                  "collection_error",
+                  "unsupported",
+                  "unknown"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    "workspaceEvidence": {
+      "title": "Workspace project usage v1",
+      "type": "object",
+      "properties": {
+        "schema_version": {
+          "type": "integer",
+          "enum": [
+            1
+          ]
+        },
+        "target": {
+          "oneOf": [
+            {
+              "type": "object",
+              "properties": {
+                "platform": {
+                  "enum": [
+                    "cja"
+                  ]
+                },
+                "ims_org_id": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 512,
+                  "pattern": "^[^\\u0000-\\u001f\\u007f-\\u009f]+$"
+                },
+                "data_view_id": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 512,
+                  "pattern": "^[^\\u0000-\\u001f\\u007f-\\u009f]+$"
+                },
+                "snapshot_digest": {
+                  "type": "object",
+                  "properties": {
+                    "algorithm": {
+                      "enum": [
+                        "sdr-python-json-sha256-v1"
+                      ]
+                    },
+                    "value": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 64,
+                      "pattern": "^[0-9a-f]{64}$"
+                    }
+                  },
+                  "required": [
+                    "algorithm",
+                    "value"
+                  ],
+                  "additionalProperties": false
+                }
+              },
+              "required": [
+                "platform",
+                "ims_org_id",
+                "data_view_id",
+                "snapshot_digest"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "type": "object",
+              "properties": {
+                "platform": {
+                  "enum": [
+                    "aa"
+                  ]
+                },
+                "ims_org_id": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 512,
+                  "pattern": "^[^\\u0000-\\u001f\\u007f-\\u009f]+$"
+                },
+                "global_company_id": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 512,
+                  "pattern": "^[^\\u0000-\\u001f\\u007f-\\u009f]+$"
+                },
+                "rsid": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 512,
+                  "pattern": "^[^\\u0000-\\u001f\\u007f-\\u009f]+$"
+                },
+                "snapshot_digest": {
+                  "type": "object",
+                  "properties": {
+                    "algorithm": {
+                      "enum": [
+                        "sdr-python-json-sha256-v1"
+                      ]
+                    },
+                    "value": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 64,
+                      "pattern": "^[0-9a-f]{64}$"
+                    }
+                  },
+                  "required": [
+                    "algorithm",
+                    "value"
+                  ],
+                  "additionalProperties": false
+                }
+              },
+              "required": [
+                "platform",
+                "ims_org_id",
+                "global_company_id",
+                "rsid",
+                "snapshot_digest"
+              ],
+              "additionalProperties": false
+            }
+          ]
+        },
+        "collection": {
+          "type": "object",
+          "properties": {
+            "status": {
+              "enum": [
+                "complete",
+                "partial",
+                "failed"
+              ]
+            },
+            "project_scope": {
+              "oneOf": [
+                {
+                  "type": "object",
+                  "properties": {
+                    "kind": {
+                      "enum": [
+                        "accessible_projects"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "kind"
+                  ],
+                  "additionalProperties": false
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "kind": {
+                      "enum": [
+                        "explicit_projects"
+                      ]
+                    },
+                    "project_ids": {
+                      "type": "array",
+                      "items": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 512,
+                        "pattern": "^[^\\u0000-\\u001f\\u007f-\\u009f]+$"
+                      },
+                      "maxItems": 10000,
+                      "minItems": 1,
+                      "uniqueItems": true
+                    }
+                  },
+                  "required": [
+                    "kind",
+                    "project_ids"
+                  ],
+                  "additionalProperties": false
+                }
+              ]
+            },
+            "permission_visibility": {
+              "enum": [
+                "limited",
+                "unknown"
+              ]
+            },
+            "limitations": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 256
+              },
+              "maxItems": 20,
+              "minItems": 0,
+              "uniqueItems": false
+            },
+            "failure": {
+              "enum": [
+                "permission_denied",
+                "collection_error",
+                "unsupported",
+                "unknown"
+              ]
+            },
+            "source": {
+              "type": "object",
+              "properties": {
+                "kind": {
+                  "enum": [
+                    "sdk_candidates"
+                  ]
+                },
+                "sdk": {
+                  "enum": [
+                    "cjapy",
+                    "aanalytics2"
+                  ]
+                },
+                "version": {
+                  "type": [
+                    "string",
+                    "null"
+                  ],
+                  "minLength": 1,
+                  "maxLength": 64
+                }
+              },
+              "required": [
+                "kind",
+                "sdk",
+                "version"
+              ],
+              "additionalProperties": false
+            },
+            "retrieval": {
+              "type": "object",
+              "properties": {
+                "status": {
+                  "enum": [
+                    "complete",
+                    "partial",
+                    "failed"
+                  ]
+                },
+                "started_at": {
+                  "type": [
+                    "string",
+                    "null"
+                  ],
+                  "minLength": 1,
+                  "maxLength": 64
+                },
+                "finished_at": {
+                  "type": [
+                    "string",
+                    "null"
+                  ],
+                  "minLength": 1,
+                  "maxLength": 64
+                },
+                "include_type": {
+                  "enum": [
+                    "all",
+                    "owned",
+                    "shared",
+                    "explicit"
+                  ]
+                },
+                "request_attempts": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 256
+                },
+                "pages_fetched": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 20
+                },
+                "projects_discovered": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 10000
+                },
+                "projects_fetched": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 200
+                },
+                "projects_failed": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 200
+                },
+                "limitations": {
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 256
+                  },
+                  "maxItems": 20,
+                  "minItems": 0,
+                  "uniqueItems": false
+                }
+              },
+              "required": [
+                "status",
+                "started_at",
+                "finished_at",
+                "include_type",
+                "request_attempts",
+                "pages_fetched",
+                "projects_discovered",
+                "projects_fetched",
+                "projects_failed",
+                "limitations"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "required": [
+            "status",
+            "project_scope",
+            "permission_visibility",
+            "limitations"
+          ],
+          "additionalProperties": false
+        },
+        "requested_components": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "type": {
+                "enum": [
+                  "metric",
+                  "dimension",
+                  "derived_field",
+                  "segment",
+                  "calculated_metric"
+                ]
+              },
+              "id": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 512,
+                "pattern": "^[^\\u0000-\\u001f\\u007f-\\u009f]+$"
+              }
+            },
+            "required": [
+              "type",
+              "id"
+            ],
+            "additionalProperties": false
+          },
+          "maxItems": 2000,
+          "minItems": 1,
+          "uniqueItems": true
+        },
+        "results": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "component": {
+                "type": "object",
+                "properties": {
+                  "type": {
+                    "enum": [
+                      "metric",
+                      "dimension",
+                      "derived_field",
+                      "segment",
+                      "calculated_metric"
+                    ]
+                  },
+                  "id": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 512,
+                    "pattern": "^[^\\u0000-\\u001f\\u007f-\\u009f]+$"
+                  }
+                },
+                "required": [
+                  "type",
+                  "id"
+                ],
+                "additionalProperties": false
+              },
+              "status": {
+                "enum": [
+                  "complete",
+                  "partial",
+                  "failed"
+                ]
+              },
+              "checked_at": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "minLength": 0,
+                "maxLength": 64
+              },
+              "match_basis": {
+                "enum": [
+                  "exact_component_id",
+                  "unverified_lookup"
+                ]
+              },
+              "projects": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 512,
+                      "pattern": "^[^\\u0000-\\u001f\\u007f-\\u009f]+$"
+                    },
+                    "name": {
+                      "type": [
+                        "string",
+                        "null"
+                      ],
+                      "minLength": 1,
+                      "maxLength": 256
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "name"
+                  ],
+                  "additionalProperties": false
+                },
+                "maxItems": 10000,
+                "minItems": 0,
+                "uniqueItems": false
+              },
+              "limitations": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 256
+                },
+                "maxItems": 20,
+                "minItems": 0,
+                "uniqueItems": false
+              },
+              "failure": {
+                "enum": [
+                  "permission_denied",
+                  "collection_error",
+                  "unsupported",
+                  "unknown"
+                ]
+              }
+            },
+            "required": [
+              "component",
+              "status",
+              "checked_at",
+              "match_basis",
+              "projects",
+              "limitations"
+            ],
+            "additionalProperties": false
+          },
+          "maxItems": 2000,
+          "minItems": 0,
+          "uniqueItems": false
+        }
+      },
+      "required": [
+        "schema_version",
+        "target",
+        "collection",
+        "requested_components",
+        "results"
+      ],
+      "additionalProperties": false
+    },
     "unresolvedReference": {
       "type": "object",
       "required": ["source", "reference", "reason"],

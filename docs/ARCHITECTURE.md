@@ -24,6 +24,24 @@ The CLI orchestrates the optional branches:
 - `--trend` uses `input/series.py` to select up to 60 usable snapshots before
   `analysis/trend.py` builds aggregates and interval changes.
 
+After primary adaptation, `--collect-workspace-usage` optionally runs a bounded
+API acquisition process through `usage/{collector,aa_api,cja_api,auth,transport}.py`.
+Separate AA/CJA SDK matchers inspect sanitized project definitions in a second,
+credential-free process. `--workspace-usage` instead loads saved evidence through
+`input/workspace_usage.py`. Both paths bind the strict normalized contract in
+`core/workspace_usage.py`; `render/workspace_usage.py` rechecks binding, projects
+display states, and enforces artifact budgets. Projects never enter reference,
+graph, diff, or trend analysis. Only the primary/newest catalog gets evidence.
+
+`cli/workspace_usage.py` validates collection options and destinations and stages
+feature artifacts before replacement. Collection automatically writes a compact
+usage envelope alongside HTML; full `--json` output remains the report payload.
+The public `usage.collect_workspace_usage` accepts a parsed snapshot and returns
+evidence. `visualize` remains a pure offline renderer with optional supplied
+evidence. SDK imports/authentication are absent from ordinary generation/replay.
+See [WORKSPACE_USAGE.md](WORKSPACE_USAGE.md) for the process, identity, transport,
+and confidentiality boundaries. Existing exporter subprocess behavior is unchanged.
+
 No browser view reads a snapshot or Python model directly. The renderer accepts
 the denormalized payload, and the browser reads only the embedded JSON. This
 boundary is enforced by renderer and payload tests.

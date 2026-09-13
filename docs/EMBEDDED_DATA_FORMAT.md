@@ -23,11 +23,38 @@ That payload is internal and is not covered by this catalog schema or its
   "segment_trees":     { "<id>": SegmentTreeNode },
   "formula_trees":     { "<id>": FormulaTreeNode },
   "changes":           { ... },     // only with --compare-to
-  "trend":             { ... }      // only with --trend
+  "trend":             { ... },     // only with --trend
+  "workspace_usage":   { ... }      // only with collection or supplied evidence
 }
 ```
 
 > **Sparse encoding (0.2.0+):** fields whose value is `null`, `""`, `[]`, or `{}` are omitted from entries. Consumers must treat a missing key as that empty value. Numeric zeros (`in_degree`, `complexity_score`) are always present.
+
+## `workspace_usage`
+
+This optional version 1 branch contains `schema_version`, `evidence`, `binding`,
+`generated_at`, `summary`, and `display`. `evidence` is the exact logical envelope
+saved to the generated usage file. The input schema and semantics are documented
+in [WORKSPACE_USAGE.md](WORKSPACE_USAGE.md) and
+[workspace-usage-schema.json](workspace-usage-schema.json); the complete embedded
+shape is in [payload-schema.json](payload-schema.json). Empty lists and nullable
+values in this branch are retained rather than sparse-omitted.
+
+`binding` records `snapshot: "matched"` and
+`organization_context: "operator_asserted"`, plus AA-only
+`company_context: "operator_asserted"`. These are not authentication claims.
+`generated_at` equals `meta.generated_at`. `summary` separates `requested`,
+`attempted`, `complete`, `partial`, and `failed` component counts. Typed `display`
+rows carry state, reason, timing quality, and age at generation. Attempted rows
+include `result_index` and `project_count`; projects live only in
+`evidence.results[result_index].projects`, avoiding duplication.
+
+States are `references_found`, `no_references_found`, `not_checked`, `partial`,
+and `failed`; the scoped no-reference state never means unused. SDK matches
+remain partial/unverified candidates. Timing warnings do not remove positives.
+Each report retains its evidence; reopening performs no refresh. Comparison and
+trend retain their existing meanings, with evidence for the primary/newest
+catalog only. Graph and component counts exclude Workspace projects.
 
 ## `meta`
 

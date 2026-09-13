@@ -1168,7 +1168,8 @@ def test_trend_absent_without_flag(browser_page, tmp_path):
     )
 
 
-def test_reference_labels_counts_links_and_connectivity(browser_page, tmp_path):
+@pytest.mark.parametrize("with_workspace", [False, True])
+def test_reference_labels_counts_links_and_connectivity(browser_page, tmp_path, with_workspace):
     snapshot = {
         "metadata": {"Data View ID": "dv-reference-labels"},
         "metrics": [],
@@ -1188,7 +1189,14 @@ def test_reference_labels_counts_links_and_connectivity(browser_page, tmp_path):
         },
     }
     out = tmp_path / "references.html"
-    out.write_text(render(cja_adapt(snapshot)), encoding="utf-8")
+    payload = build_payload_with_options(cja_adapt(snapshot))
+    if with_workspace:
+        usage_out, _ = _workspace_panel_report(tmp_path, count=101)
+        usage = extract_payload(usage_out.read_text())["workspace_usage"]
+        usage["display"][0]["component"] = {"type": "segment", "id": "s"}
+        usage["evidence"]["target"]["data_view_id"] = "dv-reference-labels"
+        payload["workspace_usage"] = usage
+    out.write_text(render_payload(payload), encoding="utf-8")
     browser_page.goto(out.as_uri())
     note = (
         "References reflect dependencies discovered in this snapshot. Workspace project "
@@ -1428,3 +1436,243 @@ def test_scoped_falsy_renders_as_constant(browser_page, tmp_path, slot, constant
     assert panel.locator('.detail-references .ref-link[data-id="segments/page"]').count() == 1
     panel.locator('.formula-segment-scope .ref-link[data-id="segments/page"]').click()
     assert "segments%2Fpage" in browser_page.url
+
+
+def _workspace_panel_report(
+    tmp_path,
+    *,
+    state="references_found",
+    count=101,
+    time_quality="valid",
+    age="older_than_24h",
+    pack=None,
+):
+    snap = json.loads((FIXTURES / "cja_snapshot_messy.json").read_text())
+    payload = build_payload_with_options(cja_adapt(snap))
+    component = payload["components"][0]
+    identity = {"type": component["type"], "id": component["id"]}
+    projects = [
+        {"id": f"p-{i}", "name": None if i == 0 else "<script>hostile</script>"}
+        for i in range(count)
+    ]
+    if projects:
+        projects[0]["id"] = "__proto__"
+    row = {
+        "component": identity,
+        "state": state,
+        "reason": "attempted_result",
+        "time_quality": time_quality,
+        "checked_at_utc": "2026-09-10T12:00:00Z",
+        "age_at_generation": age,
+        "limitations": ["<img src=x onerror=alert(1)>"],
+        "component_limitations": ["<img src=x onerror=alert(1)>"],
+        "result_index": 0,
+        "project_count": count,
+        "match_basis": "unverified_lookup" if state == "partial" else "exact_component_id",
+    }
+    payload["workspace_usage"] = {
+        "evidence": {
+            "target": {"platform": "cja", "ims_org_id": "test-org", "data_view_id": "test-view"},
+            "collection": {
+                "status": "complete",
+                "project_scope": {"kind": "accessible_projects"},
+                "permission_visibility": "unknown",
+            },
+            "results": [{"projects": projects}],
+        },
+        "display": [row],
+        "summary": {"attempted": 1, "requested": 1, "complete": 1, "partial": 0, "failed": 0},
+    }
+    out = tmp_path / f"workspace-{state}-{time_quality}.html"
+    out.write_text(render_payload(payload, **({"color_pack": pack} if pack else {})))
+    return out, component
+
+
+@pytest.mark.parametrize("pack", COLOR_PACK_CODES)
+def test_workspace_panel_pages_safe_text_and_preserves_navigation(browser_page, tmp_path, pack):
+    out, component = _workspace_panel_report(tmp_path, pack=pack)
+    errors, requests = [], []
+
+    def on_error(error):
+        errors.append(error)
+
+    def on_request(request):
+        requests.append(request)
+
+    browser_page.on("pageerror", on_error)
+    browser_page.on("request", on_request)
+    try:
+        browser_page.goto(out.as_uri() + "#detail=" + quote(component["id"], safe=""))
+        section = browser_page.locator(".workspace-usage")
+        assert section.locator(".workspace-project").count() == 50
+        assert section.locator(".workspace-project-page").evaluate(
+            "el => Array.from(el.children).map(child => child.className)"
+        ) == ["workspace-page-status", "workspace-pagination", "workspace-projects"]
+        assert "Project references found (101)." in section.inner_text()
+        assert "__proto__" in section.inner_text()
+        assert "Name not supplied" in section.inner_text()
+        assert section.locator("script, img, a").count() == 0
+        assert "More than 24 hours old when this report was generated." in section.inner_text()
+        old_hash = browser_page.evaluate("location.hash")
+        next_button = section.get_by_role("button", name="Next", exact=True)
+        next_button.focus()
+        browser_page.keyboard.press("Enter")
+        assert "Showing 51–100 of 101" in section.inner_text()
+        browser_page.keyboard.press("Enter")
+        assert "Showing 101–101 of 101" in section.inner_text()
+        assert section.locator(".workspace-project").count() == 1
+        assert browser_page.evaluate("document.activeElement.textContent") == "Previous"
+        assert browser_page.evaluate("location.hash") == old_hash
+        browser_page.click("#detail-close")
+        browser_page.locator("#catalog-body tr").filter(has_text=component["id"]).first.click()
+        assert section.locator(".workspace-project").count() == 50
+        assert not errors
+        assert len(requests) == 1
+    finally:
+        browser_page.remove_listener("pageerror", on_error)
+        browser_page.remove_listener("request", on_request)
+
+
+@pytest.mark.parametrize(
+    "state, expected",
+    [
+        ("references_found", "Project references found (1)."),
+        ("partial", "Possible project references returned by lookup"),
+        ("no_references_found", "No project references found within the checked scope."),
+        ("failed", "Lookup failed — no conclusion available."),
+        ("not_checked", "Not checked — component was not included"),
+    ],
+)
+def test_workspace_panel_states(browser_page, tmp_path, state, expected):
+    out, component = _workspace_panel_report(
+        tmp_path, state=state, count=1 if state in {"references_found", "partial"} else 0
+    )
+    browser_page.goto(out.as_uri() + "#detail=" + quote(component["id"], safe=""))
+    text = browser_page.locator(".workspace-usage").inner_text()
+    assert expected in text
+    assert "Usage checked at" in text
+    assert "Permission visibility" in text
+    if state == "partial":
+        assert "not recent project activity" not in text
+
+
+def test_workspace_panel_absent_and_time_warnings(browser_page, tmp_path):
+    out = _render_to(tmp_path, "cja_snapshot_messy.json")
+    browser_page.goto(out.as_uri())
+    browser_page.locator("#catalog-body tr").first.click()
+    assert (
+        "Workspace usage was not collected or supplied."
+        in browser_page.locator(".workspace-usage").inner_text()
+    )
+    for quality, expected in [
+        ("missing", "Not supplied."),
+        ("invalid", "Invalid timestamp supplied."),
+        ("future", "Timestamp is after report generation; timing unverified."),
+    ]:
+        out, component = _workspace_panel_report(tmp_path, time_quality=quality, age=None)
+        browser_page.goto(out.as_uri() + "#detail=" + quote(component["id"], safe=""))
+        section = browser_page.locator(".workspace-usage")
+        assert expected in section.inner_text()
+        assert section.locator(".workspace-project").count() == 50
+
+
+@pytest.mark.parametrize("platform", ["aa", "cja"])
+def test_workspace_panel_coverage_partial_and_narrow_layout(browser_page, tmp_path, platform):
+    out, component = _workspace_panel_report(tmp_path, state="partial", count=51)
+    payload = extract_payload(out.read_text())
+    usage = payload["workspace_usage"]
+    row = usage["display"][0]
+    row.update(match_basis="exact_component_id", failure="collection_error")
+    usage["summary"].update(attempted=2, requested=3, complete=0, partial=1, failed=1)
+    collection = usage["evidence"]["collection"]
+    collection.update(
+        status="partial",
+        project_scope={"kind": "explicit_projects", "project_ids": ["p-1"]},
+        limitations=["Collection stopped at its project budget."],
+    )
+    collection["retrieval"] = {
+        "status": "partial",
+        "started_at": "2026-09-10T11:00:00Z",
+        "finished_at": "2026-09-10T12:00:00Z",
+        "include_type": "explicit",
+        "request_attempts": 3,
+        "pages_fetched": 0,
+        "projects_discovered": 2,
+        "projects_fetched": 1,
+        "projects_failed": 1,
+        "limitations": ["A later request failed."],
+    }
+    if platform == "aa":
+        usage["evidence"]["target"] = {
+            "platform": "aa",
+            "ims_org_id": "<b>org</b>",
+            "global_company_id": "company",
+            "rsid": "suite",
+        }
+    out.write_text(render_payload(payload))
+    browser_page.set_viewport_size({"width": 390, "height": 844})
+    try:
+        browser_page.goto(out.as_uri() + "#detail=" + quote(component["id"], safe=""))
+        section = browser_page.locator(".workspace-usage")
+        text = section.inner_text()
+        assert "Project references found (51); results are partial." in text
+        assert "not recent project activity" in text
+        assert "Explicit projects (1)" in text
+        assert "API retrieval" in text
+        assert "Component limits" in text
+        collection_limits = section.locator(".workspace-collection-limits")
+        assert collection_limits.count() == 1
+        assert collection_limits.get_by_text("Collection-wide limits (2)", exact=True).is_visible()
+        assert not collection_limits.evaluate("el => el.open")
+        assert collection_limits.locator("li").count() == 2
+        assert "Collection stopped at its project budget." in collection_limits.text_content()
+        assert "A later request failed." in collection_limits.text_content()
+        assert "collection_error" in text
+        assert "Attempted 2 of 3 requested components" in text
+        assert "0 complete; 1 partial; 1 failed" in text
+        assert "supplied by report author" in text
+        assert section.locator("b, img, script, a").count() == 0
+        assert section.evaluate("el => el.scrollWidth <= el.clientWidth")
+        if platform == "aa":
+            assert "Company context" in text and "Report suite" in text
+        browser_page.emulate_media(media="print")
+        assert not section.get_by_role("button", name="Next", exact=True).is_visible()
+    finally:
+        browser_page.emulate_media(media="screen")
+        browser_page.set_viewport_size({"width": 1280, "height": 720})
+
+
+def test_workspace_panel_requested_missing_and_partial_empty(browser_page, tmp_path):
+    for state, reason, expected in [
+        ("not_checked", "no_result_collected", "requested, but no result was collected"),
+        ("partial", "attempted_result", "no references returned; no conclusion available"),
+    ]:
+        out, component = _workspace_panel_report(tmp_path, state=state, count=0)
+        payload = extract_payload(out.read_text())
+        payload["workspace_usage"]["display"][0]["reason"] = reason
+        out.write_text(render_payload(payload))
+        browser_page.goto(out.as_uri() + "#detail=" + quote(component["id"], safe=""))
+        section = browser_page.locator(".workspace-usage")
+        assert expected in section.inner_text()
+        assert section.locator(".workspace-project, .workspace-page-status").count() == 0
+
+
+def test_workspace_panel_maximum_projects_and_prototype_component(browser_page, tmp_path):
+    out, component = _workspace_panel_report(tmp_path, count=10_000)
+    payload = extract_payload(out.read_text())
+    payload["components"][0]["id"] = "__proto__"
+    usage = payload["workspace_usage"]
+    usage["display"][0]["component"]["id"] = "__proto__"
+    hostile = '" & </script><img src=x onerror=alert(1)>\u202e' + "x" * 180
+    usage["evidence"]["results"][0]["projects"][0]["name"] = hostile
+    out.write_text(render_payload(payload))
+    browser_page.goto(out.as_uri() + "#detail=__proto__")
+    section = browser_page.locator(".workspace-usage")
+    assert section.locator(".workspace-project").count() == 50
+    assert "Showing 1–50 of 10000" in section.inner_text()
+    assert hostile in section.inner_text()
+    assert section.locator("img, script, a").count() == 0
+    assert browser_page.locator(".detail-id").inner_text() == "__proto__"
+    section.get_by_role("button", name="Next", exact=True).click()
+    assert section.locator(".workspace-project").count() == 50
+    assert "Showing 51–100 of 10000" in section.inner_text()

@@ -93,7 +93,7 @@ def _render_from_payload(payload: dict[str, Any], *, title: str | None, color_pa
             "snapshot contains NaN or Infinity, which cannot be represented "
             "in the embedded JSON payload"
         ) from exc
-    return template.render(
+    html = template.render(
         title=document_title,
         meta=payload["meta"],
         css=css,
@@ -121,6 +121,11 @@ def _render_from_payload(payload: dict[str, Any], *, title: str | None, color_pa
         segment_count=len(payload["segments"]),
         calc_metric_count=len(payload["calculated_metrics"]),
     )
+    if "workspace_usage" in payload:
+        from sdr_visualizer.render.workspace_usage import check_artifact_size
+
+        check_artifact_size(payload, html, kind="html")
+    return html
 
 
 def _read_static(name: str) -> str:

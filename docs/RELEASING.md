@@ -74,7 +74,7 @@ Run from a clean checkout of the candidate:
 
 ```bash
 uv lock --check
-uv sync --locked --dev --group browser
+uv sync --locked --all-extras --dev --group browser
 uv run playwright install chromium webkit
 uv run ruff check
 uv run ruff format --check
@@ -129,9 +129,16 @@ operation and navigation, and fails on browser errors or subresource requests.
 Browser tooling stays in the development environment.
 
 Record the wheel and source-distribution filenames and SHA-256 digests. Inspect
-their metadata and confirm Jinja2 is the only direct runtime dependency,
+their metadata and confirm Jinja2 is the only base direct runtime dependency,
 required public documents are in the source distribution, and ignored specs,
 plans, generated fixtures, caches, and repository metadata are absent.
+Verify the independent `workspace-cja` and `workspace-aa` extras retain their
+characterized SDK pins and are not required by base/offline installs. The usage
+schema and [Workspace guide](WORKSPACE_USAGE.md) must be in the sdist. Run the
+fake-HTTP/actual-SDK collection tests independently for both platforms; these
+are not fresh live Adobe qualification. Review optional-extra dependency exports
+and licenses separately before publication. Never run live collection as an
+unannounced test or read a maintainer's credential sources.
 Extract the wheel and source distribution long descriptions and confirm their
 repository-owned links are absolute, map to tracked content, and match the
 source README. Inspect built metadata for the expected Homepage, Documentation,

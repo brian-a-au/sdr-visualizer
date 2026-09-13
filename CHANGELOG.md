@@ -4,6 +4,21 @@ All notable changes to `sdr-visualizer` will be documented here. The format foll
 
 ## [Unreleased]
 
+## [1.2.0] - 2026-09-12
+
+### Added
+
+- Optional Workspace project-usage collection through independent AA and CJA
+  SDK integrations. One command generates HTML and a retained usage JSON file;
+  existing snapshots and exporter workflows require no format changes.
+- Validated offline evidence replay with exact snapshot/environment binding,
+  separate check timestamps, explicit coverage and failure states, and bounded
+  project lists in the catalog side panel. SDK results remain unverified
+  candidates; empty results never mean unused or safe to delete.
+- Separate optional SDK extras and bounded credential/process/transport handling.
+  Report viewing and saved-file replay remain offline. Component references,
+  Used by counts, graphs, comparisons, trends, and grading policy are unchanged.
+
 ## [1.1.7] - 2026-09-12
 
 ### Changed
@@ -667,7 +682,8 @@ The following are explicitly internal and may change without notice:
 - Workspace project visualization (v0.4)
 - Schema map view (v0.5)
 
-[Unreleased]: https://github.com/brian-a-au/sdr-visualizer/compare/v1.1.7...HEAD
+[Unreleased]: https://github.com/brian-a-au/sdr-visualizer/compare/v1.2.0...HEAD
+[1.2.0]: https://github.com/brian-a-au/sdr-visualizer/releases/tag/v1.2.0
 [1.1.7]: https://github.com/brian-a-au/sdr-visualizer/releases/tag/v1.1.7
 [1.1.6]: https://github.com/brian-a-au/sdr-visualizer/releases/tag/v1.1.6
 [1.1.5]: https://github.com/brian-a-au/sdr-visualizer/releases/tag/v1.1.5

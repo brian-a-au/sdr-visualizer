@@ -721,6 +721,18 @@ def test_stringified_tags_are_parsed_not_dropped():
     assert impl.metrics[0].tags == ["campaign", "paid"]
 
 
+@pytest.mark.parametrize(
+    "tags",
+    [
+        [{"id": "tag-1", "name": "Geography", "createdBy": "user"}],
+        '[{"id":"tag-1","name":"Geography","createdBy":"user"}]',
+    ],
+)
+def test_tag_objects_render_as_names(tags):
+    impl = adapt(_minimal_cja(metrics=[{"id": "metrics/orders", "tags": tags}]))
+    assert impl.metrics[0].tags == ["Geography"]
+
+
 def test_invalid_stringified_tags_and_polarity_are_dropped():
     impl = adapt(
         _minimal_cja(
