@@ -913,3 +913,18 @@ h1 {
 .trend-id { background: var(--sdr-fixed-neutral-soft-background); padding: 1px 6px; margin-right: 4px; }
 .trend-show-next { margin-left: 6px; }
 .trend-capped { color: var(--sdr-text-muted); margin-top: 12px; }
+
+/* Workspace evidence stays local to the catalog detail panel. */
+.workspace-usage { overflow-wrap: anywhere; font-size: 13px; line-height: 1.5; }
+.workspace-usage .detail-grid { grid-template-columns: minmax(0, 120px) minmax(0, 1fr); }
+.workspace-usage h4 { font-size: 13px; margin: 20px 0 8px; }
+.workspace-status { font-weight: 600; }
+.workspace-qualification { color: var(--sdr-text-muted); }
+.workspace-projects { list-style: none; margin: 0; padding: 0; }
+.workspace-project { padding: 8px 0; border-bottom: 1px solid var(--sdr-surface-emphasis); }
+.workspace-project-id { display: block; color: var(--sdr-text-muted); font-size: 12px; }
+.workspace-pagination { display: flex; gap: 12px; }
+.workspace-pagination button { font: inherit; color: var(--sdr-text-primary); background: var(--sdr-surface-panel); border: 1px solid var(--sdr-surface-emphasis); border-radius: 4px; padding: 6px 12px; cursor: pointer; }
+.workspace-pagination button:disabled { opacity: 0.45; cursor: default; }
+.workspace-pagination button:focus-visible { outline: 2px solid var(--sdr-text-primary); outline-offset: 2px; }
+@media print { .workspace-pagination { display: none; } .workspace-project { break-inside: avoid; } }

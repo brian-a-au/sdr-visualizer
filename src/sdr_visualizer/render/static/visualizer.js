@@ -57,6 +57,15 @@
   var USED_BY_HELP = "Number of components in this snapshot that directly reference this component.";
   var USES_HELP = "Number of components in this snapshot directly referenced by this component.";
 
+  // Typed identities keep supplementary evidence separate from reference navigation.
+  var workspaceUsage = payload.workspace_usage;
+  var workspaceByComponent = new Map();
+  if (workspaceUsage) workspaceUsage.display.forEach(function (row) {
+    workspaceByComponent.set(JSON.stringify([row.component.type, row.component.id]), row);
+  });
+  var workspacePage = 0;
+  var WORKSPACE_PAGE_SIZE = 50;
+
   /* ----- DOM refs ----- */
 
   var $body = document.getElementById("catalog-body");
@@ -386,6 +395,7 @@
     if (!entry) return;
     openDetailId = id;
     updateHash();
+    workspacePage = 0;
     $detailBody.innerHTML = detailHtml(entry);
     $detailPanel.classList.add("is-open");
     $detailPanel.setAttribute("aria-hidden", "false");
@@ -490,7 +500,112 @@
       pieces.push('<div class="detail-section"><h3>Unresolved outgoing references</h3><p>Excluded from Uses and graph edges.' + absenceHelp + '</p><ul class="detail-references">' + missingList + "</ul></div>");
     }
 
+    pieces.push(workspaceUsageHtml(entry));
     return pieces.join("");
+  }
+
+  /* ----- Offline Workspace evidence ----- */
+
+  function workspaceRow(entry) {
+    return workspaceByComponent.get(JSON.stringify([entry.type, entry.id]));
+  }
+
+  function workspaceProjects(row) {
+    return row && typeof row.result_index === "number"
+      ? workspaceUsage.evidence.results[row.result_index].projects : [];
+  }
+
+  function workspaceProjectPage(row) {
+    var projects = workspaceProjects(row);
+    var start = workspacePage * WORKSPACE_PAGE_SIZE;
+    var end = Math.min(start + WORKSPACE_PAGE_SIZE, projects.length);
+    var html = '<p class="workspace-page-status" role="status" aria-live="polite">Showing ' + (start + 1) + '–' + end + ' of ' + projects.length + '</p>';
+    if (projects.length > WORKSPACE_PAGE_SIZE) {
+      html += '<div class="workspace-pagination"><button type="button" data-workspace-page="previous"' + (start === 0 ? ' disabled' : '') +
+        '>Previous</button><button type="button" data-workspace-page="next"' + (end === projects.length ? ' disabled' : '') + '>Next</button></div>';
+    }
+    html += '<ul class="workspace-projects">' + projects.slice(start, end).map(function (project) {
+      return '<li class="workspace-project"><span>' + escapeHtml(project.name === null ? "Name not supplied" : project.name) +
+        '</span><span class="mono workspace-project-id">' + escapeHtml(project.id) + '</span></li>';
+    }).join("") + '</ul>';
+    return html;
+  }
+
+  function workspaceUsageHtml(entry) {
+    var html = '<section class="detail-section workspace-usage" aria-label="Workspace project usage"><h3>Workspace project usage</h3>';
+    if (!workspaceUsage) {
+      return html + '<p>Not checked — Workspace usage was not collected or supplied.</p>' +
+        '<dl class="detail-grid"><dt>Usage checked at</dt><dd>Not supplied.</dd><dt>Project scope</dt><dd>Not supplied.</dd><dt>Permission visibility</dt><dd>Unknown.</dd></dl></section>';
+    }
+    var row = workspaceRow(entry);
+    var evidence = workspaceUsage.evidence;
+    var collection = evidence.collection;
+    var projects = workspaceProjects(row);
+    var candidate = row && row.match_basis === "unverified_lookup";
+    var state = row ? row.state : "not_checked";
+    var message;
+    if (state === "not_checked") {
+      message = row && row.reason === "no_result_collected" ? "Not checked — requested, but no result was collected." : "Not checked — component was not included.";
+    } else if (state === "failed") {
+      message = "Lookup failed — no conclusion available.";
+    } else if (projects.length && candidate) {
+      message = "Possible project references returned by lookup; exact component and environment match unverified.";
+    } else if (projects.length) {
+      message = "Project references found (" + projects.length + ")" + (state === "partial" ? "; results are partial." : ".");
+    } else if (state === "no_references_found") {
+      message = "No project references found within the checked scope.";
+    } else {
+      message = "Partial or unverified lookup — no references returned; no conclusion available.";
+    }
+    html += '<p class="workspace-status">' + escapeHtml(message) + '</p>';
+    var time = !row || row.time_quality === "missing" ? "Not supplied." :
+      row.time_quality === "invalid" ? "Invalid timestamp supplied." : row.checked_at_utc;
+    var scope = collection.project_scope;
+    var scopeText = scope.kind === "explicit_projects" ? "Explicit projects (" + scope.project_ids.length + ")" : "Accessible projects";
+    var details = [
+      ["Usage checked at", time],
+      ["Report generated at", payload.meta.generated_at],
+      ["Project scope", scopeText],
+      ["Permission visibility", collection.permission_visibility],
+      ["Collection completion", collection.status],
+      ["Component attempts", "Attempted " + workspaceUsage.summary.attempted + " of " + workspaceUsage.summary.requested + " requested components"],
+      ["Result completion", workspaceUsage.summary.complete + " complete; " + workspaceUsage.summary.partial + " partial; " + workspaceUsage.summary.failed + " failed"],
+      ["Platform", evidence.target.platform.toUpperCase()],
+      ["Organization context", evidence.target.ims_org_id + " (supplied by report author)"],
+      [evidence.target.platform === "aa" ? "Report suite" : "Data view", evidence.target.rsid || evidence.target.data_view_id],
+      ["Snapshot binding", "Evidence matches this snapshot. Context supplied by the report author is not authentication."],
+    ];
+    if (evidence.target.platform === "aa") details.push(["Company context", evidence.target.global_company_id + " (supplied by report author)"]);
+    if (row && row.failure) details.push(["Failure category", row.failure]);
+    if (collection.source) details.push(["Lookup source", collection.source.sdk + " " + (collection.source.version || "version not supplied")]);
+    html += '<dl class="detail-grid">' + details.map(function (pair) {
+      return '<dt>' + escapeHtml(pair[0]) + '</dt><dd>' + escapeHtml(pair[1]) + '</dd>';
+    }).join("") + '</dl>';
+    if (row && row.time_quality === "future") html += '<p>Timestamp is after report generation; timing unverified.</p>';
+    if (row && row.age_at_generation === "older_than_24h") html += '<p>More than 24 hours old when this report was generated.</p>';
+    if (collection.retrieval) {
+      var retrieval = collection.retrieval;
+      html += '<h4>API retrieval</h4><dl class="detail-grid">' + [
+        ["Status", retrieval.status], ["Started at", retrieval.started_at || "Timing unverified"],
+        ["Finished at", retrieval.finished_at || "Timing unverified"], ["Requested visibility", retrieval.include_type],
+        ["Request attempts", retrieval.request_attempts], ["Pages fetched", retrieval.pages_fetched],
+        ["Projects discovered", retrieval.projects_discovered], ["Projects fetched", retrieval.projects_fetched],
+        ["Projects failed", retrieval.projects_failed],
+      ].map(function (pair) { return '<dt>' + escapeHtml(pair[0]) + '</dt><dd>' + escapeHtml(pair[1]) + '</dd>'; }).join("") + '</dl>';
+    }
+    var limits = (row ? row.limitations : collection.limitations || []).concat(collection.retrieval ? collection.retrieval.limitations : []);
+    if (limits.length) html += '<h4>Known limits</h4><ul>' + Array.from(new Set(limits)).map(function (limit) {
+      return '<li>' + escapeHtml(limit) + '</li>';
+    }).join("") + '</ul>';
+    if (state !== "not_checked") {
+      html += '<p class="workspace-qualification">Results describe the checked scope only. Other projects may be inaccessible or uncollected. An empty result does not establish that this component is unused or safe to delete.</p>';
+    }
+    if (projects.length) {
+      if (!candidate) html += '<p class="workspace-qualification">A project reference records a dependency observed in the collected evidence, not recent project activity.</p>';
+      html += '<h4>' + (candidate ? "Possible project references" : "Project references") + ' (' + projects.length + ')</h4>';
+      html += '<div class="workspace-project-page">' + workspaceProjectPage(row) + '</div>';
+    }
+    return html + '</section>';
   }
 
   /* ----- Anatomy renderers (segment + formula trees) ----- */
@@ -640,6 +755,18 @@
   });
 
   $detailBody.addEventListener("click", function (event) {
+    var pageButton = event.target.closest("button[data-workspace-page]");
+    if (pageButton && !pageButton.disabled) {
+      var direction = pageButton.getAttribute("data-workspace-page");
+      workspacePage += direction === "next" ? 1 : -1;
+      var pageContainer = $detailBody.querySelector(".workspace-project-page");
+      pageContainer.innerHTML = workspaceProjectPage(workspaceRow(byId[openDetailId]));
+      // Replacing a page removes the old focused button. Keep keyboard users
+      // on the same control, or the available opposite control on the last page.
+      var focusButton = pageContainer.querySelector('[data-workspace-page="' + direction + '"]:not(:disabled)') || pageContainer.querySelector('button:not(:disabled)');
+      if (focusButton) focusButton.focus();
+      return;
+    }
     var btn = event.target.closest("button.ref-link");
     if (btn) openDetail(btn.getAttribute("data-id"));
   });
