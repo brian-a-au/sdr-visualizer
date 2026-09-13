@@ -73,7 +73,7 @@ def build_payload(impl: Implementation) -> dict[str, Any]:
             file=sys.stderr,
         )
 
-    return {
+    payload = {
         "meta": {
             "instance_id": impl.instance_id,
             "instance_name": impl.instance_name,
@@ -97,6 +97,11 @@ def build_payload(impl: Implementation) -> dict[str, Any]:
         "segment_trees": segment_trees,
         "formula_trees": formula_trees,
     }
+    if "workspace_usage" in impl.supplementary_data:
+        from sdr_visualizer.render.workspace_usage import project_usage
+
+        payload["workspace_usage"] = project_usage(impl, payload["meta"]["generated_at"])
+    return payload
 
 
 def _epoch_ms(value: Any) -> int | None:

@@ -158,12 +158,15 @@ def main(argv: list[str] | None = None) -> int:
         json_output_path = Path(args.json) if args.json else None
         json_text = None
         if args.json and usage is not None:
+            from sdr_visualizer.render.workspace_usage import check_artifact_size
+
             try:
                 json_text = json.dumps(payload, indent=2, allow_nan=False)
             except ValueError as exc:
                 raise InvalidSnapshotError(
                     "payload contains NaN or Infinity; cannot write --json"
                 ) from exc
+            check_artifact_size(payload, json_text, kind="json")
         _validate_output_destinations(
             output_path,
             json_output_path,

@@ -476,6 +476,7 @@ class BoundWorkspaceUsage:
                     match_basis=r["match_basis"],
                     status=r["status"],
                     checked_at=r["checked_at"],
+                    project_count=len(r["projects"]),
                 )
                 row["limitations"].extend(r["limitations"])
                 if "failure" in r or "failure" in collection:
