@@ -296,15 +296,16 @@ def _retrieval(collection):
     if r["status"] == "complete" and (fetched != discovered or failed or r["limitations"]):
         _reject("collection.retrieval", "incomplete retrieval claimed complete")
     start, end = r["started_at"], r["finished_at"]
+    parsed_start, parsed_end = _time(start), _time(end)
     if start is None and end is None:
         if CLOCK_REVERSAL_LIMITATION not in r["limitations"]:
             _reject("collection.retrieval", "missing interval requires clock reversal limitation")
     elif (
         start is None
         or end is None
-        or _time(start) is None
-        or _time(end) is None
-        or _time(end) < _time(start)
+        or parsed_start is None
+        or parsed_end is None
+        or parsed_end < parsed_start
     ):
         _reject("collection.retrieval", "invalid retrieval interval")
 
@@ -437,10 +438,10 @@ class BoundWorkspaceUsage:
         data = self.evidence
         collection = data["collection"]
         requested = {(c["type"], c["id"]) for c in data["requested_components"]}
-        records = {(r["component"]["type"], r["component"]["id"]): r for r in data["results"]}
-        indices = {
-            (r["component"]["type"], r["component"]["id"]): i for i, r in enumerate(data["results"])
-        }
+        records, indices = {}, {}
+        for index, record in enumerate(data["results"]):
+            key = (record["component"]["type"], record["component"]["id"])
+            records[key], indices[key] = record, index
         components = []
         for kind, identity in self._inventory:
             key = (kind, identity)
