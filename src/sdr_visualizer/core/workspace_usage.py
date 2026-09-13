@@ -439,6 +439,10 @@ class BoundWorkspaceUsage:
             _reject("generated_at", "aware report timestamp required")
         data = self.evidence
         collection = data["collection"]
+        retrieval = collection.get("retrieval")
+        collection_limitations = list(collection["limitations"])
+        if retrieval is not None:
+            collection_limitations.extend(retrieval["limitations"])
         requested = {(c["type"], c["id"]) for c in data["requested_components"]}
         records, indices = {}, {}
         for index, record in enumerate(data["results"]):
@@ -455,7 +459,7 @@ class BoundWorkspaceUsage:
                 "time_quality": "missing",
                 "checked_at_utc": None,
                 "age_at_generation": None,
-                "limitations": list(collection["limitations"]),
+                "limitations": list(collection_limitations),
             }
             if r is None:
                 if key in requested:
@@ -492,7 +496,9 @@ class BoundWorkspaceUsage:
                         else "within_24h"
                     )
                 complete = (
-                    collection["status"] == r["status"] == "complete" and not row["limitations"]
+                    collection["status"] == r["status"] == "complete"
+                    and (retrieval is None or retrieval["status"] == "complete")
+                    and not row["limitations"]
                 )
                 exact = r["match_basis"] == "exact_component_id"
                 if r["status"] == "failed" and not r["projects"]:

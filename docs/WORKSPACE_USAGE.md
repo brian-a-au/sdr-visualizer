@@ -124,6 +124,12 @@ Lists retain all accepted projects and show 50 rows per page.
 | Exact empty result, complete collection and record, no limitations, valid check time | No project references found within the checked scope. |
 | Other attempted empty results | Partial or unverified lookup; no conclusion available. |
 
+When retrieval metadata is supplied, completed positive and empty states also
+require complete retrieval without retrieval limitations. Partial or failed
+retrieval keeps exact positives visible as partial and empty results inconclusive.
+Retrieval limitations appear on component display rows, including missing results.
+Saved evidence without retrieval metadata remains supported.
+
 Permission visibility is `limited` or `unknown`, never “all projects.” A
 successful traversal describes only the declared scope accessible to the
 collecting principal. Requested components, actual result records, retrieval

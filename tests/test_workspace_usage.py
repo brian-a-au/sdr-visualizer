@@ -291,6 +291,59 @@ def retrieval():
     }
 
 
+@pytest.mark.parametrize("status", ["partial", "failed"])
+@pytest.mark.parametrize("limitations", [[], ["Some project details were unavailable"]])
+@pytest.mark.parametrize("positive", [False, True])
+def test_incomplete_retrieval_keeps_exact_results_partial(status, limitations, positive):
+    impl, value = example()
+    value["collection"]["retrieval"] = retrieval() | {
+        "status": status,
+        "projects_discovered": 2,
+        "projects_failed": 1,
+        "limitations": limitations,
+    }
+    projects = [{"id": "p", "name": "Retained project"}] if positive else []
+    value["results"][0]["projects"] = projects
+
+    projected = bind(impl, value).project("2026-09-12T13:00:00Z")
+    observed = projected["display"][0]
+    assert observed["state"] == "partial"
+    assert observed["limitations"] == limitations
+    assert observed["project_count"] == len(projects)
+    assert projected["evidence"]["results"][observed["result_index"]]["projects"] == projects
+
+
+@pytest.mark.parametrize("status", ["partial", "failed"])
+def test_retrieval_limits_survive_missing_results(status):
+    impl, value = example()
+    value["results"] = []
+    value["collection"].update(status="partial", limitations=["No results were collected"])
+    value["collection"]["retrieval"] = retrieval() | {
+        "status": status,
+        "limitations": ["Some project details were unavailable"],
+    }
+    projected = bind(impl, value).project("2026-09-12T13:00:00Z")
+    for observed in projected["display"]:
+        assert observed["state"] == "not_checked"
+        assert observed["limitations"] == [
+            "No results were collected",
+            "Some project details were unavailable",
+        ]
+
+
+@pytest.mark.parametrize("with_retrieval", [False, True])
+@pytest.mark.parametrize("positive", [False, True])
+def test_complete_exact_results_with_optional_retrieval(with_retrieval, positive):
+    impl, value = example()
+    if with_retrieval:
+        value["collection"]["retrieval"] = retrieval()
+    if positive:
+        value["results"][0]["projects"] = [{"id": "p", "name": None}]
+    observed = row(impl, value)
+    assert observed["state"] == ("references_found" if positive else "no_references_found")
+    assert observed["limitations"] == []
+
+
 @pytest.mark.parametrize(
     "change",
     [
