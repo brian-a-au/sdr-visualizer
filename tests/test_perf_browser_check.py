@@ -79,3 +79,34 @@ def test_browser_jobs_generate_small_and_medium_fixtures():
 
         assert "--scale 0.083 --output tests/fixtures/cja_snapshot_small.json" in browser_job
         assert "--scale 0.417 --output tests/fixtures/cja_snapshot_medium.json" in browser_job
+
+
+def test_workspace_gate_rejects_truncation_eager_rows_and_slow_interaction():
+    observations = {
+        "eager": 1,
+        "total": 9999,
+        "first": 51,
+        "second": 100,
+        "firstRange": "Showing 1–50 of 10000",
+        "secondRange": "Showing 1–50 of 10000",
+        "openMs": 101,
+        "pageMs": 102,
+    }
+    failures = perf_browser_check._workspace_failures("synthetic", observations, 10000)
+    assert len(failures) == 7
+    assert any("embedded" in failure for failure in failures)
+    assert any("page replacement" in failure for failure in failures)
+
+
+def test_workspace_gate_accepts_bounded_replacement_with_all_evidence_retained():
+    observations = {
+        "eager": 0,
+        "total": 10000,
+        "first": 50,
+        "second": 50,
+        "firstRange": "Showing 1–50 of 10000",
+        "secondRange": "Showing 51–100 of 10000",
+        "openMs": 5,
+        "pageMs": 3,
+    }
+    assert perf_browser_check._workspace_failures("synthetic", observations, 10000) == []

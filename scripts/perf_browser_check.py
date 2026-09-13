@@ -293,6 +293,70 @@ def _check_trend(page, html_path: Path) -> list[str]:
     return failures
 
 
+WORKSPACE_INTERACTION_BUDGET_MS = 100.0
+
+
+def _workspace_failures(label: str, measured: dict, project_count: int) -> list[str]:
+    failures = []
+    if measured["eager"] != 0:
+        failures.append(f"[{label}] eagerly rendered Workspace project rows")
+    if measured["total"] != project_count:
+        failures.append(f"[{label}] embedded project evidence was truncated")
+    for phase in ("first", "second"):
+        if measured[phase] != 50:
+            failures.append(
+                f"[{label}] {phase} project page has {measured[phase]} rows; expected 50"
+            )
+    if (
+        measured["firstRange"] != f"Showing 1–50 of {project_count}"
+        or measured["secondRange"] != f"Showing 51–100 of {project_count}"
+    ):
+        failures.append(f"[{label}] page replacement did not advance the project range")
+    for field, action in (("openMs", "first open"), ("pageMs", "page replacement")):
+        if measured[field] > WORKSPACE_INTERACTION_BUDGET_MS:
+            failures.append(f"[{label}] Workspace {action} {measured[field]:.1f}ms > 100ms")
+    return failures
+
+
+def _check_workspace(page, html_path: Path, label: str, project_count: int) -> list[str]:
+    """Measure synchronous open and replacement including forced style/layout."""
+    page.goto(html_path.as_uri())
+    page.wait_for_selector("#catalog-body tr", state="attached", timeout=10_000)
+    measured = page.evaluate(
+        """async () => {
+          const evidence = JSON.parse(document.getElementById('sdr-data').textContent)
+            .workspace_usage.evidence;
+          const record = evidence.results[0];
+          const eager = document.querySelectorAll('.workspace-project').length;
+          // Filtering settles on animation frames. Await it before locating
+          // entries beyond the initial 1,000 rows; opening remains cold.
+          await window.__sdrPerf.timeFilter(record.component.id);
+          const row = Array.from(document.querySelectorAll('#catalog-body tr'))
+            .find(item => item.dataset.id === record.component.id);
+          if (!row) throw new Error('Workspace fixture component is not in catalog');
+          const start = performance.now();
+          row.click();
+          document.getElementById('detail-body').getBoundingClientRect();
+          const openMs = performance.now() - start;
+          const first = document.querySelectorAll('.workspace-project').length;
+          const firstRange = document.querySelector('.workspace-page-status').textContent;
+          const pageStart = performance.now();
+          document.querySelector('[data-workspace-page="next"]').click();
+          document.getElementById('detail-body').getBoundingClientRect();
+          const pageMs = performance.now() - pageStart;
+          return {eager, total: record.projects.length, first, openMs, pageMs,
+            second: document.querySelectorAll('.workspace-project').length,
+            firstRange, secondRange: document.querySelector('.workspace-page-status').textContent};
+        }"""
+    )
+    print(
+        f"[{label}] Workspace open/page: {measured['openMs']:.1f}/{measured['pageMs']:.1f}ms "
+        f"(budget 100ms each, {measured['total']} embedded projects, "
+        f"{measured['first']}/{measured['second']} DOM rows)"
+    )
+    return _workspace_failures(label, measured, project_count)
+
+
 def main() -> int:
     missing = _missing_required_fixtures(FIXTURES)
     if missing:
@@ -335,6 +399,12 @@ def main() -> int:
     generator_module = importlib.util.module_from_spec(generator_spec)
     generator_spec.loader.exec_module(generator_module)
 
+    usage_spec = importlib.util.spec_from_file_location(
+        "workspace_usage_fixture", REPO / "scripts" / "workspace_usage_fixture.py"
+    )
+    usage_fixture = importlib.util.module_from_spec(usage_spec)
+    usage_spec.loader.exec_module(usage_fixture)
+
     adapters = {"cja": cja_adapt, "aa": aa_adapt}
 
     failures: list[str] = []
@@ -358,6 +428,24 @@ def main() -> int:
                     case.render_budget_ms,
                     case.filter_budget_ms,
                     case.expect_opt_in,
+                )
+                checked += 1
+
+                project_count = 500 if case.expected_components == 100 else 10_000
+                encoded = usage_fixture.usage_json(implementation, project_count=project_count)
+                usage_fixture.attach_usage(implementation, encoded)
+                usage_path = Path(tmp) / f"{case.path.stem}-usage.html"
+                usage_path.write_text(render(implementation), encoding="utf-8")
+                failures += _check(
+                    page,
+                    usage_path,
+                    f"{case.path.stem}-usage",
+                    case.render_budget_ms,
+                    case.filter_budget_ms,
+                    case.expect_opt_in,
+                )
+                failures += _check_workspace(
+                    page, usage_path, f"{case.path.stem}-usage", project_count
                 )
                 checked += 1
 
