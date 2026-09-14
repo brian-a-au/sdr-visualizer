@@ -1,17 +1,34 @@
 # Workspace project usage
 
-Starting in 1.2.0, `sdr-visualizer` can optionally collect Workspace project
-usage while generating a catalog. It writes the HTML and a separate usage JSON
-file automatically. Existing AA and CJA snapshots work without re-export.
-Opening the report and replaying saved evidence are entirely offline.
+Workspace usage answers one question about a catalog: which accessible
+Workspace projects reference its components? The evidence appears in a
+separate **Workspace project usage** section of the report. It does not change
+the catalog's component dependencies or the Uses / Used by views.
 
-## Generate an augmented report
+There are three ways to use it:
 
-Install the extra for the platform you use. The two SDK integrations are
-independent and pinned to their characterized versions:
+| Goal | Workflow | Network and credentials |
+|---|---|---|
+| Check usage for a saved catalog | Collect while reading an AA or CJA snapshot | Required during collection |
+| Check usage for a live catalog | Add collection to a live AA or CJA command | Required for the exporter and collection |
+| Open evidence that was already collected | Replay the usage JSON with its original snapshot | Not required |
+
+## Collect usage from a saved snapshot
+
+Install the independent extra that matches the snapshot. Use `uv` to install
+the command-line tool:
 
 ```bash
-pip install 'sdr-visualizer[workspace-cja]'
+uv tool install 'sdr-visualizer[workspace-cja]'
+```
+
+```bash
+uv tool install 'sdr-visualizer[workspace-aa]'
+```
+
+Then collect usage for a CJA snapshot or an AA snapshot:
+
+```bash
 sdr-visualizer snapshots/cja.json --collect-workspace-usage \
   --workspace-usage-org 'EXAMPLE@AdobeOrg' \
   --workspace-usage-config ../credentials/adobe.json \
@@ -19,7 +36,6 @@ sdr-visualizer snapshots/cja.json --collect-workspace-usage \
 ```
 
 ```bash
-pip install 'sdr-visualizer[workspace-aa]'
 sdr-visualizer snapshots/aa.json --collect-workspace-usage \
   --workspace-usage-org 'EXAMPLE@AdobeOrg' \
   --workspace-usage-company example-company \
@@ -27,36 +43,101 @@ sdr-visualizer snapshots/aa.json --collect-workspace-usage \
   --output reports/aa.html
 ```
 
-Create the output directory first. Each command writes its HTML and
-`reports/cja.workspace-usage.json` or `reports/aa.workspace-usage.json`.
-`--workspace-usage-output PATH` overrides only the usage-file location.
-`--json PATH` still writes the **complete report payload**, including usage.
-The usage file contains exactly the logical evidence embedded in the report.
-It is an output of collection; no notebook, raw findings file, or manual
+Create the output directory first. Each command writes the HTML and a sidecar
+usage file: `reports/cja.workspace-usage.json` or
+`reports/aa.workspace-usage.json`. Use `--workspace-usage-output PATH` to put
+the sidecar somewhere else. `--json PATH` still writes the complete report
+payload, including usage. The sidecar contains the same logical evidence that
+is embedded in the report; no notebook, raw findings file, or manual
 normalization is required.
 
-Collection also works with directory input, `--at`, stdin, comparison, and trend.
-Only the primary catalog is augmented; a trend augments its newest selected
-snapshot. The existing live inventory commands work as well:
+Collection also works with directory input, `--at`, stdin, comparison, and
+trend. Only the primary catalog is augmented; a trend augments its newest
+selected snapshot.
+
+## Collect usage during live inventory
+
+Add `--collect-workspace-usage` to the existing live CJA or AA command:
 
 ```bash
+# CJA
 sdr-visualizer --dataview example-dataview --collect-workspace-usage \
   --workspace-usage-org 'EXAMPLE@AdobeOrg' \
   --workspace-usage-config ../credentials/adobe.json --output reports/cja.html
+
+# AA
 sdr-visualizer --rsid example-suite --collect-workspace-usage \
   --workspace-usage-org 'EXAMPLE@AdobeOrg' --workspace-usage-company example-company \
   --workspace-usage-config ../credentials/adobe.json --output reports/aa.html
 ```
 
 Live inventory still invokes `cja_auto_sdr` or `aa_auto_sdr` with its existing
-configuration and 600-second timeout. The visualizer then collects usage itself;
-it does not forward usage configuration to the exporter. No exporter changes
-or new snapshot form are required. A live-generated usage file binds to the
-original in-memory exporter snapshot. That raw snapshot is not saved as a new
-output, so replay requires obtaining that exact original snapshot separately.
-A later export is not interchangeable.
+configuration and 600-second timeout. The visualizer collects usage after the
+exporter finishes; it does not pass usage options to the exporter. No exporter
+change or new snapshot format is required.
 
-## Credentials, identity, and scope
+The usage sidecar from a live run is bound to the exporter's original
+in-memory snapshot. The raw snapshot is not saved as a separate output, so
+replay requires that exact original snapshot. A later export cannot be used.
+
+## Replay saved usage evidence
+
+Use the original snapshot together with its matching usage sidecar:
+
+```bash
+# CJA
+sdr-visualizer snapshots/cja.json \
+  --workspace-usage reports/cja.workspace-usage.json \
+  --workspace-usage-org 'EXAMPLE@AdobeOrg' --output reports/cja-replay.html
+
+# AA
+sdr-visualizer snapshots/aa.json \
+  --workspace-usage reports/aa.workspace-usage.json \
+  --workspace-usage-org 'EXAMPLE@AdobeOrg' --workspace-usage-company example-company \
+  --output reports/aa-replay.html
+```
+
+Replay needs no Workspace SDK extra, credentials, or network access. It creates
+no usage sidecar and cannot be combined with collection or live inventory. Use
+the original snapshot, including all of its otherwise unused fields. Identity
+or digest mismatches reject the whole usage input instead of rebinding it.
+Keep usage JSON outside snapshot directories so future snapshot selection does
+not mistake it for inventory.
+
+## Read usage in the report
+
+Open the generated HTML and find **Workspace project usage**. The section shows
+project names and IDs, when the check ran, the requested scope, component
+attempts, collection and result completion, permission visibility, the evidence
+source, and known limits. Project names and IDs are plain text; this version
+does not create project links. Lists retain all accepted projects and show 50
+rows per page.
+
+The section is separate from Uses / Used by. An exact project reference is
+evidence that the project used that component in the checked scope; it does not
+add an edge to the catalog's component dependency graph.
+
+| Evidence condition | Display state |
+|---|---|
+| No evidence, component outside the requested scope, or missing result in a partial collection | Not checked; no fabricated zero-reference conclusion. |
+| Missing result in a failed collection, or failed record without projects | Lookup failed; no conclusion available. |
+| Nonempty unverified SDK results | Possible project references; exact component and environment match unverified. |
+| Exact positive evidence with complete collection and record, without limitations | Project references found. Timing warnings remain independent. |
+| Exact positives with partial/failed collection or record, or limitations | Project references found; results are partial. Positives remain visible. |
+| Exact empty result, complete collection and record, no limitations, valid check time | No project references found within the checked scope. |
+| Other attempted empty results | Partial or unverified lookup; no conclusion available. |
+
+When retrieval metadata is supplied, completed positive and empty states also
+require complete retrieval without retrieval limitations. Partial or failed
+retrieval keeps exact positives visible as partial and empty results inconclusive.
+Retrieval limitations appear on component display rows, including missing
+results. Saved evidence without retrieval metadata remains supported.
+
+An empty result never establishes “unused” or “safe to delete.” An exact
+project reference establishes an observed dependency, not recent project
+activity. Unverified candidates do not establish that exact dependency.
+
+## Configure credentials and scope
 
 Use an existing authorized account through an explicit config file, or omit
 the config option to use the complete environment quartet `ORG_ID`, `CLIENT_ID`,
@@ -78,7 +159,8 @@ suite identity is retained. These checks do not authenticate the history of a
 legacy snapshot: its organization/company context remains an author assertion.
 
 By default, collection requests `includeType=all` and checks all catalog
-components, up to 2,000. Narrow the question when necessary:
+components, up to 2,000. Narrow the question when necessary by adding options
+to a collection command:
 
 ```bash
 # Add these options to a collection command:
@@ -99,39 +181,14 @@ Types are `metric`, `dimension`, `derived_field`, `segment`, and
 collection. Aliases are not inferred. Catalogs above 2,000 entries require a
 bounded selection; an empty catalog cannot request collection.
 
+## Collection behavior and limits
+
 Collection uses `cjapy==0.3.1` for CJA and `aanalytics2==0.5.3.post1` for AA.
 Each SDK's `findComponentsUsage` runs locally against sanitized fetched project
 definitions in a separate, credential-free process. Characterized helpers can
 miss structures or return false positives. **All SDK results remain unverified
 candidates**, even when API traversal completes. Neither integration promises
 visibility into every Workspace project or parity of matching behavior.
-
-## Read the catalog section
-
-“Workspace project usage” is separate from Uses / Used by. It shows project
-names and IDs, check time, requested scope, component attempts, collection and
-result completion, permission visibility, source, and known limits. Project
-names and IDs are plain text; this version does not create project links.
-Lists retain all accepted projects and show 50 rows per page.
-Component-specific limits appear with that component's result. Run-wide API
-and matching limits are grouped in a collapsed collection disclosure so they
-remain available without overwhelming every component investigation.
-
-| Evidence condition | Display state |
-|---|---|
-| No evidence, component outside the requested scope, or missing result in a partial collection | Not checked; no fabricated zero-reference conclusion. |
-| Missing result in a failed collection, or failed record without projects | Lookup failed; no conclusion available. |
-| Nonempty unverified SDK results | Possible project references; exact component and environment match unverified. |
-| Exact positive evidence with complete collection and record, without limitations | Project references found. Timing warnings remain independent. |
-| Exact positives with partial/failed collection or record, or limitations | Project references found; results are partial. Positives remain visible. |
-| Exact empty result, complete collection and record, no limitations, valid check time | No project references found within the checked scope. |
-| Other attempted empty results | Partial or unverified lookup; no conclusion available. |
-
-When retrieval metadata is supplied, completed positive and empty states also
-require complete retrieval without retrieval limitations. Partial or failed
-retrieval keeps exact positives visible as partial and empty results inconclusive.
-Retrieval limitations appear on component display rows, including missing results.
-Saved evidence without retrieval metadata remains supported.
 
 Permission visibility is `limited` or `unknown`, never “all projects.” A
 successful traversal describes only the declared scope accessible to the
@@ -140,10 +197,6 @@ completion, and known collection/permission limits are separate facts. A
 completed empty project inventory produces attempted partial/unverified empty
 records, not a claim of non-use. Partial collection with no records must carry
 the limitation `No results were collected`.
-
-An empty result never establishes “unused” or “safe to delete.” An exact project
-reference establishes an observed dependency, not recent project activity.
-Unverified candidates do not establish that exact dependency.
 
 “Usage checked at” is separate from snapshot time and report-generation time.
 The collector uses the earliest response receipt among the inspected project
@@ -159,25 +212,6 @@ investigation workflow, not an Adobe freshness guarantee. Exactly 24 hours does
 not trigger the notice. There is no “fresh” badge or automatic expiry. Bad timing
 does not erase positives; missing, invalid, or future timing prevents an exact
 empty result from becoming the scoped no-reference state.
-
-## Replay saved evidence
-
-```bash
-sdr-visualizer snapshots/cja.json \
-  --workspace-usage reports/cja.workspace-usage.json \
-  --workspace-usage-org 'EXAMPLE@AdobeOrg' --output reports/cja-replay.html
-sdr-visualizer snapshots/aa.json \
-  --workspace-usage reports/aa.workspace-usage.json \
-  --workspace-usage-org 'EXAMPLE@AdobeOrg' --workspace-usage-company example-company \
-  --output reports/aa-replay.html
-```
-
-Replay requires neither SDK extras nor credentials nor network access. It
-creates no usage sidecar and cannot be combined with collection or live inventory.
-Use the original snapshot, including all its otherwise unused fields. Identity
-or digest mismatches reject the whole usage input rather than automatically
-rebinding it. Keep usage JSON outside snapshot directories so future snapshot
-selection cannot mistake it for inventory.
 
 Python callers can explicitly collect with
 `sdr_visualizer.usage.collect_workspace_usage(parsed_snapshot, organization_context=...,
