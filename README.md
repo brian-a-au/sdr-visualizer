@@ -122,16 +122,19 @@ for credentials, permissions, and generator compatibility.
 ## Optional Workspace project usage
 
 Add project-usage evidence while generating the HTML. Install the independent
-extra for your platform, then opt in to collection using an existing credential
-source:
+extra for your platform with uv, then opt in to collection using an existing
+credential source. The CJA and AA extras are independent; use the one that
+matches your snapshot:
 
 ```bash
-pip install 'sdr-visualizer[workspace-cja]'
+uv tool install 'sdr-visualizer[workspace-cja]'
 sdr-visualizer snapshots/cja.json --collect-workspace-usage \
   --workspace-usage-org 'EXAMPLE@AdobeOrg' \
   --workspace-usage-config ../credentials/adobe.json --output cja.html
+```
 
-pip install 'sdr-visualizer[workspace-aa]'
+```bash
+uv tool install 'sdr-visualizer[workspace-aa]'
 sdr-visualizer snapshots/aa.json --collect-workspace-usage \
   --workspace-usage-org 'EXAMPLE@AdobeOrg' --workspace-usage-company example-company \
   --workspace-usage-config ../credentials/adobe.json --output aa.html
@@ -281,8 +284,8 @@ the schema as loosely specified. Current-generator and private-corpus
 validation is a separate, recorded release gate; see
 [`docs/RELEASING.md`](https://github.com/brian-a-au/sdr-visualizer/blob/main/docs/RELEASING.md).
 
-**CJA lineage.** Starting with 1.1.0, `cja-lineage` adds a separate CJA-only
-command. Its documented arguments and exit codes are described in the
+**CJA lineage.** `cja-lineage` adds a separate CJA-only command. Its documented
+arguments and exit codes are described in the
 [lineage guide](https://github.com/brian-a-au/sdr-visualizer/blob/main/docs/LINEAGE.md).
 Its embedded payload and Python modules are internal and do not extend the
 catalog schema or JSON sidecar contract.
@@ -317,7 +320,7 @@ uv run python scripts/package_smoke_check.py dist/packages/
 
 See which Adobe Experience Platform (AEP) datasets feed your CJA Connections
 and which Data Views use those Connections. The **`cja-lineage`** command is
-included when you install `sdr-visualizer` (version 1.1.0 or later).
+included when you install `sdr-visualizer`.
 
 Start with a saved dataset discovery JSON file from
 `cja_auto_sdr --list-datasets --format json --output -`. This file lists datasets
