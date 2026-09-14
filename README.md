@@ -153,6 +153,8 @@ for collection scopes, offline replay, identity binding, limits, and privacy.
 |---|---|
 | `--output PATH`           | Write HTML somewhere specific. |
 | `--json PATH`             | Also emit the embedded payload as a separate JSON file (useful for downstream tooling). |
+| `--collect-workspace-usage` | Collect optional Workspace project-usage evidence; see the [Workspace usage guide](https://github.com/brian-a-au/sdr-visualizer/blob/main/docs/WORKSPACE_USAGE.md). |
+| `--workspace-usage PATH`  | Replay saved Workspace usage evidence with the original snapshot. |
 | `--title TEXT`            | Override the document title. |
 | `--color-pack CODE`       | Select `default`, `ADBE`, `OMTR`, or `BLUE` for HTML presentation (case-sensitive). |
 | `--exclude-orphans`       | Default the catalog's references filter to "Referenced" — hides components nothing depends on. |
@@ -294,8 +296,9 @@ Warnings (snapshot generator newer than the tested version; 5,000+ component rep
 Requires Python 3.11+ and [uv](https://github.com/astral-sh/uv).
 
 ```bash
-uv sync --all-extras    # Set up environment, including optional SDK tests
-uv run pytest          # Run tests (auto-generates the large fixture on first run)
+uv sync --all-extras --dev --group browser  # Full test environment, including SDK tests
+uv run playwright install chromium webkit
+uv run pytest                               # Run tests (auto-generates the large fixture on first run)
 uv run ruff check      # Lint
 uv run ruff format     # Auto-format
 

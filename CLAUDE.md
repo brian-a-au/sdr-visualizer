@@ -41,8 +41,9 @@ unrelated behavior changes merely because they share a release target.
 ## Develop
 
 ```bash
-uv sync                # Set up environment
-uv run pytest          # Run tests
+uv sync --all-extras --dev --group browser  # Full test environment, including SDK tests
+uv run playwright install chromium webkit
+uv run pytest                               # Run tests
 uv run ruff check      # Lint
 uv run ruff format     # Auto-format
 ```
