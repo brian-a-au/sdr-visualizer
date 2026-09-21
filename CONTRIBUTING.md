@@ -61,6 +61,10 @@ Every PR needs: tests for behavior changes, a green suite, clean
 coverage from the non-browser Python suite, and green browser/perf gates when
 the change could plausibly affect them.
 
+Current repository settings permit maintainer self-review and require zero
+independent approvals. Required checks still apply. Maintainers re-inspect these
+settings before each release and record the result in the release evidence.
+
 Release artifacts are not considered usable merely because `uv build`
 succeeds. The package smoke check installs the wheel and source distribution
 independently into temporary environments outside the checkout, then verifies

@@ -18,7 +18,10 @@ def test_saved_report_and_help(tmp_path, capsys):
     with pytest.raises(SystemExit) as caught:
         lineage.main(["--help"])
     assert caught.value.code == 0
-    assert "--output" in capsys.readouterr().out
+    help_text = capsys.readouterr().out
+    assert "--output" in help_text
+    for version in ("3.11.8", "3.12.0", "3.12.2"):
+        assert version in help_text
 
 
 def test_alias_preserves_source(tmp_path):

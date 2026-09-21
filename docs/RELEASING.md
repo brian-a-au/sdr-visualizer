@@ -300,9 +300,10 @@ non-critical item is backlog.
 
 ## Requirement evidence matrix
 
-Copy this table into the release pull request and replace every `pending` with
-a durable test, workflow run, document section, pull request, digest, or
-settings inspection tied to the candidate SHA.
+Start from the tracked [release evidence template](RELEASE_EVIDENCE_TEMPLATE.md),
+copy it into the release pull request, and replace every `pending` with durable
+evidence tied to the candidate SHA. The template is a copy source; this
+checklist remains authoritative.
 
 | Requirement | Required evidence | Result |
 |---|---|---|

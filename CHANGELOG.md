@@ -4,6 +4,23 @@ All notable changes to `sdr-visualizer` will be documented here. The format foll
 
 ## [Unreleased]
 
+### Fixed
+
+- Accept the exactly qualified `cja_auto_sdr` 3.12.2 executable for CJA lineage
+  discovery after offline synthetic contract validation. Other unqualified
+  versions continue to fail closed before live acquisition.
+
+## [1.2.1] - 2026-09-20
+
+### Changed
+
+- Correct README and Workspace onboarding guidance for saved snapshots, live
+  collection, authentication, supported output, and safe sharing.
+- Add a reusable release-evidence template for exact-candidate qualification,
+  publication authorization, public verification, and announcement decisions.
+- Document the repository's current maintainer review model and preserve required
+  checks and pre-release settings inspection.
+
 ## [1.2.0] - 2026-09-12
 
 ### Added
@@ -682,7 +699,8 @@ The following are explicitly internal and may change without notice:
 - Workspace project visualization (v0.4)
 - Schema map view (v0.5)
 
-[Unreleased]: https://github.com/brian-a-au/sdr-visualizer/compare/v1.2.0...HEAD
+[Unreleased]: https://github.com/brian-a-au/sdr-visualizer/compare/v1.2.1...HEAD
+[1.2.1]: https://github.com/brian-a-au/sdr-visualizer/releases/tag/v1.2.1
 [1.2.0]: https://github.com/brian-a-au/sdr-visualizer/releases/tag/v1.2.0
 [1.1.7]: https://github.com/brian-a-au/sdr-visualizer/releases/tag/v1.1.7
 [1.1.6]: https://github.com/brian-a-au/sdr-visualizer/releases/tag/v1.1.6
