@@ -411,6 +411,7 @@ def _stop(process):
         try:
             os.killpg(process.pid, signal.SIGKILL)
         except ProcessLookupError:
+            # The child may have exited before signalling; the wait below reaps it.
             pass
         except PermissionError as error:
             # On macOS an exiting process group can reject a signal before
