@@ -20,7 +20,7 @@ def test_saved_report_and_help(tmp_path, capsys):
     assert caught.value.code == 0
     help_text = capsys.readouterr().out
     assert "--output" in help_text
-    for version in ("3.11.8", "3.12.0", "3.12.2"):
+    for version in ("3.11.8", "3.12.0", "3.12.2", "3.12.4"):
         assert version in help_text
 
 
