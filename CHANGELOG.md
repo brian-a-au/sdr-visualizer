@@ -4,6 +4,12 @@ All notable changes to `sdr-visualizer` will be documented here. The format foll
 
 ## [Unreleased]
 
+### Fixed
+
+- Accept the exactly qualified `cja_auto_sdr` 3.12.2 executable for CJA lineage
+  discovery after offline synthetic contract validation. Other unqualified
+  versions continue to fail closed before live acquisition.
+
 ## [1.2.1] - 2026-09-20
 
 ### Changed

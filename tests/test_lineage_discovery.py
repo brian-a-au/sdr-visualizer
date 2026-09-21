@@ -101,11 +101,12 @@ def test_saved_and_live_success_return_the_same_normalized_topology(tmp_path: Pa
     ]
 
 
-def test_live_312_acquires_enriched_relationship_metadata(tmp_path: Path) -> None:
+@pytest.mark.parametrize("version", ["cja_auto_sdr 3.12.0", "cja_auto_sdr 3.12.2"])
+def test_live_312_acquires_enriched_relationship_metadata(tmp_path: Path, version: str) -> None:
     executable, record_path = _fake_executable(
         tmp_path,
         payload=json.dumps(_enriched_payload()).encode(),
-        version="cja_auto_sdr 3.12.0",
+        version=version,
     )
 
     topology = lineage_discovery.acquire_live(executable, scope_label="Scope", profile="existing")
@@ -124,6 +125,38 @@ def test_live_312_acquires_enriched_relationship_metadata(tmp_path: Path) -> Non
         "-",
         "--quiet",
     ]
+
+
+@pytest.mark.parametrize(
+    "version",
+    [
+        "cja_auto_sdr 3.12.1",
+        "cja_auto_sdr 3.12.3",
+        "cja_auto_sdr 3.12.2rc1",
+        "cja_auto_sdr 3.12.2+local",
+        "prefix cja_auto_sdr 3.12.2",
+        "cja_auto_sdr 3.12.2 extra",
+        "banner\ncja_auto_sdr 3.12.2",
+    ],
+)
+def test_live_rejects_unqualified_exact_versions_before_acquisition(
+    tmp_path: Path, monkeypatch, version: str
+) -> None:
+    executable, record_path = _fake_executable(tmp_path, version=version)
+    monkeypatch.setenv("SECRET", CANARY)
+    config_path = tmp_path / f"{CANARY}.json"
+
+    result = lineage_discovery.acquire_live(
+        executable,
+        scope_label="Scope",
+        config_file=config_path,
+    )
+
+    assert result == lineage_discovery.LineageDiscoveryFailure(
+        lineage_discovery.LineageDiscoveryFailureCode.EXECUTABLE_VERSION_MISMATCH
+    )
+    assert not record_path.exists()
+    _assert_content_free(result)
 
 
 def test_profile_live_uses_only_the_profile_selector(tmp_path: Path) -> None:

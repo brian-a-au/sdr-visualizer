@@ -43,9 +43,12 @@ Alternatively use `--profile profile-name`, or omit both credential selectors
 to use the upstream default credential route. `--profile` and `--config-file`
 are mutually exclusive and apply only to `--live`. The executable and explicit
 configuration paths must be absolute. Live discovery currently accepts exactly
-`cja_auto_sdr` 3.11.8 and 3.12.0. Other versions fail closed pending compatibility
-qualification; saved discovery is validated by shape rather than generator
-version. No generator is installed automatically.
+`cja_auto_sdr` 3.11.8, 3.12.0, and 3.12.2. Other versions fail closed pending
+compatibility qualification; saved discovery is validated by shape rather than
+generator version. Version 3.12.2 was qualified against the offline discovery
+contract with synthetic inventories and blocked network access. That compatibility
+check does not qualify credentials, network behavior, or a live release. No
+generator is installed automatically.
 
 The command currently targets macOS and Linux, using POSIX process and
 owner-only output protections. Windows execution is not qualified. The generated
