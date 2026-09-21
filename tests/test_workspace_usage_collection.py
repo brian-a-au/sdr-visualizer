@@ -439,6 +439,42 @@ def protocol(messages, *, timeout=2, stall=False, req=None):
             collector._stop(process)
 
 
+@pytest.mark.parametrize("exit_code", [0, -9])
+def test_cleanup_signal_permission_race_requires_reaped_child(monkeypatch, exit_code):
+    waits = []
+
+    def denied(pid, signal):
+        raise PermissionError("process group is exiting")
+
+    def wait(*, timeout):
+        waits.append(timeout)
+        return exit_code
+
+    monkeypatch.setattr(collector.os, "killpg", denied)
+    process = SimpleNamespace(pid=123, poll=lambda: None, wait=wait)
+    collector._stop(process)
+    assert waits == [2]
+
+
+def test_cleanup_signal_permission_failure_preserved_for_running_child(monkeypatch):
+    import subprocess
+
+    error = PermissionError("signal denied")
+
+    def denied(pid, signal):
+        raise error
+
+    def wait(*, timeout):
+        assert timeout == 2
+        raise subprocess.TimeoutExpired("synthetic child", timeout)
+
+    monkeypatch.setattr(collector.os, "killpg", denied)
+    process = SimpleNamespace(pid=123, poll=lambda: None, wait=wait)
+    with pytest.raises(PermissionError) as caught:
+        collector._stop(process)
+    assert caught.value is error
+
+
 def retrieval(**kwargs):
     kwargs.setdefault(
         "request_attempts",

@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import contextlib
 import importlib.metadata
 import os
 import selectors
@@ -409,8 +408,20 @@ def _child():
 
 def _stop(process):
     if process.poll() is None:
-        with contextlib.suppress(ProcessLookupError):
+        try:
             os.killpg(process.pid, signal.SIGKILL)
+        except ProcessLookupError:
+            # The child may have exited before signalling; the wait below reaps it.
+            pass
+        except PermissionError as error:
+            # On macOS an exiting process group can reject a signal before
+            # waitpid reports its leader's exit. Only accept cleanup once the
+            # child has actually exited, within the existing wait bound.
+            try:
+                process.wait(timeout=2)
+            except subprocess.TimeoutExpired:
+                raise error from None
+            return
     process.wait(timeout=2)
 
 
