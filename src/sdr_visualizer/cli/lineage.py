@@ -32,7 +32,9 @@ def main(argv: list[str] | None = None) -> int:
         "--live", action="store_true", help="Acquire accessible lineage using cja_auto_sdr"
     )
     parser.add_argument(
-        "--binary", type=Path, help="Absolute path to cja_auto_sdr 3.11.8 or 3.12.0 (live only)"
+        "--binary",
+        type=Path,
+        help="Absolute path to cja_auto_sdr 3.11.8, 3.12.0, or 3.12.2 (live only)",
     )
     auth = parser.add_mutually_exclusive_group()
     auth.add_argument("--profile", help="Named upstream credential profile (live only)")
