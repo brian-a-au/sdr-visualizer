@@ -34,7 +34,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument(
         "--binary",
         type=Path,
-        help="Absolute path to cja_auto_sdr 3.11.8, 3.12.0, or 3.12.2 (live only)",
+        help="Absolute path to cja_auto_sdr 3.11.8, 3.12.0, 3.12.2, or 3.12.4 (live only)",
     )
     auth = parser.add_mutually_exclusive_group()
     auth.add_argument("--profile", help="Named upstream credential profile (live only)")

@@ -27,7 +27,7 @@ DEFAULT_SAVED_LIMIT = DEFAULT_STDOUT_LIMIT
 DEFAULT_TIMEOUT_SECONDS = 600.0
 
 _READ_SIZE = 64 * 1024
-_VERSION_OUTPUT = re.compile(rb"\Acja_auto_sdr (?:3\.11\.8|3\.12\.0|3\.12\.2)(?:\r?\n)?\Z")
+_VERSION_OUTPUT = re.compile(rb"\Acja_auto_sdr (?:3\.11\.8|3\.12\.0|3\.12\.2|3\.12\.4)(?:\r?\n)?\Z")
 _VERSION_OUTPUT_LIMIT = 8 * 1024
 _VERSION_TIMEOUT_SECONDS = 10.0
 _PROFILE = re.compile(r"\A[A-Za-z0-9][A-Za-z0-9_.-]{0,127}\Z")
