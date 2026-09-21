@@ -8,6 +8,9 @@ All notable changes to `sdr-visualizer` will be documented here. The format foll
 
 ### Fixed
 
+- Handle a Workspace worker exit race during process-group cleanup on macOS.
+  A rejected signal is accepted only after the child exits within the existing
+  two-second wait; a still-running child retains the original error.
 - Accept the exactly qualified `cja_auto_sdr` 3.12.2 and 3.12.4 executables for
   CJA lineage discovery. Other unqualified versions continue to fail closed
   before live acquisition.
