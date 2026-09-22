@@ -39,11 +39,12 @@ def test_readme_distinguishes_saved_and_live_input_contracts():
 
 def test_readme_scopes_aa_live_mode_to_the_normalized_catalog():
     readme = (REPO / "README.md").read_text(encoding="utf-8")
-    live_aa = " ".join(readme.split("## Live AA", 1)[1].split("## Useful flags", 1)[0].split())
+    live_modes = readme.split("## Live modes", 1)[1].split("## Optional Workspace", 1)[0]
+    live_aa = " ".join(live_modes.split("Live AA mode uses", 1)[1].split())
 
-    assert "reads the generator JSON snapshot from stdout" in live_aa
+    assert "reads the generator's JSON snapshot from stdout" in live_aa
     assert "supported normalized component catalog" in live_aa
-    assert "Retain the original generator snapshot" in live_aa
+    assert "Keep the original generator snapshot" in live_aa
     assert "platform-specific details that the visualizer does not embed" in live_aa
     assert "complete inventory" not in live_aa
 
