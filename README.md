@@ -22,10 +22,10 @@ Static-output visual catalog generator for Adobe Customer Journey Analytics (CJA
 
 **Live examples:** [CJA report](https://brian-a-au.github.io/sdr-visualizer/cja-typical.html) · [AA report](https://brian-a-au.github.io/sdr-visualizer/aa-typical.html)
 
-The output is one HTML file: no server, no consumer-side build step, and no
-CDN dependencies. Its JSON, CSS, JavaScript, and D3 runtime are embedded, so it
-opens in a modern browser without an internet connection and makes no network
-requests.
+The output is one HTML file. There is no server, no consumer-side build step,
+and no CDN dependency. Its JSON, CSS, JavaScript, and D3 runtime are all
+embedded, so it opens in a modern browser with no internet connection and makes
+no network requests.
 
 Offline does not mean cleared for distribution. A report can contain
 implementation and component names, descriptions, segment and
@@ -33,6 +33,22 @@ calculated-metric logic, owners, identifiers, timestamps, and source paths.
 Treat it as derived from the source snapshot. Move, email, post, or attach it
 only in authorized locations and in accordance with your organization's
 confidentiality and data-handling policy.
+
+## Public preview scope
+
+This project is in public preview. A report describes what is configured in a
+snapshot. It does not grade the implementation, and it does not confirm that a
+configuration is correct, complete, or working at runtime. Review the details
+against the source implementation before you act on them.
+
+The report embeds the supported normalized component catalog, not every
+platform-specific field. Optional Workspace project references are unverified
+candidates, and an empty result never means a component is unused. Keep the
+original generator snapshot for anything the report does not embed.
+
+The tool is verified on Ubuntu with Python 3.11, 3.12, and 3.14. Other platforms
+and later Python versions are not yet verified. The package installs on Python
+3.11 or newer.
 
 ## Install
 
@@ -76,7 +92,7 @@ sdr-visualizer snapshot_new.json --compare-to snapshot_old.json
 sdr-visualizer ./snapshots/ --trend
 ```
 
-The output lands at `./visualize-{instance_id}-{timestamp}.html` by default. Open it in a browser — that's the whole experience.
+The output lands at `./visualize-{instance_id}-{timestamp}.html` by default. Open it in a browser. That is the whole experience.
 
 Standard input is also supported when another process already emits a complete
 compatible snapshot:
@@ -85,13 +101,16 @@ compatible snapshot:
 some-snapshot-command | sdr-visualizer -
 ```
 
-## Live CJA
+## Live modes
 
-Live CJA mode requires the separate
-[`cja_auto_sdr`](https://github.com/brian-a-au/cja_auto_sdr) executable. Follow
-that project's current installation, configuration, and authentication
-instructions, then confirm `cja_auto_sdr` is on your `PATH`. Its generator may
-require a newer Python version than sdr-visualizer's Python 3.11 minimum.
+Both live modes call a separate generator that you install and authenticate
+yourself. Follow that project's current setup, then confirm the executable is on
+your `PATH`. Either generator may require a newer Python version than
+sdr-visualizer's Python 3.11 minimum. The upstream repository is authoritative
+for credentials, permissions, and generator compatibility.
+
+Live CJA mode uses the
+[`cja_auto_sdr`](https://github.com/brian-a-au/cja_auto_sdr) executable:
 
 ```bash
 sdr-visualizer --dataview dv_prod_web
@@ -99,25 +118,20 @@ sdr-visualizer --dataview dv_prod_web
 
 sdr-visualizer runs the generator with JSON output, a temporary output
 directory, and `--include-all-inventory`, then selects the generated snapshot.
-The temporary source data is removed after the report is built. This is not a
-stdin pipeline: CJA's complete inventory is directory-backed.
+It removes the temporary source data after the report is built. This is not a
+stdin pipeline. CJA's complete inventory comes from a directory of files.
 
-## Live AA
-
-Live AA mode likewise requires the separate
-[`aa_auto_sdr`](https://github.com/brian-a-au/aa_auto_sdr) executable. Complete
-its current setup and authentication steps, and confirm `aa_auto_sdr` is on your
-`PATH`. The generator may require a newer Python version than sdr-visualizer.
+Live AA mode uses the
+[`aa_auto_sdr`](https://github.com/brian-a-au/aa_auto_sdr) executable:
 
 ```bash
 sdr-visualizer --rsid prod_us
 ```
 
-AA live mode reads the generator JSON snapshot from stdout and embeds the
-supported normalized component catalog in the report. Retain the original
+AA live mode reads the generator's JSON snapshot from stdout and embeds the
+supported normalized component catalog in the report. Keep the original
 generator snapshot when you need platform-specific details that the visualizer
-does not embed. For both live modes, the upstream repository is authoritative
-for credentials, permissions, and generator compatibility.
+does not embed.
 
 ## Optional Workspace project usage
 
@@ -144,7 +158,8 @@ Each command automatically writes HTML and `<html-stem>.workspace-usage.json`.
 Existing snapshots and live exporter modes work without exporter changes.
 The catalog shows possible project references separately from component
 dependencies, with check time and coverage limits. SDK matches remain
-unverified candidates; empty results never mean unused or safe to delete.
+unverified candidates. Empty results never mean a component is unused or safe
+to delete.
 Opening the HTML and replaying the saved usage file need no credentials or
 network access. See the
 [Workspace usage guide](https://github.com/brian-a-au/sdr-visualizer/blob/main/docs/WORKSPACE_USAGE.md)
@@ -188,9 +203,9 @@ Color-pack selection changes HTML presentation only. It does not add to or
 alter the embedded JSON or a `--json` sidecar. The pack CSS, report data, and
 runtime remain embedded in the single offline HTML file.
 
-The named packs are palette-inspired alternatives, not official brand assets
-or claims of affiliation or endorsement, and they contain no company or
-product logos. Each pack is checked against the project's declared WCAG text
+The named packs are alternative palettes. They are not official brand assets or
+claims of affiliation or endorsement, and they contain no company or product
+logos. Each pack is checked against the project's declared WCAG text
 and essential-graphics contrast pairs. Text labels and other non-color cues
 continue to communicate state, and reviewed print colors keep reports legible
 when printed.
@@ -204,8 +219,13 @@ Every report has two base top-level views:
 
 Segment anatomy and calculated-metric anatomy are contextual detail content,
 not separate navigation destinations. They open from the Catalog detail panel.
-Segment anatomy renders nested containers and references; calculated-metric
+Segment anatomy renders nested containers and references. Calculated-metric
 anatomy renders operations, operands, and metric references.
+
+You can restore an exact view from its address. The catalog's filters, sort,
+view, and open detail panel are encoded in the URL hash, so within an
+authorized report location you can copy the address bar to reload the same
+filtered view.
 
 At most one conditional top-level view is added. With `--compare-to`, a
 **Changes** view appears, listing components
@@ -219,17 +239,15 @@ per-interval change log. The window is capped at the 60 most recent
 snapshots.
 
 A trend directory must hold snapshots of a single implementation. If it mixes
-CJA and AA snapshots, pass `--platform cja|aa` to select one (or point at a
-single-platform directory); without it the run stops rather than guess. If it
-mixes data views or report suites, the run stops as well. This mirrors
-`--compare-to`, which refuses both a platform and an instance mismatch, so
+CJA and AA snapshots, pass `--platform cja|aa` to select one, or point at a
+single-platform directory. Without that, the run stops rather than guess. If it
+mixes data views or report suites, the run also stops. `--compare-to` behaves
+the same way and refuses both a platform mismatch and an instance mismatch, so
 neither view ever diffs unrelated inventories. To compare or chart across
-different data views or report suites on purpose (for example staging versus
-prod drift), pass `--allow-instance-mismatch`; the run then proceeds with a
+different data views or report suites on purpose, for example staging versus
+prod drift, pass `--allow-instance-mismatch`. The run then proceeds with a
 warning. Platform mismatches are always rejected. The report shown alongside
 the trend is the newest usable snapshot in the directory.
-
-- **Restorable report links** — the catalog's filters, sort, view, and open detail panel are encoded in the URL hash. Within an authorized report location, copy the address bar to restore the same filtered view.
 
 ## Performance budget
 
@@ -239,8 +257,8 @@ Build time and HTML size are enforced at every published tier (100 / 500 / 1,000
 components). Browser-measured budgets are enforced at the 1,000-component tier
 (initial render < 1s, filter/search < 150ms) and the 2,000-component tier
 (< 2s, < 300ms), plus a 700ms cap on the graph view's main-thread block.
-These guarantees cover up to 8,000 reference edges; denser valid reports use
-an explicit graph opt-in and sit outside the published size/latency envelope.
+These guarantees cover up to 8,000 reference edges. Denser valid reports use an
+explicit graph opt-in and sit outside the published size and latency limits.
 Functional browser tests cover Chromium and WebKit. A separate Chromium-only
 performance gate measures all four component tiers; this is not a timing
 guarantee for every branded browser.
@@ -306,8 +324,8 @@ uv run ruff check      # Lint
 uv run ruff format     # Auto-format
 
 uv run python scripts/generate_examples.py   # Regenerate examples/
-uv run python scripts/check_color_pack_parity.py \\
-  --visualizer-sha <candidate-commit-sha> \\
+uv run python scripts/check_color_pack_parity.py \
+  --visualizer-sha <candidate-commit-sha> \
   --grader-root ../sdr-grader --grader-sha <linked-grader-commit-sha>
 uv run python scripts/perf_check.py          # Run the perf gate
 uv run python scripts/check_markdown_links.py
