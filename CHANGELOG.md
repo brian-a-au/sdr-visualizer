@@ -4,6 +4,17 @@ All notable changes to `sdr-visualizer` will be documented here. The format foll
 
 ## [Unreleased]
 
+## [1.2.2] - 2026-09-21
+
+### Changed
+
+- Advance the tested-through generator markers to `cja_auto_sdr` 3.12.4 and
+  `aa_auto_sdr` 1.21.15. Both were qualified with a fresh production snapshot
+  and the full historical private corpus, so snapshots from those versions no
+  longer raise a newer-than-tested warning.
+- Carry the streamlined README into the published package so the PyPI project
+  description matches the repository.
+
 ## [1.2.1] - 2026-09-21
 
 ### Fixed
@@ -702,7 +713,8 @@ The following are explicitly internal and may change without notice:
 - Workspace project visualization (v0.4)
 - Schema map view (v0.5)
 
-[Unreleased]: https://github.com/brian-a-au/sdr-visualizer/compare/v1.2.1...HEAD
+[Unreleased]: https://github.com/brian-a-au/sdr-visualizer/compare/v1.2.2...HEAD
+[1.2.2]: https://github.com/brian-a-au/sdr-visualizer/releases/tag/v1.2.2
 [1.2.1]: https://github.com/brian-a-au/sdr-visualizer/releases/tag/v1.2.1
 [1.2.0]: https://github.com/brian-a-au/sdr-visualizer/releases/tag/v1.2.0
 [1.1.7]: https://github.com/brian-a-au/sdr-visualizer/releases/tag/v1.1.7
