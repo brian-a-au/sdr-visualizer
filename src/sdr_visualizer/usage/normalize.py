@@ -14,7 +14,7 @@ from sdr_visualizer.core.structure_limits import (
 )
 
 MAX_IPC_BYTES = 16 * 1024 * 1024
-SDK_VERSIONS = {"cja": ("cjapy", "0.3.1"), "aa": ("aanalytics2", "0.5.3.post1")}
+SDK_VERSIONS = {"cja": ("cjapy", "0.3.1"), "aa": ("aanalytics2", "0.5.5")}
 EXCLUDED_PROJECTS_LIMITATION = "Malformed or unsupported projects were excluded from SDK matching"
 CANDIDATE_LIMITATION = (
     "SDK matching is incomplete; exact component and environment match remain unverified"
