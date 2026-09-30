@@ -1,4 +1,4 @@
-"""AA 0.5.3.post1 is characterized separately from CJA."""
+"""AA 0.5.5 is characterized separately from CJA."""
 
 import copy
 

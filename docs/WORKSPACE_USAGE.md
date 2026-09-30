@@ -183,7 +183,7 @@ bounded selection; an empty catalog cannot request collection.
 
 ## Collection behavior and limits
 
-Collection uses `cjapy==0.3.1` for CJA and `aanalytics2==0.5.3.post1` for AA.
+Collection uses `cjapy==0.3.1` for CJA and `aanalytics2==0.5.5` for AA.
 Each SDK's `findComponentsUsage` runs locally against sanitized fetched project
 definitions in a separate, credential-free process. Characterized helpers can
 miss structures or return false positives. **All SDK results remain unverified
