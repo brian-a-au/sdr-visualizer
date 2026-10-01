@@ -11,7 +11,7 @@
 
 ## Invariant check
 
-Non-negotiable per CONTRIBUTING.md. Confirm:
+Non-negotiable per [AGENTS.md](../AGENTS.md). Confirm:
 
 - [ ] No browser network fetches, CDNs, or new JS dependencies introduced; optional Python Workspace collection follows its documented boundaries
 - [ ] No JS framework; D3 stays confined to the graph view

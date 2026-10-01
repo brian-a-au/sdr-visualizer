@@ -314,25 +314,7 @@ Warnings (snapshot generator newer than the tested version; 5,000+ component rep
 
 ## Develop
 
-Requires Python 3.11+ and [uv](https://github.com/astral-sh/uv).
-
-```bash
-uv sync --all-extras --dev --group browser  # Full test environment, including SDK tests
-uv run playwright install chromium webkit
-uv run pytest                               # Run tests (auto-generates the large fixture on first run)
-uv run ruff check      # Lint
-uv run ruff format     # Auto-format
-
-uv run python scripts/generate_examples.py   # Regenerate examples/
-uv run python scripts/check_color_pack_parity.py \
-  --visualizer-sha <candidate-commit-sha> \
-  --grader-root ../sdr-grader --grader-sha <linked-grader-commit-sha>
-uv run python scripts/perf_check.py          # Run the perf gate
-uv run python scripts/check_markdown_links.py
-uv run python scripts/check_workflow_policy.py
-uv build --out-dir dist/packages
-uv run python scripts/package_smoke_check.py dist/packages/
-```
+See [AGENTS.md](https://github.com/brian-a-au/sdr-visualizer/blob/main/AGENTS.md) for the canonical contributor and AI-agent guide: Python/uv setup, development commands, validation, architecture, and contribution instructions.
 
 ## CJA dataset lineage
 
@@ -372,6 +354,8 @@ component catalogs for either CJA or Adobe Analytics (AA).
 - [`aa_auto_sdr`](https://github.com/brian-a-au/aa_auto_sdr) — generates AA snapshots.
 
 ## Documentation
+
+- [`AGENTS.md`](https://github.com/brian-a-au/sdr-visualizer/blob/main/AGENTS.md) — canonical contributor and coding-agent working guide.
 
 - [`docs/WORKSPACE_USAGE.md`](https://github.com/brian-a-au/sdr-visualizer/blob/main/docs/WORKSPACE_USAGE.md) — optional AA/CJA collection, generated usage files, offline replay, and evidence limits.
 

@@ -166,6 +166,7 @@ def test_project_metadata_keeps_yaml_dev_only_and_ships_referenced_documents():
         "CHANGELOG.md",
         "CODE_OF_CONDUCT.md",
         "CONTRIBUTING.md",
+        "AGENTS.md",
         "SECURITY.md",
     } <= includes
     excludes = set(project["tool"]["hatch"]["build"]["targets"]["sdist"]["exclude"])
