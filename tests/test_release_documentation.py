@@ -140,7 +140,10 @@ def test_changelog_uses_unreleased_to_release_convention_and_complete_links():
     version = project["project"]["version"]
     changelog = (REPO / "CHANGELOG.md").read_text(encoding="utf-8")
     contributing = (REPO / "CONTRIBUTING.md").read_text(encoding="utf-8")
-    normalized_contributing = " ".join(contributing.split())
+    guidance = (REPO / "AGENTS.md").read_text(encoding="utf-8")
+    normalized_guidance = " ".join(guidance.split())
+
+    assert "[AGENTS.md](AGENTS.md)" in contributing
 
     assert "## [Unreleased]" in changelog
     assert "## [1.0.5] - 2026-07-31" in changelog
@@ -153,9 +156,9 @@ def test_changelog_uses_unreleased_to_release_convention_and_complete_links():
         f"[Unreleased]: https://github.com/brian-a-au/sdr-visualizer/compare/v{version}...HEAD"
         in changelog
     )
-    assert "Keep changes under `Unreleased`" in normalized_contributing
-    assert "rename `Unreleased` to the version and release date" in normalized_contributing
-    assert "add a fresh empty `Unreleased` section" in normalized_contributing
+    assert "Keep changes under `Unreleased`" in normalized_guidance
+    assert "rename `Unreleased` to the version and release date" in normalized_guidance
+    assert "add a fresh empty `Unreleased` section" in normalized_guidance
 
 
 def test_project_urls_expose_public_discovery_routes():
