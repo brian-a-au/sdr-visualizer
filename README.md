@@ -18,7 +18,10 @@ Static-output visual catalog generator for Adobe Customer Journey Analytics (CJA
 - Per-calculated-metric formula trees with click-through to referenced metrics
 - Snapshot-to-snapshot Changes and multi-snapshot Trend views
 
-![The catalog view: header stats strip, search and filters, and the component table](https://raw.githubusercontent.com/brian-a-au/sdr-visualizer/main/docs/screenshot-catalog.png)
+[![Slideshow of the searchable catalog, reference graph, segment and formula anatomy, snapshot changes, trends, and offline HTML reports for AA and CJA](https://raw.githubusercontent.com/brian-a-au/sdr-visualizer/main/docs/screenshot-catalog.gif)](https://raw.githubusercontent.com/brian-a-au/sdr-visualizer/main/docs/screenshot-catalog.png)
+
+28.5-second loop · Actual report excerpts from synthetic AA and CJA snapshots.
+Click the animation for a still image.
 
 **Live examples:** [CJA report](https://brian-a-au.github.io/sdr-visualizer/cja-typical.html) · [AA report](https://brian-a-au.github.io/sdr-visualizer/aa-typical.html)
 

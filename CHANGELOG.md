@@ -11,6 +11,8 @@ All notable changes to `sdr-visualizer` will be documented here. The format foll
 - Automatically review and merge verified, lockfile-only patch updates to
   Ruff, pytest, and pytest-cov after all protected CI gates pass. Keep other
   dependency changes on the manual-review path.
+- Replace the README catalog screenshot with a feature slideshow covering search,
+  references, anatomy, comparisons, trends, and offline reports across AA and CJA.
 
 ## [1.2.2] - 2026-09-21
 
