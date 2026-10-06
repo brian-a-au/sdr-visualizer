@@ -1,8 +1,27 @@
 """Credential-free matching boundary; all projects are synthetic."""
 
-import pytest
+import tomllib
+from pathlib import Path
 
+import pytest
+from packaging.requirements import Requirement
+
+from sdr_visualizer.usage.normalize import SDK_VERSIONS
 from sdr_visualizer.usage.sdk_worker import match_projects
+
+
+@pytest.mark.parametrize("platform", ["aa", "cja"])
+def test_collection_guard_matches_installable_sdk_pin(platform):
+    project_metadata = tomllib.loads(
+        (Path(__file__).resolve().parents[1] / "pyproject.toml").read_text()
+    )["project"]
+    sdk_name, sdk_version = SDK_VERSIONS[platform]
+    sdk_requirement = next(
+        requirement
+        for value in project_metadata["optional-dependencies"][f"workspace-{platform}"]
+        if (requirement := Requirement(value)).name == sdk_name
+    )
+    assert str(sdk_requirement.specifier) == f"=={sdk_version}"
 
 
 def project(component="variables/evar1", *, platform="cja", project_id="p1"):

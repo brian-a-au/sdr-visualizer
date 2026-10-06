@@ -6,6 +6,8 @@ All notable changes to `sdr-visualizer` will be documented here. The format foll
 
 ### Changed
 
+- Update the optional AA Workspace SDK to `aanalytics2==0.5.5.post2` and align
+  its collection version guard with the package pin.
 - Automatically review and merge verified, lockfile-only patch updates to
   Ruff, pytest, and pytest-cov after all protected CI gates pass. Keep other
   dependency changes on the manual-review path.
