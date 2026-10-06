@@ -90,7 +90,7 @@ jobs:
       - name: Smoke installed artifacts
         run: uv run python scripts/package_smoke_check.py dist/packages/ --browser
       - name: Generate SHA256SUMS
-        run: cd dist/packages && sha256sum *.whl *.tar.gz > ../SHA256SUMS
+        run: cd dist/packages && sha256sum -- *.whl *.tar.gz > ../SHA256SUMS
       - name: Store verified distributions
         uses: actions/upload-artifact@{SHA}
         with:
@@ -708,5 +708,29 @@ def test_release_requires_installed_artifact_browser_execution(tmp_path):
     )
     assert any(
         "build must build, smoke, checksum, then upload distributions" in error
+        for error in check_workflow_policy.check(workflow)
+    )
+
+
+def test_dependabot_apply_requires_only_contents_and_reviews_write(tmp_path):
+    command = 'uv run --no-project --python 3.14 python scripts/dependabot_review.py --repo "$REPO" --apply "${args[@]}"'
+    workflow = _write(
+        tmp_path,
+        "dependabot-auto-merge.yml",
+        _basic_workflow(SHA, "contents: write\n      pull-requests: write")
+        + f"      - run: {command}\n",
+    )
+    assert check_workflow_policy.check(workflow) == []
+    workflow.write_text(workflow.read_text().replace("--apply ", ""))
+    assert any(
+        "unneeded write permission" in error for error in check_workflow_policy.check(workflow)
+    )
+    workflow.write_text(
+        workflow.read_text()
+        .replace("contents: write", "contents: read")
+        .replace('"${args[@]}"', '--apply "${args[@]}"')
+    )
+    assert any(
+        "missing required write permission" in error
         for error in check_workflow_policy.check(workflow)
     )
