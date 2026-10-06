@@ -79,6 +79,12 @@ def _required_write_permissions(job: dict[str, Any]) -> set[str]:
         required.add("id-token")
     if any(action == "github/codeql-action/analyze" for action in actions):
         required.add("security-events")
+    if any(
+        line.strip()
+        == 'uv run --no-project --python 3.14 python scripts/dependabot_review.py --repo "$REPO" --apply "${args[@]}"'
+        for line in run.splitlines()
+    ):
+        required.update({"contents", "pull-requests"})
     return required
 
 

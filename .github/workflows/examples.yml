@@ -30,7 +30,7 @@ jobs:
         run: uv sync --locked --all-extras --dev
 
       - name: Regenerate examples
-        run: uv run python scripts/generate_examples.py
+        run: uv run --locked python scripts/generate_examples.py
 
       - name: Verify examples render
         run: |
