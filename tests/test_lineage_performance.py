@@ -152,7 +152,8 @@ def test_real_lineage_timing_remains_a_blocking_standalone_gate(workflow_name):
     gates = [step for step in job["steps"] if step.get("name") == "Lineage performance gate"]
 
     assert len(gates) == 1
-    assert gates[0]["run"] == "uv run python scripts/perf_lineage_poc.py"
+    lock_flag = "--locked " if workflow_name == "test.yml" else ""
+    assert gates[0]["run"] == f"uv run {lock_flag}python scripts/perf_lineage_poc.py"
     for settings in (job, gates[0]):
         assert settings.get("continue-on-error", False) is False
         assert "if" not in settings
