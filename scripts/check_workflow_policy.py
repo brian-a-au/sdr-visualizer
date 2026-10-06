@@ -264,7 +264,7 @@ def _release_errors(path: Path, workflow: dict[str, Any]) -> list[str]:
         build,
         lambda step: _run_is(
             step,
-            "cd dist/packages && sha256sum *.whl *.tar.gz > ../SHA256SUMS",
+            "cd dist/packages && sha256sum -- *.whl *.tar.gz > ../SHA256SUMS",
         ),
     )
     upload = _step_index(build, lambda step: _uses_action(step, "actions/upload-artifact"))

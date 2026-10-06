@@ -90,7 +90,7 @@ jobs:
       - name: Smoke installed artifacts
         run: uv run python scripts/package_smoke_check.py dist/packages/ --browser
       - name: Generate SHA256SUMS
-        run: cd dist/packages && sha256sum *.whl *.tar.gz > ../SHA256SUMS
+        run: cd dist/packages && sha256sum -- *.whl *.tar.gz > ../SHA256SUMS
       - name: Store verified distributions
         uses: actions/upload-artifact@{SHA}
         with:
