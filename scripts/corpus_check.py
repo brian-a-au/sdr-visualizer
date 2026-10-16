@@ -59,13 +59,13 @@ _SDR_DATA_RE = re.compile(
     re.DOTALL,
 )
 
-# Published size budgets by component-count tier (MB). Above 2,000 the output
+# Published size budgets by component-count tier (decimal UTF-8 bytes). Above 2,000 the output
 # is valid but degraded by design — no budget is asserted.
-_TIERS = ((100, 0.5), (500, 2.0), (1000, 4.0), (2000, 8.0))
+_TIERS = ((100, 500_000), (500, 2_000_000), (1000, 4_000_000), (2000, 8_000_000))
 MAX_PERFORMANCE_GRAPH_EDGES = 8_000
 
 
-def _tier_budget_mb(component_count: int) -> float | None:
+def _tier_budget_bytes(component_count: int) -> int | None:
     for ceiling, budget in _TIERS:
         if component_count <= ceiling:
             return budget
@@ -113,7 +113,8 @@ def _check_one(path: Path, *, check_budgets: bool) -> tuple[str | None, str]:
             f"payload violates docs/payload-schema.json at {error.json_path}: {error.message}",
             "",
         )
-    size_mb = len(html.encode("utf-8")) / (1024 * 1024)
+    size_bytes = len(html.encode("utf-8"))
+    size_mb = size_bytes / 1_000_000
     count = payload["meta"]["component_count"]
     if check_budgets:
         edge_count = len(payload["graph"]["edges"])
@@ -123,10 +124,10 @@ def _check_one(path: Path, *, check_budgets: bool) -> tuple[str | None, str]:
                 f"envelope of {MAX_PERFORMANCE_GRAPH_EDGES:,}",
                 "",
             )
-        budget = _tier_budget_mb(count)
-        if budget is not None and size_mb > budget:
+        budget = _tier_budget_bytes(count)
+        if budget is not None and size_bytes >= budget:
             return (
-                f"{size_mb:.2f}MB exceeds the {budget}MB budget for {count} components",
+                f"{size_mb:.2f}MB exceeds the {budget / 1_000_000:g}MB budget for {count} components",
                 "",
             )
         return (

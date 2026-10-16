@@ -186,15 +186,15 @@ def _check(
         f"(budget {GRAPH_INIT_BUDGET_MS:.0f}ms, {nodes_drawn} nodes, {edges_drawn} edges)"
     )
     failures = []
-    if render_ms > render_budget_ms:
-        failures.append(f"[{label}] initial render {render_ms:.0f}ms > {render_budget_ms:.0f}ms")
-    if cold_filter_ms > filter_budget_ms:
+    if render_ms >= render_budget_ms:
+        failures.append(f"[{label}] initial render {render_ms:.0f}ms >= {render_budget_ms:.0f}ms")
+    if cold_filter_ms >= filter_budget_ms:
         failures.append(
-            f"[{label}] cold filter latency {cold_filter_ms:.1f}ms > {filter_budget_ms:.0f}ms"
+            f"[{label}] cold filter latency {cold_filter_ms:.1f}ms >= {filter_budget_ms:.0f}ms"
         )
-    if warm_filter_ms > filter_budget_ms:
+    if warm_filter_ms >= filter_budget_ms:
         failures.append(
-            f"[{label}] warm filter latency {warm_filter_ms:.1f}ms > {filter_budget_ms:.0f}ms"
+            f"[{label}] warm filter latency {warm_filter_ms:.1f}ms >= {filter_budget_ms:.0f}ms"
         )
     if graph_init_ms > GRAPH_INIT_BUDGET_MS:
         failures.append(
@@ -239,8 +239,8 @@ def _check_compare(page, html_path: Path) -> list[str]:
         f"(budget 1000ms, eager/first/second rows {eager_rows}/{first_rows}/{second_rows})"
     )
     failures = []
-    if render_ms > 1000.0:
-        failures.append(f"[cja-compare] initial render {render_ms:.0f}ms > 1000ms")
+    if render_ms >= 1000.0:
+        failures.append(f"[cja-compare] initial render {render_ms:.0f}ms >= 1000ms")
     if eager_rows != 0:
         failures.append(f"[cja-compare] eagerly rendered {eager_rows} Changes rows")
     if not 0 < first_rows <= 250:
@@ -276,8 +276,8 @@ def _check_trend(page, html_path: Path) -> list[str]:
         f"{first_ids} first-expansion IDs)"
     )
     failures = []
-    if render_ms > 1000.0:
-        failures.append(f"[cja-trend] initial render {render_ms:.0f}ms > 1000ms")
+    if render_ms >= 1000.0:
+        failures.append(f"[cja-trend] initial render {render_ms:.0f}ms >= 1000ms")
     if charts == 0:
         failures.append("[cja-trend] no sparkline charts rendered - trend path is dead")
     if eager_rows != 0:

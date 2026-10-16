@@ -1676,3 +1676,85 @@ def test_workspace_panel_maximum_projects_and_prototype_component(browser_page, 
     section.get_by_role("button", name="Next", exact=True).click()
     assert section.locator(".workspace-project").count() == 50
     assert "Showing 51–100 of 10000" in section.inner_text()
+
+
+@pytest.mark.parametrize("kind", ["added", "removed", "modified"])
+def test_changes_keyboard_paging_preserves_expansion(browser_page, tmp_path, kind):
+    _, new = _compare_pair()
+    payload = build_payload_with_options(cja_adapt(new))
+    payload["changes"] = {
+        "baseline": {"source": "baseline.json", "taken_at": None},
+        "added": [],
+        "removed": [],
+        "modified": [],
+    }
+    payload["changes"][kind] = [
+        {
+            "id": f"test/{i}",
+            "name": f"Change {i}",
+            "type": "metric",
+            "fields": [{"field": "name", "old": "before", "new": "after"}],
+        }
+        for i in range(620)
+    ]
+    out = tmp_path / "paging.html"
+    out.write_text(render_payload(payload), encoding="utf-8")
+    browser_page.goto(out.as_uri() + "#view=changes")
+    if kind == "modified":
+        browser_page.locator("#changes-body summary").first.click()
+    browser_page.locator("#changes-show-next").focus()
+    browser_page.keyboard.press("Enter")
+    assert browser_page.locator("#changes-body .change-row").count() == 500
+    if kind == "modified":
+        assert browser_page.locator("#changes-body details").first.get_attribute("open") is not None
+    assert browser_page.locator("#changes-show-next").evaluate(
+        "el => el === document.activeElement"
+    )
+    browser_page.keyboard.press("Enter")
+    assert browser_page.locator("#changes-body .change-row").count() == 620
+    assert browser_page.locator("#changes-status").evaluate("el => el === document.activeElement")
+    browser_page.click('.view-button[data-view="catalog"]')
+    browser_page.click('.view-button[data-view="changes"]')
+    assert browser_page.locator("#changes-body .change-row").count() == 620
+    if kind == "modified":
+        assert browser_page.locator("#changes-body details").first.get_attribute("open") is not None
+    browser_page.fill("#changes-search", "Change 619")
+    browser_page.wait_for_timeout(300)
+    assert browser_page.locator("#changes-body .change-row").count() == 1
+    browser_page.fill("#changes-search", "")
+    browser_page.wait_for_timeout(300)
+    assert browser_page.locator("#changes-body .change-row").count() == 250
+    assert browser_page.locator("#changes-body details[open]").count() == 0
+    browser_page.locator("#changes-show-next").focus()
+    browser_page.keyboard.press("Enter")
+    assert browser_page.locator("#changes-body .change-row").count() == 500
+
+
+@pytest.mark.parametrize("kind", ["added", "removed", "modified"])
+def test_trend_keyboard_paging_retains_interval_state(browser_page, tmp_path, kind):
+    interval_data = {"from": "before", "to": "after", "added": [], "removed": [], "modified": []}
+    interval_data.update(
+        {key: [f"{key}/{i}" for i in range(250)] for key in ("added", "removed", "modified")}
+    )
+    out = _render_trend(tmp_path, "paging_trend.html", intervals=[interval_data] * 60)
+    browser_page.goto(out.as_uri() + "#view=trend")
+    assert browser_page.locator("#trend-log details").count() == 59
+    interval = browser_page.locator("#trend-log details").first
+    interval.locator("summary").click()
+    button = interval.locator(f'button[data-kind="{kind}"]')
+    button.focus()
+    browser_page.keyboard.press("Enter")
+    assert interval.locator(".trend-id").count() == 400
+    assert button.evaluate("el => el === document.activeElement")
+    browser_page.keyboard.press("Enter")
+    assert interval.locator(".trend-id").count() == 450
+    assert interval.get_attribute("open") is not None
+    assert interval.locator("summary").evaluate("el => el === document.activeElement")
+    assert interval.locator(".trend-show-next").count() == 2
+    browser_page.keyboard.press("Enter")
+    assert interval.get_attribute("open") is None
+    browser_page.keyboard.press("Enter")
+    assert interval.locator(".trend-id").count() == 450
+    browser_page.click('.view-button[data-view="catalog"]')
+    browser_page.click('.view-button[data-view="trend"]')
+    assert interval.locator(".trend-id").count() == 450

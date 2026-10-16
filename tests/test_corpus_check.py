@@ -7,6 +7,8 @@ import json
 import shutil
 from pathlib import Path
 
+import pytest
+
 REPO = Path(__file__).resolve().parent.parent
 FIXTURES = Path(__file__).parent / "fixtures"
 
@@ -122,3 +124,25 @@ def test_budget_flag_rejects_graphs_outside_edge_envelope(tmp_path, monkeypatch)
 def test_missing_directory_is_usage_error(tmp_path):
     rc = corpus_check.main([str(tmp_path / "nope")])
     assert rc == 2
+
+
+@pytest.mark.parametrize(
+    "count,budget", [(100, 500_000), (500, 2_000_000), (1000, 4_000_000), (2000, 8_000_000)]
+)
+@pytest.mark.parametrize("delta", [-1, 0, 1])
+def test_corpus_exact_utf8_size_boundary(tmp_path, monkeypatch, count, budget, delta):
+    snapshot = tmp_path / "snapshot.json"
+    snapshot.write_text("{}")
+    payload = {"meta": {"component_count": count}, "graph": {"edges": []}}
+    monkeypatch.setattr(corpus_check, "build_implementation", lambda *args, **kwargs: None)
+    monkeypatch.setattr(corpus_check, "build_payload_with_options", lambda impl: payload)
+    monkeypatch.setattr(
+        corpus_check,
+        "_VALIDATOR",
+        type("Validator", (), {"iter_errors": lambda self, embedded: iter(())})(),
+    )
+    block = '<script id="sdr-data" type="application/json">{}</script>é'
+    html = block + "x" * (budget + delta - len(block.encode("utf-8")))
+    monkeypatch.setattr(corpus_check, "render_payload", lambda payload: html)
+    reason, _ = corpus_check._check_one(snapshot, check_budgets=True)
+    assert (reason is not None) == (delta >= 0)
