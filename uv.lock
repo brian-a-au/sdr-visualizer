@@ -1766,7 +1766,7 @@ wheels = [
 
 [[package]]
 name = "sdr-visualizer"
-version = "1.2.2"
+version = "1.2.3"
 source = { editable = "." }
 dependencies = [
     { name = "jinja2" },
