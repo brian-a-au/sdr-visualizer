@@ -4,6 +4,11 @@ All notable changes to `sdr-visualizer` will be documented here. The format foll
 
 ## [Unreleased]
 
+### Fixed
+
+- Preserve keyboard focus when paging Changes and Trend, and keep expanded
+  comparison details open as additional changes appear.
+
 ### Changed
 
 - Update the optional AA Workspace SDK to `aanalytics2==0.5.5.post2` and align
