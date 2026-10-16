@@ -4,6 +4,12 @@ All notable changes to `sdr-visualizer` will be documented here. The format foll
 
 ## [Unreleased]
 
+### Fixed
+
+- Preserve completed and partial Workspace SDK matches when process-group
+  signaling races with worker exit. Cleanup still fails if the worker does not
+  exit within the existing bounded wait.
+
 ### Changed
 
 - Update the optional AA Workspace SDK to `aanalytics2==0.5.5.post2` and align
