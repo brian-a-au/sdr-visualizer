@@ -1287,8 +1287,16 @@ h1 {
         if (!button) return;
         var intervalIndex = Number(button.getAttribute("data-interval"));
         var kind = button.getAttribute("data-kind");
+        var restoreFocus = document.activeElement === button;
         trendState.revealed[intervalIndex][kind] += TREND_ID_BATCH_SIZE;
         renderTrendInterval(intervalIndex);
+        if (restoreFocus) {
+          var details = $trendLog.querySelector(
+            'details[data-interval="' + intervalIndex + '"]'
+          );
+          var nextButton = details.querySelector('button[data-kind="' + kind + '"]');
+          (nextButton || details.querySelector("summary")).focus();
+        }
       });
     }
 
@@ -2683,8 +2691,14 @@ h1 {
     );
   }
 
-  function renderChangesBatch() {
+  function renderChangesBatch(preservePagingState) {
     var $changesBody = document.getElementById("changes-body");
+    // Paging retains the existing filtered order; filtering starts a fresh batch.
+    var openRows = preservePagingState ? Array.from(
+      $changesBody.querySelectorAll("details.change-modified")
+    ).map(function (row) { return row.open; }) : [];
+    var restoreFocus = preservePagingState &&
+      document.activeElement === document.getElementById("changes-show-next");
     var available = Math.min(changesState.filtered.length, CHANGES_RENDER_CAP);
     var visible = changesState.filtered.slice(0, Math.min(changesState.revealed, available));
     var parts = [];
@@ -2723,6 +2737,15 @@ h1 {
     }
     parts.push("</div>");
     $changesBody.innerHTML = parts.join("");
+    $changesBody.querySelectorAll("details.change-modified").forEach(function (row, index) {
+      row.open = !!openRows[index];
+    });
+    if (restoreFocus) {
+      var nextButton = document.getElementById("changes-show-next");
+      var focusTarget = nextButton || document.getElementById("changes-status");
+      if (!nextButton) focusTarget.setAttribute("tabindex", "-1");
+      focusTarget.focus();
+    }
   }
 
   function filterChanges() {
@@ -2774,7 +2797,7 @@ h1 {
           changesState.revealed + CHANGES_BATCH_SIZE,
           CHANGES_RENDER_CAP
         );
-        renderChangesBatch();
+        renderChangesBatch(true);
         return;
       }
       var btn = event.target.closest("button.ref-link");
