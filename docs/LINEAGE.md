@@ -153,5 +153,8 @@ uv run python scripts/perf_lineage_poc.py
 ```
 
 Release review also needs full Python coverage, browser/performance gates,
-isolated wheel and sdist smoke checks, and a visual/assistive-technology pass.
-Automated assertions do not certify visual appearance or actual screen-reader use.
+isolated wheel and sdist smoke checks, and automated browser accessibility and
+keyboard checks. Manual assistive-technology testing, including VoiceOver or
+another screen reader, is optional and does not block release. Automated
+assertions do not certify accessibility, visual appearance, or actual
+screen-reader use.

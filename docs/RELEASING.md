@@ -128,6 +128,11 @@ temporary environments are removed. It requires both engines, checks offline
 operation and navigation, and fails on browser errors or subresource requests.
 Browser tooling stays in the development environment.
 
+Automated browser accessibility and keyboard checks in both browser suites are
+required release evidence. Manual assistive-technology testing, including
+VoiceOver or another screen reader, is optional and does not block release.
+Automated results do not certify accessibility or actual screen-reader use.
+
 Record the wheel and source-distribution filenames and SHA-256 digests. Inspect
 their metadata and confirm Jinja2 is the only base direct runtime dependency,
 required public documents are in the source distribution, and ignored specs,
@@ -137,8 +142,13 @@ characterized SDK pins and are not required by base/offline installs. The usage
 schema and [Workspace guide](WORKSPACE_USAGE.md) must be in the sdist. Run the
 fake-HTTP/actual-SDK collection tests independently for both platforms; these
 are not fresh live Adobe qualification. Review optional-extra dependency exports
-and licenses separately before publication. Never run live collection as an
-unannounced test or read a maintainer's credential sources.
+before publication. Fresh, explicitly authorized CJA Workspace collection remains
+required for release qualification. Live AA Workspace access or collection is
+optional and does not block release; retain the AA fake-HTTP/actual-SDK tests and
+saved-evidence replay checks. This exception does not remove fresh AA catalog
+qualification below or alter collection authorization and privacy requirements.
+Never run live collection as an unannounced test or read a maintainer's credential
+sources.
 Extract the wheel and source distribution long descriptions and confirm their
 repository-owned links are absolute, map to tracked content, and match the
 source README. Inspect built metadata for the expected Homepage, Documentation,
@@ -161,9 +171,12 @@ uvx --python 3.12 pip-audit --disable-pip --no-deps \
 
 The audit must report no known vulnerabilities. Record the `pip-audit`
 version, vulnerability database date if reported, exact exported dependency
-set, and result. Review `LICENSE` and
-[`THIRD_PARTY_LICENSES`](../THIRD_PARTY_LICENSES) against shipped code and the
-resolved dependency licenses.
+set, and result. Release license signoff covers the project `LICENSE` and the
+vendored D3 ISC notice in
+[`THIRD_PARTY_LICENSES`](../THIRD_PARTY_LICENSES), including their presence in
+shipped artifacts. No separate resolved or optional Python dependency license
+review or license-owner approval is a release gate. This signoff scope does not
+change third-party license obligations.
 
 ## Upstream compatibility and private corpus
 
@@ -320,7 +333,7 @@ checklist remains authoritative.
 | R11 immutable action pins | workflow-policy check | pending |
 | R12 PyPI-before-GitHub ordering | workflow-policy check + authorized tag run | pending |
 | R13 installed artifacts | wheel/sdist smoke + digests | pending |
-| R14 minimal runtime dependencies | metadata/export/audit/license evidence | pending |
+| R14 minimal runtime dependencies | metadata/export/audit and project/D3 notice evidence | pending |
 | R15 shipped, consistent docs | Markdown links + source-distribution check | pending |
 | R16 safe sharing guidance | README review | pending |
 | R17 current compatibility | privacy-safe fresh/corpus record | pending |

@@ -64,7 +64,7 @@ recorded.
 | Live CJA and AA | pending | operator authorization, privacy controls, credentials, and current generators | pending |
 | Compare and Trend | pending | qualified sanitized input set | pending |
 | CJA lineage | pending | qualified discovery input and authorized live access | pending |
-| Workspace usage | pending | explicit collection authorization, privacy controls, and platform credentials | pending |
+| Workspace usage | pending | explicit CJA collection authorization, privacy controls, and CJA credentials; AA live access optional | pending |
 | Fresh and historical corpus | pending | corpus operator and privacy reviewer assigned | pending |
 | Hosted settings and security | pending | exact-SHA runs and settings access | pending |
 | Artifact and publication | pending | candidate GO and separate tag authorization | pending |
@@ -75,6 +75,14 @@ recorded.
 Record commands, results, and durable exact-SHA evidence separately for each
 surface. Use `pending` until the required work has actually completed.
 
+Automated browser accessibility and keyboard checks are required for catalog and
+lineage reports. Manual assistive-technology testing, including VoiceOver, is
+optional; its absence is not a blocker or a pending required approval. Results do
+not certify accessibility or screen-reader use. License signoff covers the project
+LICENSE and vendored D3 ISC notices; no separate resolved or optional Python
+license review or license-owner approval is required. Third-party license
+obligations still apply.
+
 ### CLI and package surface
 
 | Evidence | Value |
@@ -83,8 +91,10 @@ surface. Use `pending` until the required work has actually completed.
 | Lock, lint, format, documentation-link, and workflow-policy results | pending |
 | Focused input-boundary result | pending |
 | Non-browser suite and coverage result | pending |
-| Package metadata, dependency export, audit, and license review | pending |
+| Package metadata, dependency export, audit, and project LICENSE / vendored D3 ISC notice signoff | pending |
 | Wheel and source-distribution smoke result | pending |
+| Catalog automated browser accessibility and keyboard result | pending |
+| Manual assistive-technology testing (optional; no release blocker) | not performed (optional) |
 | Durable evidence permalink | pending |
 
 ### Live CJA and AA
@@ -125,7 +135,7 @@ surface. Use `pending` until the required work has actually completed.
 | Evidence | Value |
 |---|---|
 | Saved and live discovery result | pending |
-| Layout, payload, renderer, CLI, and accessibility result | pending |
+| Layout, payload, renderer, CLI, and automated accessibility/keyboard result | pending |
 | Chromium and WebKit result | pending |
 | Performance result | pending |
 | Durable evidence permalink | pending |
@@ -138,8 +148,9 @@ surface. Use `pending` until the required work has actually completed.
 | AA fake-HTTP/actual-SDK result | pending |
 | Saved-evidence replay and binding result | pending |
 | Collection bounds, privacy, packaging, and optional-extra review | pending |
-| CJA and AA live-qualification authorization (pending blocks corresponding qualification) | pending |
-| Authorized CJA and AA live-qualification result | pending |
+| CJA live-qualification authorization (pending blocks qualification) | pending |
+| Authorized CJA live-qualification result | pending |
+| AA live Workspace collection (optional; no release blocker) | not performed (optional) |
 | Durable evidence permalink | pending |
 
 ## Fresh and historical corpus aggregate
@@ -237,7 +248,7 @@ renumber these requirements.
 | R11 immutable action pins | workflow-policy check | pending |
 | R12 PyPI-before-GitHub ordering | workflow-policy check + authorized tag run | pending |
 | R13 installed artifacts | wheel/sdist smoke + digests | pending |
-| R14 minimal runtime dependencies | metadata/export/audit/license evidence | pending |
+| R14 minimal runtime dependencies | metadata/export/audit and project/D3 notice evidence | pending |
 | R15 shipped, consistent docs | Markdown links + source-distribution check | pending |
 | R16 safe sharing guidance | README review | pending |
 | R17 current compatibility | privacy-safe fresh/corpus record | pending |
