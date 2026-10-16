@@ -8,6 +8,11 @@ All notable changes to `sdr-visualizer` will be documented here. The format foll
 
 - Enforce the published performance budgets with decimal UTF-8 byte limits
   and strict build, render, and filter timing boundaries in verification tools.
+- Preserve keyboard focus when paging Changes and Trend, and keep expanded
+  comparison details open as additional changes appear.
+- Preserve completed and partial Workspace SDK matches when process-group
+  signaling races with worker exit. Cleanup still fails if the worker does not
+  exit within the existing bounded wait.
 
 ### Changed
 
