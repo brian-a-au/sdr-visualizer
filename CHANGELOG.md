@@ -8,6 +8,9 @@ All notable changes to `sdr-visualizer` will be documented here. The format foll
 
 - Preserve keyboard focus when paging Changes and Trend, and keep expanded
   comparison details open as additional changes appear.
+- Preserve completed and partial Workspace SDK matches when process-group
+  signaling races with worker exit. Cleanup still fails if the worker does not
+  exit within the existing bounded wait.
 
 ### Changed
 
