@@ -111,8 +111,16 @@
         if (!button) return;
         var intervalIndex = Number(button.getAttribute("data-interval"));
         var kind = button.getAttribute("data-kind");
+        var restoreFocus = document.activeElement === button;
         trendState.revealed[intervalIndex][kind] += TREND_ID_BATCH_SIZE;
         renderTrendInterval(intervalIndex);
+        if (restoreFocus) {
+          var details = $trendLog.querySelector(
+            'details[data-interval="' + intervalIndex + '"]'
+          );
+          var nextButton = details.querySelector('button[data-kind="' + kind + '"]');
+          (nextButton || details.querySelector("summary")).focus();
+        }
       });
     }
 

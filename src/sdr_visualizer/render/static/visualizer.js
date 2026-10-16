@@ -1381,8 +1381,14 @@
     );
   }
 
-  function renderChangesBatch() {
+  function renderChangesBatch(preservePagingState) {
     var $changesBody = document.getElementById("changes-body");
+    // Paging retains the existing filtered order; filtering starts a fresh batch.
+    var openRows = preservePagingState ? Array.from(
+      $changesBody.querySelectorAll("details.change-modified")
+    ).map(function (row) { return row.open; }) : [];
+    var restoreFocus = preservePagingState &&
+      document.activeElement === document.getElementById("changes-show-next");
     var available = Math.min(changesState.filtered.length, CHANGES_RENDER_CAP);
     var visible = changesState.filtered.slice(0, Math.min(changesState.revealed, available));
     var parts = [];
@@ -1421,6 +1427,15 @@
     }
     parts.push("</div>");
     $changesBody.innerHTML = parts.join("");
+    $changesBody.querySelectorAll("details.change-modified").forEach(function (row, index) {
+      row.open = !!openRows[index];
+    });
+    if (restoreFocus) {
+      var nextButton = document.getElementById("changes-show-next");
+      var focusTarget = nextButton || document.getElementById("changes-status");
+      if (!nextButton) focusTarget.setAttribute("tabindex", "-1");
+      focusTarget.focus();
+    }
   }
 
   function filterChanges() {
@@ -1472,7 +1487,7 @@
           changesState.revealed + CHANGES_BATCH_SIZE,
           CHANGES_RENDER_CAP
         );
-        renderChangesBatch();
+        renderChangesBatch(true);
         return;
       }
       var btn = event.target.closest("button.ref-link");
