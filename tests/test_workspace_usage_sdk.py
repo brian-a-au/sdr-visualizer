@@ -463,6 +463,76 @@ def test_stop_handles_process_exiting_between_poll_and_signal(monkeypatch):
     assert waited == [2]
 
 
+@pytest.mark.parametrize("exit_code", [0, 7])
+@pytest.mark.parametrize("complete", [True, False])
+def test_matching_retains_results_when_signal_denied_but_worker_exits(
+    monkeypatch, exit_code, complete
+):
+    from sdr_visualizer.usage import sdk_worker
+    from sdr_visualizer.usage.normalize import MatchResult
+
+    record = _completed()[1]["value"]
+    limitations = (
+        [] if complete else ["SDK matching did not complete; later components were not checked"]
+    )
+    received = MatchResult(results=[record], limitations=limitations)
+    waited = []
+
+    class Process:
+        pid = 123
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *args):
+            pass
+
+        def poll(self):
+            return None
+
+        def wait(self, timeout):
+            waited.append(timeout)
+            return exit_code
+
+    def denied(*args):
+        raise PermissionError("signal denied")
+
+    monkeypatch.setattr(sdk_worker.subprocess, "Popen", lambda *args, **kwargs: Process())
+    monkeypatch.setattr(sdk_worker, "_receive", lambda *args: received)
+    monkeypatch.setattr(sdk_worker.os, "killpg", denied)
+    components = [{"type": "dimension", "id": "a"}]
+    if not complete:
+        components.append({"type": "dimension", "id": "b"})
+    result = match_projects("cja", [], components, None)
+    assert result is received
+    assert result.results == [record]
+    assert result.limitations == limitations
+    assert waited == [2]
+
+
+def test_stop_preserves_permission_error_when_exit_is_not_proven(monkeypatch):
+    import subprocess
+    from types import SimpleNamespace
+
+    from sdr_visualizer.usage import sdk_worker
+
+    error = PermissionError("signal denied")
+    waited = []
+
+    def denied(*args):
+        raise error
+
+    def still_running(timeout):
+        waited.append(timeout)
+        raise subprocess.TimeoutExpired("synthetic-worker", timeout)
+
+    monkeypatch.setattr(sdk_worker.os, "killpg", denied)
+    with pytest.raises(PermissionError) as raised:
+        sdk_worker._stop(SimpleNamespace(poll=lambda: None, pid=123, wait=still_running))
+    assert raised.value is error
+    assert waited == [2]
+
+
 def test_stalled_protocol_obeys_whole_worker_deadline():
     import subprocess
     import sys

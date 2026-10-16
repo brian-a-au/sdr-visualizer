@@ -118,8 +118,19 @@ def _child():
 
 def _stop(process):
     if process.poll() is None:
-        with contextlib.suppress(ProcessLookupError):
+        try:
             os.killpg(process.pid, signal.SIGKILL)
+        except ProcessLookupError:
+            # The child may have exited before signalling; the wait below reaps it.
+            pass
+        except PermissionError as error:
+            # An exiting process group can reject a signal before its leader is
+            # reaped. Accept cleanup only after exit within the existing bound.
+            try:
+                process.wait(timeout=2)
+            except subprocess.TimeoutExpired:
+                raise error from None
+            return
     process.wait(timeout=2)
 
 
