@@ -4,6 +4,11 @@ All notable changes to `sdr-visualizer` will be documented here. The format foll
 
 ## [Unreleased]
 
+### Fixed
+
+- Enforce the published performance budgets with decimal UTF-8 byte limits
+  and strict build, render, and filter timing boundaries in verification tools.
+
 ### Changed
 
 - Update the optional AA Workspace SDK to `aanalytics2==0.5.5.post2` and align

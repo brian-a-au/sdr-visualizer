@@ -29,6 +29,12 @@ visualizer must hit all four targets for the applicable tier:
 | 1,000 components    | < 6 s      | < 4 MB           | < 1 s               | < 150 ms             |
 | 2,000 components    | < 12 s     | < 8 MB           | < 2 s               | < 300 ms             |
 
+All table boundaries are strict: a measurement equal to its limit fails.
+HTML size is measured in UTF-8 bytes using decimal units (1 KB = 1,000 bytes;
+1 MB = 1,000,000 bytes), so the four limits are 500,000, 2,000,000,
+4,000,000, and 8,000,000 bytes. The comparison/trend allowance is 500,000
+bytes, applied once.
+
 In plain terms:
 
 - **Build time** is how long Python takes to adapt the snapshot, analyze it,

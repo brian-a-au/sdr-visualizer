@@ -43,33 +43,33 @@ CJA_LARGE = REPO / "tests" / "fixtures" / "cja_snapshot_large.json"
 AA_LARGE = REPO / "tests" / "fixtures" / "aa_snapshot_large.json"
 
 BUILD_BUDGET_S = 6.0
-SIZE_BUDGET_MB = 4.0
+SIZE_BUDGET_BYTES = 4_000_000
 
 CJA_XL = REPO / "tests" / "fixtures" / "cja_snapshot_xl.json"
 XL_BUILD_BUDGET_S = 12.0
-XL_SIZE_BUDGET_MB = 8.0
+XL_SIZE_BUDGET_BYTES = 8_000_000
 
 # Small tiers (the fixed CSS+JS+D3
 # overhead alone is ~340 KB, i.e. ~68% of the 100-component size budget,
 # so static-asset growth is exactly what these tiers watch).
 CJA_SMALL = REPO / "tests" / "fixtures" / "cja_snapshot_small.json"
 SMALL_BUILD_BUDGET_S = 1.0
-SMALL_SIZE_BUDGET_MB = 0.5
+SMALL_SIZE_BUDGET_BYTES = 500_000
 CJA_MEDIUM = REPO / "tests" / "fixtures" / "cja_snapshot_medium.json"
 MEDIUM_BUILD_BUDGET_S = 3.0
-MEDIUM_SIZE_BUDGET_MB = 2.0
+MEDIUM_SIZE_BUDGET_BYTES = 2_000_000
 
 # Comparative case (0.4.0): large CJA fixture vs its mutated copy.
 # Budgets per the 0.4.0 spec: 1.5x the tier's build budget; the tier's
 # size budget + 0.5 MB.
 COMPARE_BUILD_BUDGET_S = BUILD_BUDGET_S * 1.5
-COMPARE_SIZE_BUDGET_MB = SIZE_BUDGET_MB + 0.5
+COMPARE_SIZE_BUDGET_BYTES = SIZE_BUDGET_BYTES + 500_000
 
 # Trend case (0.5.0): a 6-snapshot series derived from the large CJA fixture
 # by applying the deterministic mutation iteratively, built in memory.
 TREND_SERIES_LEN = 6
 TREND_BUILD_BUDGET_S = TREND_SERIES_LEN * 1.0
-TREND_SIZE_BUDGET_MB = SIZE_BUDGET_MB + 0.5
+TREND_SIZE_BUDGET_BYTES = SIZE_BUDGET_BYTES + 500_000
 
 
 def _load_usage_fixture():
@@ -112,19 +112,20 @@ def _measure_compare(old_snap: dict, new_snap: dict) -> tuple[list[str], str]:
         html = render_payload(payload)
         times.append(time.perf_counter() - start)
     elapsed = statistics.median(times)
-    size_mb = len(html.encode("utf-8")) / (1024 * 1024)
+    size_bytes = len(html.encode("utf-8"))
+    size_mb = size_bytes / 1_000_000
     msgs = [
         f"[CJA-compare] build time: {elapsed:.2f}s   (budget {COMPARE_BUILD_BUDGET_S}s, median of 3)",
-        f"[CJA-compare] HTML size : {size_mb:.2f}MB  (budget {COMPARE_SIZE_BUDGET_MB}MB)",
+        f"[CJA-compare] HTML size : {size_mb:.2f}MB  (budget {COMPARE_SIZE_BUDGET_BYTES / 1_000_000:g}MB)",
     ]
     failures = []
-    if elapsed > COMPARE_BUILD_BUDGET_S:
+    if elapsed >= COMPARE_BUILD_BUDGET_S:
         failures.append(
             f"CJA-compare build time {elapsed:.2f}s over budget {COMPARE_BUILD_BUDGET_S}s"
         )
-    if size_mb > COMPARE_SIZE_BUDGET_MB:
+    if size_bytes >= COMPARE_SIZE_BUDGET_BYTES:
         failures.append(
-            f"CJA-compare HTML size {size_mb:.2f}MB over budget {COMPARE_SIZE_BUDGET_MB}MB"
+            f"CJA-compare HTML size {size_mb:.2f}MB over budget {COMPARE_SIZE_BUDGET_BYTES / 1_000_000:g}MB"
         )
     return failures, "\n".join(msgs)
 
@@ -144,17 +145,20 @@ def _measure_trend(base_snap: dict, mutate) -> tuple[list[str], str]:
         html = render_payload(payload)
         times.append(time.perf_counter() - start)
     elapsed = statistics.median(times)
-    size_mb = len(html.encode("utf-8")) / (1024 * 1024)
+    size_bytes = len(html.encode("utf-8"))
+    size_mb = size_bytes / 1_000_000
     msgs = [
         f"[CJA-trend] build time: {elapsed:.2f}s   (budget {TREND_BUILD_BUDGET_S}s, "
         f"median of 3, {TREND_SERIES_LEN} snapshots)",
-        f"[CJA-trend] HTML size : {size_mb:.2f}MB  (budget {TREND_SIZE_BUDGET_MB}MB)",
+        f"[CJA-trend] HTML size : {size_mb:.2f}MB  (budget {TREND_SIZE_BUDGET_BYTES / 1_000_000:g}MB)",
     ]
     failures = []
-    if elapsed > TREND_BUILD_BUDGET_S:
+    if elapsed >= TREND_BUILD_BUDGET_S:
         failures.append(f"CJA-trend build time {elapsed:.2f}s over budget {TREND_BUILD_BUDGET_S}s")
-    if size_mb > TREND_SIZE_BUDGET_MB:
-        failures.append(f"CJA-trend HTML size {size_mb:.2f}MB over budget {TREND_SIZE_BUDGET_MB}MB")
+    if size_bytes >= TREND_SIZE_BUDGET_BYTES:
+        failures.append(
+            f"CJA-trend HTML size {size_mb:.2f}MB over budget {TREND_SIZE_BUDGET_BYTES / 1_000_000:g}MB"
+        )
     return failures, "\n".join(msgs)
 
 
@@ -163,7 +167,7 @@ def _measure(
     snap: dict,
     adapt,
     build_budget_s: float = BUILD_BUDGET_S,
-    size_budget_mb: float = SIZE_BUDGET_MB,
+    size_budget_bytes: int = SIZE_BUDGET_BYTES,
     usage: bytes | None = None,
 ) -> tuple[list[str], str]:
     times = []
@@ -176,17 +180,20 @@ def _measure(
         html = render(impl)
         times.append(time.perf_counter() - start)
     elapsed = statistics.median(times)
-    size_mb = len(html.encode("utf-8")) / (1024 * 1024)
+    size_bytes = len(html.encode("utf-8"))
+    size_mb = size_bytes / 1_000_000
 
     msgs = [
         f"[{label}] build time: {elapsed:.2f}s   (budget {build_budget_s}s, median of 3)",
-        f"[{label}] HTML size : {size_mb:.2f}MB  (budget {size_budget_mb}MB)",
+        f"[{label}] HTML size : {size_mb:.2f}MB  (budget {size_budget_bytes / 1_000_000:g}MB)",
     ]
     failures = []
-    if elapsed > build_budget_s:
-        failures.append(f"[{label}] build time {elapsed:.2f}s > {build_budget_s}s budget")
-    if size_mb > size_budget_mb:
-        failures.append(f"[{label}] HTML size {size_mb:.2f}MB > {size_budget_mb}MB budget")
+    if elapsed >= build_budget_s:
+        failures.append(f"[{label}] build time {elapsed:.2f}s >= {build_budget_s}s budget")
+    if size_bytes >= size_budget_bytes:
+        failures.append(
+            f"[{label}] HTML size {size_mb:.2f}MB >= {size_budget_bytes / 1_000_000:g}MB budget"
+        )
     return failures, "\n".join(msgs)
 
 
@@ -208,8 +215,8 @@ def main() -> int:
 
     small_failures: list[str] = []
     for path, label, build_b, size_b in [
-        (CJA_SMALL, "CJA-100", SMALL_BUILD_BUDGET_S, SMALL_SIZE_BUDGET_MB),
-        (CJA_MEDIUM, "CJA-500", MEDIUM_BUILD_BUDGET_S, MEDIUM_SIZE_BUDGET_MB),
+        (CJA_SMALL, "CJA-100", SMALL_BUILD_BUDGET_S, SMALL_SIZE_BUDGET_BYTES),
+        (CJA_MEDIUM, "CJA-500", MEDIUM_BUILD_BUDGET_S, MEDIUM_SIZE_BUDGET_BYTES),
     ]:
         if path.exists():
             snap = json.loads(path.read_text(encoding="utf-8"))
@@ -242,7 +249,7 @@ def main() -> int:
     if CJA_XL.exists():
         xl_snap = json.loads(CJA_XL.read_text(encoding="utf-8"))
         xl_failures, xl_report = _measure(
-            "CJA-XL", xl_snap, cja_adapt, XL_BUILD_BUDGET_S, XL_SIZE_BUDGET_MB
+            "CJA-XL", xl_snap, cja_adapt, XL_BUILD_BUDGET_S, XL_SIZE_BUDGET_BYTES
         )
         print(xl_report)
     else:
@@ -253,11 +260,11 @@ def main() -> int:
     usage_fixture = _load_usage_fixture()
     usage_failures = []
     for path, adapter, build_b, size_b, projects in [
-        (CJA_SMALL, cja_adapt, SMALL_BUILD_BUDGET_S, SMALL_SIZE_BUDGET_MB, 500),
-        (CJA_MEDIUM, cja_adapt, MEDIUM_BUILD_BUDGET_S, MEDIUM_SIZE_BUDGET_MB, 10_000),
-        (CJA_LARGE, cja_adapt, BUILD_BUDGET_S, SIZE_BUDGET_MB, 10_000),
-        (AA_LARGE, aa_adapt, BUILD_BUDGET_S, SIZE_BUDGET_MB, 10_000),
-        (CJA_XL, cja_adapt, XL_BUILD_BUDGET_S, XL_SIZE_BUDGET_MB, 10_000),
+        (CJA_SMALL, cja_adapt, SMALL_BUILD_BUDGET_S, SMALL_SIZE_BUDGET_BYTES, 500),
+        (CJA_MEDIUM, cja_adapt, MEDIUM_BUILD_BUDGET_S, MEDIUM_SIZE_BUDGET_BYTES, 10_000),
+        (CJA_LARGE, cja_adapt, BUILD_BUDGET_S, SIZE_BUDGET_BYTES, 10_000),
+        (AA_LARGE, aa_adapt, BUILD_BUDGET_S, SIZE_BUDGET_BYTES, 10_000),
+        (CJA_XL, cja_adapt, XL_BUILD_BUDGET_S, XL_SIZE_BUDGET_BYTES, 10_000),
     ]:
         if not path.exists():
             continue  # Same optional fixtures as the original Python matrix.
