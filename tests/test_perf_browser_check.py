@@ -5,6 +5,9 @@ from __future__ import annotations
 import importlib.util
 from pathlib import Path
 from types import SimpleNamespace
+from unittest.mock import Mock
+
+import pytest
 
 REPO = Path(__file__).resolve().parent.parent
 SCRIPT = REPO / "scripts" / "perf_browser_check.py"
@@ -110,3 +113,47 @@ def test_workspace_gate_accepts_bounded_replacement_with_all_evidence_retained()
         "pageMs": 3,
     }
     assert perf_browser_check._workspace_failures("synthetic", observations, 10000) == []
+
+
+@pytest.mark.parametrize(
+    "render_budget,filter_budget", [(200, 50), (500, 100), (1000, 150), (2000, 300)]
+)
+@pytest.mark.parametrize("phase", ["render", "cold", "warm"])
+@pytest.mark.parametrize("delta", [-0.125, 0, 0.125])
+def test_browser_published_timing_boundaries(
+    monkeypatch, render_budget, filter_budget, phase, delta
+):
+    elapsed = render_budget + delta if phase == "render" else 0
+    ticks = iter([0, elapsed / 1000])
+    monkeypatch.setattr(perf_browser_check.time, "perf_counter", lambda: next(ticks))
+    page = Mock()
+    cold = filter_budget + delta if phase == "cold" else 0
+    warm = filter_budget + delta if phase == "warm" else 0
+    page.evaluate.side_effect = [
+        True,
+        cold,
+        *([warm] * perf_browser_check.FILTER_WARM_RUNS),
+        {"ms": 0, "optIn": False},
+        1,
+        1,
+    ]
+    failures = perf_browser_check._check(
+        page, Path("/tmp/boundary.html"), "boundary", render_budget, filter_budget, False
+    )
+    assert bool(failures) == (delta >= 0)
+
+
+@pytest.mark.parametrize("mode", ["compare", "trend"])
+@pytest.mark.parametrize("delta", [-0.125, 0, 0.125])
+def test_comparative_browser_render_boundary(monkeypatch, mode, delta):
+    ticks = iter([0, (1000 + delta) / 1000])
+    monkeypatch.setattr(perf_browser_check.time, "perf_counter", lambda: next(ticks))
+    page = Mock()
+    if mode == "compare":
+        page.evaluate.side_effect = [0, None, 250, 500]
+        page.locator.return_value.count.return_value = 1
+        failures = perf_browser_check._check_compare(page, Path("/tmp/boundary.html"))
+    else:
+        page.evaluate.side_effect = [1, 0, 59, 0, 100]
+        failures = perf_browser_check._check_trend(page, Path("/tmp/boundary.html"))
+    assert bool(failures) == (delta >= 0)
