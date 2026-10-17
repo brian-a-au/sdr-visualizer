@@ -4,6 +4,13 @@ All notable changes to `sdr-visualizer` will be documented here. The format foll
 
 ## [Unreleased]
 
+### Changed
+
+- Advance the catalog tested-through generator markers to `cja_auto_sdr`
+  3.12.12 and `aa_auto_sdr` 1.21.24. Snapshots declaring those versions no
+  longer raise a newer-than-tested warning; later versions remain accepted
+  with a compatibility warning. The separate lineage allowlist is unchanged.
+
 ### Fixed
 
 - Label the lineage report footer “CJA lineage” instead of “Private CJA lineage POC”.
