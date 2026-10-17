@@ -261,3 +261,12 @@ def test_generated_examples_embed_the_current_project_version():
     for name in ("cja-typical.html", "aa-typical.html"):
         html = (REPO / "examples" / name).read_text(encoding="utf-8")
         assert extract_payload(html)["meta"]["visualizer_version"] == version, name
+
+
+def test_readme_performance_section_matches_enforced_browser_tiers():
+    text = (REPO / "README.md").read_text(encoding="utf-8")
+    section = text.split("## Performance budget", 1)[1].split("\n## ", 1)[0]
+    browser = section.split("Browser-measured budgets", 1)[1].split(".", 1)[0]
+    for tier in ("100", "500", "1,000", "2,000"):
+        assert tier in browser
+    assert "tier table above" not in text
