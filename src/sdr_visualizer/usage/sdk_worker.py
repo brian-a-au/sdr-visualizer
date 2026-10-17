@@ -126,8 +126,8 @@ def _stop(process):
         except PermissionError as error:
             # An exiting process group can reject a signal before its leader is
             # reaped. Accept cleanup only after exit within the existing bound;
-            # otherwise kill the leader directly so the Popen context cannot
-            # wait indefinitely, then report the refused group signal.
+            # otherwise kill the leader directly so the Popen context can finish
+            # once it exits, then report the refused group signal.
             try:
                 process.wait(timeout=2)
             except subprocess.TimeoutExpired:

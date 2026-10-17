@@ -418,8 +418,8 @@ def _stop(process):
             # On macOS an exiting process group can reject a signal before
             # waitpid reports its leader's exit. Only accept cleanup once the
             # child has actually exited, within the existing wait bound;
-            # otherwise kill the leader directly so the Popen context cannot
-            # wait indefinitely, then report the refused group signal.
+            # otherwise kill the leader directly so the Popen context can finish
+            # once it exits, then report the refused group signal.
             try:
                 process.wait(timeout=2)
             except subprocess.TimeoutExpired:
