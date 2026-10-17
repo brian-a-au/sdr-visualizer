@@ -314,20 +314,29 @@ renumber these requirements.
 ## Authoritative artifact and retention
 
 Use one artifact set throughout. Record every retry separately; never combine
-evidence from different attempts or manifests.
+evidence from different attempts or manifests. Inspect retention settings before
+tagging; inspect the created artifact's actual expiry before PyPI publication
+approval. A configured duration does not establish the actual recovery deadline.
+The actual expiry must cover the recorded full 90-day policy window; stop if it
+falls short. Record the window start and its basis rather than inferring them
+from a previous release's retention behavior.
 
 | Field | Value |
 |---|---|
 | Release workflow URL | pending |
 | Workflow run ID | pending |
 | Attempt | pending |
+| Workflow creation UTC | pending |
 | Event / tag / `headSha` | pending |
 | Job conclusions | pending |
 | Retained artifact ID | pending |
 | Artifact URL | pending |
-| Artifact expiry UTC | pending |
-| Repository retention setting and inspection URL | pending |
-| 90-day recovery-window end UTC | pending |
+| Artifact creation UTC | pending |
+| Actual artifact expiry UTC and inspection URL | pending |
+| Repository retention setting / workflow retention request / pre-tag inspection URL | pending |
+| Policy-window start UTC and basis | pending |
+| 90-day recovery deadline UTC | pending |
+| Actual expiry covers the full policy window / post-build inspection UTC | pending |
 | Wheel filename / SHA-256 | pending |
 | Source-distribution filename / SHA-256 | pending |
 | Authoritative `SHA256SUMS` manifest URL | pending |
