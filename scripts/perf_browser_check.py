@@ -313,8 +313,8 @@ def _workspace_failures(label: str, measured: dict, project_count: int) -> list[
     ):
         failures.append(f"[{label}] page replacement did not advance the project range")
     for field, action in (("openMs", "first open"), ("pageMs", "page replacement")):
-        if measured[field] > WORKSPACE_INTERACTION_BUDGET_MS:
-            failures.append(f"[{label}] Workspace {action} {measured[field]:.1f}ms > 100ms")
+        if measured[field] >= WORKSPACE_INTERACTION_BUDGET_MS:
+            failures.append(f"[{label}] Workspace {action} {measured[field]:.1f}ms >= 100ms")
     return failures
 
 
