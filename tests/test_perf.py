@@ -210,6 +210,8 @@ def test_main_fails_when_any_tier_fixture_missing(tmp_path, monkeypatch, capsys)
     out = capsys.readouterr()
     for flag in ("--scale 0.083", "--scale 0.417", "--scale 1.67", "generate_aa_large_fixture"):
         assert flag in out.err
+    for name in ("cja_small", "cja_medium", "cja_large", "aa_large", "cja_xl"):
+        assert f"{name}.json missing" in out.err
     assert "OK: all budgets met" not in out.out
 
 
