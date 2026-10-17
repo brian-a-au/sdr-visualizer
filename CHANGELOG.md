@@ -18,6 +18,10 @@ All notable changes to `sdr-visualizer` will be documented here. The format foll
 
 ### Changed
 
+- Make live AA Workspace collection and manual assistive-technology testing
+  optional release evidence, retain automated accessibility and keyboard checks,
+  and scope release license signoff to project and vendored D3 notices.
+
 - Update the optional AA Workspace SDK to `aanalytics2==0.5.5.post2` and align
   its collection version guard with the package pin.
 - Automatically review and merge verified, lockfile-only patch updates to
