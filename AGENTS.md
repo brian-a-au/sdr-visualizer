@@ -136,9 +136,10 @@ fixtures and CI do not substitute for that evidence.
   framework or new JS dependencies. Preserve lazy initialization and display bounds.
 - The visualizer is descriptive: no grades, findings, or recommendations. Those
   belong in [sdr-grader](https://github.com/brian-a-au/sdr-grader).
-- Preserve public exit codes: `0` success, `1` runtime failure, `3` invalid input;
-  never introduce code `2`. Treat snapshots as untrusted and retain output-alias,
-  structure-limit, Unicode, escaping, and non-finite JSON guards.
+- Preserve catalog exit codes: `0` success, `1` runtime failure, `3` invalid input;
+  never introduce catalog code `2`. The separate `cja-lineage` command retains
+  its documented argument-error code `2`. Treat snapshots as untrusted and retain
+  output-alias, structure-limit, Unicode, escaping, and non-finite JSON guards.
 - Color packs affect HTML presentation only, not the embedded/sidecar payload.
 
 ## Sibling parity

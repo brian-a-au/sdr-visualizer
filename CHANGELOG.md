@@ -4,6 +4,8 @@ All notable changes to `sdr-visualizer` will be documented here. The format foll
 
 ## [Unreleased]
 
+## [1.2.3] - 2026-10-16
+
 ### Fixed
 
 - Enforce the published performance budgets with decimal UTF-8 byte limits
@@ -737,7 +739,8 @@ The following are explicitly internal and may change without notice:
 - Workspace project visualization (v0.4)
 - Schema map view (v0.5)
 
-[Unreleased]: https://github.com/brian-a-au/sdr-visualizer/compare/v1.2.2...HEAD
+[Unreleased]: https://github.com/brian-a-au/sdr-visualizer/compare/v1.2.3...HEAD
+[1.2.3]: https://github.com/brian-a-au/sdr-visualizer/releases/tag/v1.2.3
 [1.2.2]: https://github.com/brian-a-au/sdr-visualizer/releases/tag/v1.2.2
 [1.2.1]: https://github.com/brian-a-au/sdr-visualizer/releases/tag/v1.2.1
 [1.2.0]: https://github.com/brian-a-au/sdr-visualizer/releases/tag/v1.2.0
