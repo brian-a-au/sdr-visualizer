@@ -238,6 +238,24 @@ Review changes to `core/models.py`, `adapters/`,
 Missing access or an unreviewed sibling change blocks release; it does not turn
 parity into an optional follow-up.
 
+A candidate whose changes to shared runtime paths are limited to
+`TESTED_THROUGH_GENERATOR_VERSION` values in the catalog adapters still requires
+full sibling review. Record the visualizer base and candidate SHAs, the sibling
+full SHA, complete candidate changed paths, exact adapter diff, and each project's
+marker values. Prove that the shared-path delta changes only those constant
+values, and compare the warning and version-parser helpers at those SHAs. Retain
+the documented intentional differences. Fresh exact-version snapshots, the full
+historical private corpus, supported catalog modes, and literal target/next-patch
+warning tests must pass for the visualizer candidate.
+
+Marker values are project-specific qualification evidence. Do not copy them to
+the sibling without that project's own qualification. When the review establishes
+that no shared implementation change needs mirroring, record **full review — no
+sibling code change required**; a new sibling PR and merge are not required for
+this limited case. This is not diff-backed N/A. Any other shared-runtime change
+follows the linked green, merged sibling requirement above. Color-pack comparator
+requirements remain unchanged.
+
 For `render/color_packs.py`, both repositories must export the same shared
 contract snapshot: `catalog` (`default`, `ADBE`, `OMTR`, `BLUE` in
 that order), ordered `source_swatches` for all four entries, and ordered
@@ -262,7 +280,8 @@ parity may be recorded as a **diff-backed N/A**. The record must include the
 base and candidate SHAs, the complete changed-path output, and a reviewer
 confirmation that no shared runtime surface changed. A documentation-only
 label or commit message is not sufficient evidence. Any shared-path change
-requires the full sibling review above.
+requires full sibling review; marker-only review may use the limited disposition
+above.
 
 ## GitHub and community controls
 
@@ -337,7 +356,7 @@ checklist remains authoritative.
 | R15 shipped, consistent docs | Markdown links + source-distribution check | pending |
 | R16 safe sharing guidance | README review | pending |
 | R17 current compatibility | privacy-safe fresh/corpus record | pending |
-| R18 sibling parity | linked green sibling PR/commit and passing shared-contract comparator when color packs change | pending |
+| R18 sibling parity | full sibling review; linked green merged sibling PR/commit unless the marker-only disposition applies; shared-contract comparator when color packs change | pending |
 | R19 protected/monitored `main` | settings/API inspection | pending |
 | R20 complete community surface | community profile + advertised public-link resolution | pending |
 | R21 one traced candidate | this matrix + final go/no-go | pending |

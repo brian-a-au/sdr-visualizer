@@ -399,6 +399,8 @@ def test_lineage_renderer_uses_visualizer_shell_and_color_pack_contract(code: st
     assert 'class="meta-strip ui"' in html
     assert 'class="view-nav ui"' in html
     assert 'class="footer ui"' in html
+    assert "<span>CJA lineage</span>" in html
+    assert "Private CJA lineage POC" not in html
     assert html.index("/* ---------- Reset & base ---------- */") < html.index(css)
     assert html.index(css) < html.index("</style>")
 

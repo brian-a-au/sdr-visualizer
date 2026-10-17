@@ -200,7 +200,9 @@ cannot be closed by recording the current delta as diff-backed N/A.
 | Candidate SHA | pending |
 | Complete changed-path output permalink | pending |
 | Shared runtime paths changed | pending |
-| Full parity or diff-backed N/A evidence | pending |
+| Full parity review, marker-only disposition, or diff-backed N/A evidence | pending |
+| Marker-only: both projects' marker values and explicit-SHA adapter/helper review | pending |
+| Marker-only: fresh candidate qualification and literal warning-boundary evidence | pending |
 | Current sibling PR and commit permalinks, if applicable | pending |
 | Shared-contract comparator result, if applicable | pending |
 | Reviewer / reviewed UTC / result | pending |
@@ -252,7 +254,7 @@ renumber these requirements.
 | R15 shipped, consistent docs | Markdown links + source-distribution check | pending |
 | R16 safe sharing guidance | README review | pending |
 | R17 current compatibility | privacy-safe fresh/corpus record | pending |
-| R18 sibling parity | linked green sibling PR/commit and passing shared-contract comparator when color packs change | pending |
+| R18 sibling parity | full sibling review; linked green merged sibling PR/commit unless the marker-only disposition applies; shared-contract comparator when color packs change | pending |
 | R19 protected/monitored `main` | settings/API inspection | pending |
 | R20 complete community surface | community profile + advertised public-link resolution | pending |
 | R21 one traced candidate | this matrix + final go/no-go | pending |

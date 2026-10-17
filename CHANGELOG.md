@@ -4,6 +4,10 @@ All notable changes to `sdr-visualizer` will be documented here. The format foll
 
 ## [Unreleased]
 
+### Fixed
+
+- Label the lineage report footer “CJA lineage” instead of “Private CJA lineage POC”.
+
 ## [1.2.3] - 2026-10-16
 
 ### Fixed
