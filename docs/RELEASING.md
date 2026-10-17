@@ -446,9 +446,23 @@ deploys again before announcement GO, repeat those checks against the newer
 deployment SHA.
 
 The authoritative workflow artifact must remain available throughout a
-90-day recovery window. Confirm repository retention and the artifact's actual
-expiry before approval; if either is shorter, stop and repair the recovery
-path before tagging.
+90-day recovery window. Before tagging, inspect the repository retention setting
+and workflow retention request; if either cannot support that window, stop and
+repair the recovery path before tagging. The artifact does not exist at this
+stage, so its actual expiry cannot yet be verified.
+
+After the build creates the authoritative artifact and before PyPI publication
+approval, record the workflow creation time, artifact creation time, policy-window
+start and its basis, actual artifact expiry, and recovery deadline. Verify that
+the actual expiry covers the full recorded 90-day window; if it falls short, stop
+publication approval and repair the recovery path. Retain the same artifact and
+manifest under the recovery rules below.
+
+In the [1.2.3 publication record](https://github.com/brian-a-au/sdr-visualizer/pull/89),
+the inspected artifact expired 90 days after workflow creation, rather than
+90 days after artifact creation. That is an observation about that release,
+not a guarantee about GitHub retention behavior or a universal policy-window
+anchor. Record and inspect these timestamps for every release.
 
 Every retry records its run ID, attempt, artifact ID, and manifest. Evidence
 from different artifact sets may never be combined.
