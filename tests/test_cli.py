@@ -1096,3 +1096,33 @@ def test_tested_generator_version_does_not_warn(tmp_path, capsys):
     )
     assert rc == 0
     assert "generator version" not in capsys.readouterr().err
+
+
+@pytest.mark.parametrize(
+    ("platform", "version", "warns"),
+    [
+        ("cja", "3.12.12", False),
+        ("cja", "3.12.13", True),
+        ("aa", "1.21.24", False),
+        ("aa", "1.21.25", True),
+    ],
+)
+def test_catalog_generator_warning_boundary(platform, version, warns, tmp_path, capsys):
+    snapshot = json.loads(
+        (FIXTURES / f"{platform}_snapshot_clean.json").read_text(encoding="utf-8")
+    )
+    if platform == "cja":
+        snapshot["metadata"]["Tool Version"] = version
+    else:
+        snapshot["tool_version"] = version
+    source = _write_json(tmp_path / "snapshot.json", snapshot)
+    output = tmp_path / "report.html"
+
+    assert main([str(source), "--output", str(output), "--quiet"]) == 0
+    assert output.is_file()
+    stderr = capsys.readouterr().err
+    if warns:
+        assert f"snapshot generator version {version}" in stderr
+        assert "newer" in stderr
+    else:
+        assert "generator version" not in stderr
