@@ -200,7 +200,9 @@ cannot be closed by recording the current delta as diff-backed N/A.
 | Candidate SHA | pending |
 | Complete changed-path output permalink | pending |
 | Shared runtime paths changed | pending |
-| Full parity or diff-backed N/A evidence | pending |
+| Full parity review, marker-only disposition, or diff-backed N/A evidence | pending |
+| Marker-only: both projects' marker values and explicit-SHA adapter/helper review | pending |
+| Marker-only: fresh candidate qualification and literal warning-boundary evidence | pending |
 | Current sibling PR and commit permalinks, if applicable | pending |
 | Shared-contract comparator result, if applicable | pending |
 | Reviewer / reviewed UTC / result | pending |
@@ -252,7 +254,7 @@ renumber these requirements.
 | R15 shipped, consistent docs | Markdown links + source-distribution check | pending |
 | R16 safe sharing guidance | README review | pending |
 | R17 current compatibility | privacy-safe fresh/corpus record | pending |
-| R18 sibling parity | linked green sibling PR/commit and passing shared-contract comparator when color packs change | pending |
+| R18 sibling parity | full sibling review; linked green merged sibling PR/commit unless the marker-only disposition applies; shared-contract comparator when color packs change | pending |
 | R19 protected/monitored `main` | settings/API inspection | pending |
 | R20 complete community surface | community profile + advertised public-link resolution | pending |
 | R21 one traced candidate | this matrix + final go/no-go | pending |
@@ -312,20 +314,29 @@ renumber these requirements.
 ## Authoritative artifact and retention
 
 Use one artifact set throughout. Record every retry separately; never combine
-evidence from different attempts or manifests.
+evidence from different attempts or manifests. Inspect retention settings before
+tagging; inspect the created artifact's actual expiry before PyPI publication
+approval. A configured duration does not establish the actual recovery deadline.
+The actual expiry must cover the recorded full 90-day policy window; stop if it
+falls short. Record the window start and its basis rather than inferring them
+from a previous release's retention behavior.
 
 | Field | Value |
 |---|---|
 | Release workflow URL | pending |
 | Workflow run ID | pending |
 | Attempt | pending |
+| Workflow creation UTC | pending |
 | Event / tag / `headSha` | pending |
 | Job conclusions | pending |
 | Retained artifact ID | pending |
 | Artifact URL | pending |
-| Artifact expiry UTC | pending |
-| Repository retention setting and inspection URL | pending |
-| 90-day recovery-window end UTC | pending |
+| Artifact creation UTC | pending |
+| Actual artifact expiry UTC and inspection URL | pending |
+| Repository retention setting / workflow retention request / pre-tag inspection URL | pending |
+| Policy-window start UTC and basis | pending |
+| 90-day recovery deadline UTC | pending |
+| Actual expiry covers the full policy window / post-build inspection UTC | pending |
 | Wheel filename / SHA-256 | pending |
 | Source-distribution filename / SHA-256 | pending |
 | Authoritative `SHA256SUMS` manifest URL | pending |

@@ -238,6 +238,24 @@ Review changes to `core/models.py`, `adapters/`,
 Missing access or an unreviewed sibling change blocks release; it does not turn
 parity into an optional follow-up.
 
+A candidate whose changes to shared runtime paths are limited to
+`TESTED_THROUGH_GENERATOR_VERSION` values in the catalog adapters still requires
+full sibling review. Record the visualizer base and candidate SHAs, the sibling
+full SHA, complete candidate changed paths, exact adapter diff, and each project's
+marker values. Prove that the shared-path delta changes only those constant
+values, and compare the warning and version-parser helpers at those SHAs. Retain
+the documented intentional differences. Fresh exact-version snapshots, the full
+historical private corpus, supported catalog modes, and literal target/next-patch
+warning tests must pass for the visualizer candidate.
+
+Marker values are project-specific qualification evidence. Do not copy them to
+the sibling without that project's own qualification. When the review establishes
+that no shared implementation change needs mirroring, record **full review — no
+sibling code change required**; a new sibling PR and merge are not required for
+this limited case. This is not diff-backed N/A. Any other shared-runtime change
+follows the linked green, merged sibling requirement above. Color-pack comparator
+requirements remain unchanged.
+
 For `render/color_packs.py`, both repositories must export the same shared
 contract snapshot: `catalog` (`default`, `ADBE`, `OMTR`, `BLUE` in
 that order), ordered `source_swatches` for all four entries, and ordered
@@ -262,7 +280,8 @@ parity may be recorded as a **diff-backed N/A**. The record must include the
 base and candidate SHAs, the complete changed-path output, and a reviewer
 confirmation that no shared runtime surface changed. A documentation-only
 label or commit message is not sufficient evidence. Any shared-path change
-requires the full sibling review above.
+requires full sibling review; marker-only review may use the limited disposition
+above.
 
 ## GitHub and community controls
 
@@ -337,7 +356,7 @@ checklist remains authoritative.
 | R15 shipped, consistent docs | Markdown links + source-distribution check | pending |
 | R16 safe sharing guidance | README review | pending |
 | R17 current compatibility | privacy-safe fresh/corpus record | pending |
-| R18 sibling parity | linked green sibling PR/commit and passing shared-contract comparator when color packs change | pending |
+| R18 sibling parity | full sibling review; linked green merged sibling PR/commit unless the marker-only disposition applies; shared-contract comparator when color packs change | pending |
 | R19 protected/monitored `main` | settings/API inspection | pending |
 | R20 complete community surface | community profile + advertised public-link resolution | pending |
 | R21 one traced candidate | this matrix + final go/no-go | pending |
@@ -446,9 +465,23 @@ deploys again before announcement GO, repeat those checks against the newer
 deployment SHA.
 
 The authoritative workflow artifact must remain available throughout a
-90-day recovery window. Confirm repository retention and the artifact's actual
-expiry before approval; if either is shorter, stop and repair the recovery
-path before tagging.
+90-day recovery window. Before tagging, inspect the repository retention setting
+and workflow retention request; if either cannot support that window, stop and
+repair the recovery path before tagging. The artifact does not exist at this
+stage, so its actual expiry cannot yet be verified.
+
+After the build creates the authoritative artifact and before PyPI publication
+approval, record the workflow creation time, artifact creation time, policy-window
+start and its basis, actual artifact expiry, and recovery deadline. Verify that
+the actual expiry covers the full recorded 90-day window; if it falls short, stop
+publication approval and repair the recovery path. Retain the same artifact and
+manifest under the recovery rules below.
+
+In the [1.2.3 publication record](https://github.com/brian-a-au/sdr-visualizer/pull/89),
+the inspected artifact expired 90 days after workflow creation, rather than
+90 days after artifact creation. That is an observation about that release,
+not a guarantee about GitHub retention behavior or a universal policy-window
+anchor. Record and inspect these timestamps for every release.
 
 Every retry records its run ID, attempt, artifact ID, and manifest. Evidence
 from different artifact sets may never be combined.
