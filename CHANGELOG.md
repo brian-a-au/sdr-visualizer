@@ -4,6 +4,12 @@ All notable changes to `sdr-visualizer` will be documented here. The format foll
 
 ## [Unreleased]
 
+### Fixed
+
+- Stop a Workspace worker that rejects process-group cleanup and stays running
+  by signaling the worker directly, then report the original cleanup error
+  instead of waiting indefinitely.
+
 ## [1.2.4] - 2026-10-17
 
 ### Changed

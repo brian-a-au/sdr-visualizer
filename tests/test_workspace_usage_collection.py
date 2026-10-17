@@ -456,23 +456,50 @@ def test_cleanup_signal_permission_race_requires_reaped_child(monkeypatch, exit_
     assert waits == [2]
 
 
-def test_cleanup_signal_permission_failure_preserved_for_running_child(monkeypatch):
-    import subprocess
-
+def _collector_denied(monkeypatch):
     error = PermissionError("signal denied")
 
     def denied(pid, signal):
         raise error
 
-    def wait(*, timeout):
-        assert timeout == 2
-        raise subprocess.TimeoutExpired("synthetic child", timeout)
-
     monkeypatch.setattr(collector.os, "killpg", denied)
-    process = SimpleNamespace(pid=123, poll=lambda: None, wait=wait)
+    return error
+
+
+def _collector_survivor(calls, *, reaped_by_kill=True, kill_error=None):
+    import subprocess
+
+    alive = [True]
+
+    def wait(*, timeout):
+        calls.append(("wait", timeout))
+        if alive[0]:
+            raise subprocess.TimeoutExpired("synthetic child", timeout)
+
+    def kill():
+        calls.append(("kill",))
+        if kill_error is not None:
+            raise kill_error
+        if reaped_by_kill:
+            alive[0] = False
+
+    return SimpleNamespace(pid=123, poll=lambda: None, wait=wait, kill=kill)
+
+
+@pytest.mark.parametrize(
+    "reaped_by_kill,kill_error",
+    [(True, None), (False, None), (False, PermissionError("kill denied"))],
+)
+def test_cleanup_signal_permission_failure_kills_leader_then_raises_original(
+    monkeypatch, reaped_by_kill, kill_error
+):
+    error = _collector_denied(monkeypatch)
+    calls = []
+    process = _collector_survivor(calls, reaped_by_kill=reaped_by_kill, kill_error=kill_error)
     with pytest.raises(PermissionError) as caught:
         collector._stop(process)
     assert caught.value is error
+    assert calls == [("wait", 2), ("kill",), ("wait", 2)]
 
 
 def retrieval(**kwargs):

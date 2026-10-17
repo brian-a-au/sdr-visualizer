@@ -510,27 +510,91 @@ def test_matching_retains_results_when_signal_denied_but_worker_exits(
     assert waited == [2]
 
 
-def test_stop_preserves_permission_error_when_exit_is_not_proven(monkeypatch):
+def _surviving_worker(calls, *, reaped_by_kill=True, kill_error=None):
     import subprocess
     from types import SimpleNamespace
 
+    alive = [True]
+
+    def wait(timeout):
+        calls.append(("wait", timeout))
+        if alive[0]:
+            raise subprocess.TimeoutExpired("synthetic-worker", timeout)
+
+    def kill():
+        calls.append(("kill",))
+        if kill_error is not None:
+            raise kill_error
+        if reaped_by_kill:
+            alive[0] = False
+
+    return SimpleNamespace(poll=lambda: None, pid=123, wait=wait, kill=kill)
+
+
+def _deny_group_signal(monkeypatch):
     from sdr_visualizer.usage import sdk_worker
 
     error = PermissionError("signal denied")
-    waited = []
 
     def denied(*args):
         raise error
 
-    def still_running(timeout):
-        waited.append(timeout)
-        raise subprocess.TimeoutExpired("synthetic-worker", timeout)
-
     monkeypatch.setattr(sdk_worker.os, "killpg", denied)
+    return error
+
+
+def test_stop_kills_leader_when_signal_denied_and_worker_survives(monkeypatch):
+    from sdr_visualizer.usage import sdk_worker
+
+    error = _deny_group_signal(monkeypatch)
+    calls = []
     with pytest.raises(PermissionError) as raised:
-        sdk_worker._stop(SimpleNamespace(poll=lambda: None, pid=123, wait=still_running))
+        sdk_worker._stop(_surviving_worker(calls))
     assert raised.value is error
-    assert waited == [2]
+    assert calls == [("wait", 2), ("kill",), ("wait", 2)]
+
+
+def test_stop_raises_original_error_when_kill_does_not_reap(monkeypatch):
+    from sdr_visualizer.usage import sdk_worker
+
+    error = _deny_group_signal(monkeypatch)
+    calls = []
+    with pytest.raises(PermissionError) as raised:
+        sdk_worker._stop(_surviving_worker(calls, reaped_by_kill=False))
+    assert raised.value is error
+    assert calls == [("wait", 2), ("kill",), ("wait", 2)]
+
+
+def test_stop_suppresses_kill_failure_and_raises_original(monkeypatch):
+    from sdr_visualizer.usage import sdk_worker
+
+    error = _deny_group_signal(monkeypatch)
+    calls = []
+    with pytest.raises(PermissionError) as raised:
+        sdk_worker._stop(_surviving_worker(calls, kill_error=PermissionError("kill denied")))
+    assert raised.value is error
+    assert calls == [("wait", 2), ("kill",), ("wait", 2)]
+
+
+def test_denied_group_signal_does_not_hang_popen_context(monkeypatch):
+    import subprocess
+    import sys
+    import time
+
+    from sdr_visualizer.usage import sdk_worker
+
+    _deny_group_signal(monkeypatch)
+    start = time.monotonic()
+    with (
+        pytest.raises(PermissionError),
+        subprocess.Popen(
+            [sys.executable, "-c", "import time; time.sleep(60)"],
+            start_new_session=True,
+        ) as process,
+    ):
+        sdk_worker._stop(process)
+    assert time.monotonic() - start < 10
+    assert process.returncode is not None
 
 
 def test_stalled_protocol_obeys_whole_worker_deadline():
