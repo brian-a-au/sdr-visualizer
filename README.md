@@ -257,8 +257,9 @@ the trend is the newest usable snapshot in the directory.
 The output is CI-gated against the budgets in
 [`docs/PERFORMANCE.md`](https://github.com/brian-a-au/sdr-visualizer/blob/main/docs/PERFORMANCE.md).
 Build time and HTML size are enforced at every published tier (100 / 500 / 1,000 / 2,000
-components). Browser-measured budgets are enforced at the 1,000-component tier
-(initial render < 1s, filter/search < 150ms) and the 2,000-component tier
+components). Browser-measured budgets for initial render and filter/search are
+enforced at all four tiers, from 100 components (< 200ms, < 50ms) and 500
+components (< 500ms, < 100ms) up to 1,000 (< 1s, < 150ms) and 2,000
 (< 2s, < 300ms), plus a 700ms cap on the graph view's main-thread block.
 These guarantees cover up to 8,000 reference edges. Denser valid reports use an
 explicit graph opt-in and sit outside the published size and latency limits.
@@ -311,7 +312,7 @@ arguments and exit codes are described in the
 Its embedded payload and Python modules are internal and do not extend the
 catalog schema or JSON sidecar contract.
 
-**Performance budgets.** The tier table above is a guarantee, not a goal: loosening a budget is a breaking change; tightening one is minor.
+**Performance budgets.** The tier table in [`docs/PERFORMANCE.md`](https://github.com/brian-a-au/sdr-visualizer/blob/main/docs/PERFORMANCE.md) is a guarantee, not a goal: loosening a budget is a breaking change; tightening one is minor.
 
 Warnings (snapshot generator newer than the tested version; 5,000+ component reports) are informational and never make a valid snapshot fail.
 

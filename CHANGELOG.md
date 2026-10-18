@@ -12,6 +12,8 @@ All notable changes to `sdr-visualizer` will be documented here. The format foll
   3.12.12 and `aa_auto_sdr` 1.21.24. Snapshots declaring those versions no
   longer raise a newer-than-tested warning; later versions remain accepted
   with a compatibility warning. The separate lineage allowlist is unchanged.
+- Clarify release retention-setting versus artifact-expiry checks and the
+  marker-only sibling review disposition.
 
 ### Fixed
 
@@ -34,7 +36,6 @@ All notable changes to `sdr-visualizer` will be documented here. The format foll
 - Make live AA Workspace collection and manual assistive-technology testing
   optional release evidence, retain automated accessibility and keyboard checks,
   and scope release license signoff to project and vendored D3 notices.
-
 - Update the optional AA Workspace SDK to `aanalytics2==0.5.5.post2` and align
   its collection version guard with the package pin.
 - Automatically review and merge verified, lockfile-only patch updates to
@@ -42,6 +43,8 @@ All notable changes to `sdr-visualizer` will be documented here. The format foll
   dependency changes on the manual-review path.
 - Replace the README catalog screenshot with a feature slideshow covering search,
   references, anatomy, comparisons, trends, and offline reports across AA and CJA.
+- Add canonical `AGENTS.md` contributor guidance and ship it in the source
+  distribution.
 
 ## [1.2.2] - 2026-09-21
 
