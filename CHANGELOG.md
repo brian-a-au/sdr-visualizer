@@ -13,6 +13,12 @@ All notable changes to `sdr-visualizer` will be documented here. The format foll
   warn when a report reaches 90% of its size budget, and treat a Workspace
   interaction of exactly 100 ms as over budget, matching the published limit.
 
+### Changed
+
+- Document CJA catalog generator-version provenance, correct adapter
+  tested-through marker guidance, and remove obsolete lineage POC/private
+  module descriptions.
+
 ## [1.2.4] - 2026-10-17
 
 ### Changed

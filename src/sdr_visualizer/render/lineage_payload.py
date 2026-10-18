@@ -1,4 +1,4 @@
-"""Build the private, source-faithful payload for the CJA lineage POC."""
+"""Build the source-faithful payload for the CJA lineage report."""
 
 from __future__ import annotations
 

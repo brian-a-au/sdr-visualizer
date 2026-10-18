@@ -37,6 +37,36 @@ Reads the JSON output of [`cja_auto_sdr`](https://github.com/brian-a-au/cja_auto
 - Calc metrics ship `metric_references` and `segment_references` arrays; the adapter merges these and de-dupes.
 - Derived fields appear only in CJA — there's no AA equivalent.
 
+### CJA generator version provenance
+
+The adapter reads `metadata["Tool Version"]` or `metadata["tool_version"]`
+when declared; otherwise `adapter_version` is `unknown` and no
+newer-than-tested warning is possible. The example above illustrates accepted
+version metadata, not a field guaranteed by the exporter.
+
+Public source inspection at `cja_auto_sdr` **v3.12.12**, commit
+`73c3f60e531358d339828abbbb94bbb0afb69b0b`, confirms that its
+[catalog metadata builder](https://github.com/brian-a-au/cja_auto_sdr/blob/73c3f60e531358d339828abbbb94bbb0afb69b0b/src/cja_auto_sdr/generator.py#L1160-L1308)
+omits the generator version. The
+[JSON payload builder](https://github.com/brian-a-au/cja_auto_sdr/blob/73c3f60e531358d339828abbbb94bbb0afb69b0b/src/cja_auto_sdr/output/sdr/__init__.py#L507-L575)
+passes that metadata through without adding a version. There is no additional
+catalog field for the adapter to read in this version.
+
+The separate
+[run summary](https://github.com/brian-a-au/cja_auto_sdr/blob/73c3f60e531358d339828abbbb94bbb0afb69b0b/src/cja_auto_sdr/generator.py#L2516-L2530)
+and
+[diff snapshot format](https://github.com/brian-a-au/cja_auto_sdr/blob/73c3f60e531358d339828abbbb94bbb0afb69b0b/src/cja_auto_sdr/diff/models.py#L300-L375)
+record `tool_version`, but those are different artifacts. The catalog adapter
+does not join external provenance or infer a version from the locally installed
+exporter, timestamps, or inventory schema versions. Existing undeclared catalog
+snapshots remain `unknown`; exporter-side version metadata would be needed to
+make their generator version available at export time.
+
+The tested-through marker comes from recorded validation with an exact upstream
+version and the historical compatibility corpus, as required by the
+[compatibility policy](PRODUCT_CONTRACT.md#compatibility-policy). Taking the
+highest version string found in fixtures or old snapshots is insufficient.
+
 ### CJA component mappings
 
 | CJA input | Normalized collection | Embedded type |
