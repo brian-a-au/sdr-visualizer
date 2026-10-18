@@ -157,3 +157,19 @@ def test_comparative_browser_render_boundary(monkeypatch, mode, delta):
         page.evaluate.side_effect = [1, 0, 59, 0, 100]
         failures = perf_browser_check._check_trend(page, Path("/tmp/boundary.html"))
     assert bool(failures) == (delta >= 0)
+
+
+@pytest.mark.parametrize("ms,fails", [(99.9, False), (100.0, True)])
+def test_workspace_gate_rejects_exact_budget(ms, fails):
+    observations = {
+        "eager": 0,
+        "total": 10000,
+        "first": 50,
+        "second": 50,
+        "firstRange": "Showing 1–50 of 10000",
+        "secondRange": "Showing 51–100 of 10000",
+        "openMs": ms,
+        "pageMs": 3,
+    }
+    failures = perf_browser_check._workspace_failures("synthetic", observations, 10000)
+    assert bool(failures) == fails

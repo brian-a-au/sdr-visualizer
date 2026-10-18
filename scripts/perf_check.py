@@ -4,14 +4,14 @@ Renders fixtures and asserts the build-time + HTML-size budgets across all
 four documented tiers. CI runs this after pytest (see .github/workflows/test.yml).
 
   - CJA small (100 components, `generate_large_fixture.py --scale 0.083`):
-    100-component budgets (build < 1s, size < 0.5MB). Skipped when absent.
+    100-component budgets (build < 1s, size < 0.5MB). Required.
   - CJA medium (~500 components, `--scale 0.417`): 500-component budgets
-    (build < 3s, size < 2MB). Skipped when absent.
+    (build < 3s, size < 2MB). Required.
   - CJA / AA large (~1,200 / ~900 components): 1,000-component budgets
     (build < 6s, size < 4MB)
   - CJA XL (~2,000 components, generated on demand via
     `generate_large_fixture.py --scale 1.67 --output tests/fixtures/cja_snapshot_xl.json`):
-    2,000-component budgets (build < 12s, size < 8MB). Skipped when absent.
+    2,000-component budgets (build < 12s, size < 8MB). Required.
 
 Build time is the median of 3 runs per fixture.
 
@@ -71,6 +71,25 @@ TREND_SERIES_LEN = 6
 TREND_BUILD_BUDGET_S = TREND_SERIES_LEN * 1.0
 TREND_SIZE_BUDGET_BYTES = SIZE_BUDGET_BYTES + 500_000
 
+# Non-failing early warning for deterministic HTML size growth.
+HEADROOM_WARNING_RATIO = 0.9
+
+GENERATE = "uv run python scripts/generate_large_fixture.py"
+REQUIRED_FIXTURES = [
+    ("CJA_SMALL", f"{GENERATE} --scale 0.083 --output tests/fixtures/cja_snapshot_small.json"),
+    ("CJA_MEDIUM", f"{GENERATE} --scale 0.417 --output tests/fixtures/cja_snapshot_medium.json"),
+    ("CJA_LARGE", GENERATE),
+    ("AA_LARGE", "uv run python scripts/generate_aa_large_fixture.py"),
+    ("CJA_XL", f"{GENERATE} --scale 1.67 --output tests/fixtures/cja_snapshot_xl.json"),
+]
+
+
+def _headroom_note(label: str, size_bytes: int, budget_bytes: int) -> str | None:
+    if HEADROOM_WARNING_RATIO * budget_bytes <= size_bytes < budget_bytes:
+        pct = size_bytes * 100 // budget_bytes
+        return f"warning: [{label}] HTML size at {pct}% of budget"
+    return None
+
 
 def _load_usage_fixture():
     spec = importlib.util.spec_from_file_location(
@@ -118,6 +137,8 @@ def _measure_compare(old_snap: dict, new_snap: dict) -> tuple[list[str], str]:
         f"[CJA-compare] build time: {elapsed:.2f}s   (budget {COMPARE_BUILD_BUDGET_S}s, median of 3)",
         f"[CJA-compare] HTML size : {size_mb:.2f}MB  (budget {COMPARE_SIZE_BUDGET_BYTES / 1_000_000:g}MB)",
     ]
+    if note := _headroom_note("CJA-compare", size_bytes, COMPARE_SIZE_BUDGET_BYTES):
+        msgs.append(note)
     failures = []
     if elapsed >= COMPARE_BUILD_BUDGET_S:
         failures.append(
@@ -152,6 +173,8 @@ def _measure_trend(base_snap: dict, mutate) -> tuple[list[str], str]:
         f"median of 3, {TREND_SERIES_LEN} snapshots)",
         f"[CJA-trend] HTML size : {size_mb:.2f}MB  (budget {TREND_SIZE_BUDGET_BYTES / 1_000_000:g}MB)",
     ]
+    if note := _headroom_note("CJA-trend", size_bytes, TREND_SIZE_BUDGET_BYTES):
+        msgs.append(note)
     failures = []
     if elapsed >= TREND_BUILD_BUDGET_S:
         failures.append(f"CJA-trend build time {elapsed:.2f}s over budget {TREND_BUILD_BUDGET_S}s")
@@ -187,6 +210,8 @@ def _measure(
         f"[{label}] build time: {elapsed:.2f}s   (budget {build_budget_s}s, median of 3)",
         f"[{label}] HTML size : {size_mb:.2f}MB  (budget {size_budget_bytes / 1_000_000:g}MB)",
     ]
+    if note := _headroom_note(label, size_bytes, size_budget_bytes):
+        msgs.append(note)
     failures = []
     if elapsed >= build_budget_s:
         failures.append(f"[{label}] build time {elapsed:.2f}s >= {build_budget_s}s budget")
@@ -198,17 +223,18 @@ def _measure(
 
 
 def main() -> int:
-    for fixture, generator in [
-        (CJA_LARGE, "scripts/generate_large_fixture.py"),
-        (AA_LARGE, "scripts/generate_aa_large_fixture.py"),
-    ]:
-        if not fixture.exists():
-            print(
-                f"sdr-visualizer: fixture {fixture} missing; run "
-                f"`uv run python {generator}` first.",
-                file=sys.stderr,
-            )
-            return 2
+    missing = [
+        (globals()[name], command)
+        for name, command in REQUIRED_FIXTURES
+        if not globals()[name].exists()
+    ]
+    for fixture, command in missing:
+        print(
+            f"sdr-visualizer: fixture {fixture} missing; run `{command}` first.",
+            file=sys.stderr,
+        )
+    if missing:
+        return 2
 
     cja_snap = json.loads(CJA_LARGE.read_text(encoding="utf-8"))
     aa_snap = json.loads(AA_LARGE.read_text(encoding="utf-8"))
@@ -218,13 +244,10 @@ def main() -> int:
         (CJA_SMALL, "CJA-100", SMALL_BUILD_BUDGET_S, SMALL_SIZE_BUDGET_BYTES),
         (CJA_MEDIUM, "CJA-500", MEDIUM_BUILD_BUDGET_S, MEDIUM_SIZE_BUDGET_BYTES),
     ]:
-        if path.exists():
-            snap = json.loads(path.read_text(encoding="utf-8"))
-            tier_failures, tier_report = _measure(label, snap, cja_adapt, build_b, size_b)
-            small_failures += tier_failures
-            print(tier_report)
-        else:
-            print(f"note: {path.name} not generated; skipping {label} gate")
+        snap = json.loads(path.read_text(encoding="utf-8"))
+        tier_failures, tier_report = _measure(label, snap, cja_adapt, build_b, size_b)
+        small_failures += tier_failures
+        print(tier_report)
 
     cja_failures, cja_report = _measure("CJA", cja_snap, cja_adapt)
     print(cja_report)
@@ -245,15 +268,11 @@ def main() -> int:
     trend_failures, trend_report = _measure_trend(cja_snap, mutate)
     print(trend_report)
 
-    xl_failures: list[str] = []
-    if CJA_XL.exists():
-        xl_snap = json.loads(CJA_XL.read_text(encoding="utf-8"))
-        xl_failures, xl_report = _measure(
-            "CJA-XL", xl_snap, cja_adapt, XL_BUILD_BUDGET_S, XL_SIZE_BUDGET_BYTES
-        )
-        print(xl_report)
-    else:
-        print("note: cja_snapshot_xl.json not generated; skipping 2,000-component gate")
+    xl_snap = json.loads(CJA_XL.read_text(encoding="utf-8"))
+    xl_failures, xl_report = _measure(
+        "CJA-XL", xl_snap, cja_adapt, XL_BUILD_BUDGET_S, XL_SIZE_BUDGET_BYTES
+    )
+    print(xl_report)
 
     # Preserve every original gate, then repeat its tier with bounded evidence.
     # Small approaches the HTML cap; XL approaches the normalized 1 MiB cap.
@@ -266,8 +285,6 @@ def main() -> int:
         (AA_LARGE, aa_adapt, BUILD_BUDGET_S, SIZE_BUDGET_BYTES, 10_000),
         (CJA_XL, cja_adapt, XL_BUILD_BUDGET_S, XL_SIZE_BUDGET_BYTES, 10_000),
     ]:
-        if not path.exists():
-            continue  # Same optional fixtures as the original Python matrix.
         snap = json.loads(path.read_text(encoding="utf-8"))
         encoded = usage_fixture.usage_json(adapter(snap), project_count=projects, pad_input=True)
         errors, report = _measure(

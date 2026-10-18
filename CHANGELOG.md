@@ -9,6 +9,9 @@ All notable changes to `sdr-visualizer` will be documented here. The format foll
 - Kill a Workspace worker directly when it rejects process-group cleanup and
   stays running, then report the original cleanup error, so collection no
   longer waits on a worker that ignored the group signal.
+- Fail the Python performance gate when any published tier fixture is missing,
+  warn when a report reaches 90% of its size budget, and treat a Workspace
+  interaction of exactly 100 ms as over budget, matching the published limit.
 
 ## [1.2.4] - 2026-10-17
 

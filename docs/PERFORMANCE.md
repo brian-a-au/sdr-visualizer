@@ -191,19 +191,44 @@ uv run python scripts/perf_browser_check.py
 
 CI runs `perf_check.py` after `pytest` in the test job. The browser gate runs in
 the separate `browser-perf` job after browser functional tests. A regression
-that exceeds any budget fails the build.
+that exceeds any budget fails the build. `perf_check.py` fails when any tier
+fixture is missing and prints a non-failing warning when an HTML size reaches
+90% of its budget.
 
 ## What we measure
 
 One representative Python-side run looks like this:
 
 ```text
-[CJA] build time: 0.01s   (budget 6.0s)
-[CJA] HTML size : 0.71MB  (budget 4.0MB)
-[AA] build time: 0.01s   (budget 6.0s)
-[AA] HTML size : 0.61MB  (budget 4.0MB)
-[CJA-XL] build time: 0.01s   (budget 12.0s)
-[CJA-XL] HTML size : 0.98MB  (budget 8.0MB)
+[CJA-100] build time: 0.01s   (budget 1.0s, median of 3)
+[CJA-100] HTML size : 0.43MB  (budget 0.5MB)
+[CJA-500] build time: 0.02s   (budget 3.0s, median of 3)
+[CJA-500] HTML size : 0.57MB  (budget 2MB)
+[CJA] build time: 0.06s   (budget 6.0s, median of 3)
+[CJA] HTML size : 0.81MB  (budget 4MB)
+[AA] build time: 0.04s   (budget 6.0s, median of 3)
+[AA] HTML size : 0.70MB  (budget 4MB)
+[CJA-dense] build time: 0.09s   (budget 6.0s, median of 3)
+[CJA-dense] HTML size : 1.42MB  (budget 4MB)
+[CJA-compare] build time: 0.07s   (budget 9.0s, median of 3)
+[CJA-compare] HTML size : 0.82MB  (budget 4.5MB)
+[CJA-trend] build time: 0.19s   (budget 6.0s, median of 3, 6 snapshots)
+[CJA-trend] HTML size : 0.82MB  (budget 4.5MB)
+[CJA-XL] build time: 0.08s   (budget 12.0s, median of 3)
+[CJA-XL] HTML size : 1.09MB  (budget 8MB)
+[cja_snapshot_small-usage] build time: 0.02s   (budget 1.0s, median of 3)
+[cja_snapshot_small-usage] HTML size : 0.48MB  (budget 0.5MB)
+warning: [cja_snapshot_small-usage] HTML size at 95% of budget
+[cja_snapshot_medium-usage] build time: 0.24s   (budget 3.0s, median of 3)
+[cja_snapshot_medium-usage] HTML size : 1.18MB  (budget 2MB)
+[cja_snapshot_large-usage] build time: 0.30s   (budget 6.0s, median of 3)
+[cja_snapshot_large-usage] HTML size : 1.58MB  (budget 4MB)
+[aa_snapshot_large-usage] build time: 0.29s   (budget 6.0s, median of 3)
+[aa_snapshot_large-usage] HTML size : 1.40MB  (budget 4MB)
+[cja_snapshot_xl-usage] build time: 0.36s   (budget 12.0s, median of 3)
+[cja_snapshot_xl-usage] HTML size : 2.06MB  (budget 8MB)
+[CJA-usage-repeated] build time: 0.35s   (budget 6.0s, median of 3)
+[CJA-usage-repeated] HTML size : 1.78MB  (budget 4MB)
 OK: all budgets met
 ```
 

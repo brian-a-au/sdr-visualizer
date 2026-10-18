@@ -160,3 +160,68 @@ def test_fixture_and_corpus_tier_budgets_agree_exactly():
     assert corpus._tier_budget_bytes(2001) is None
     assert perf_check.COMPARE_SIZE_BUDGET_BYTES == 4_500_000
     assert perf_check.TREND_SIZE_BUDGET_BYTES == 4_500_000
+
+
+@pytest.mark.parametrize("delta,expected", [(-1, None), (0, "90%"), (1, "90%")])
+def test_headroom_note_boundary(delta, expected):
+    note = perf_check._headroom_note("CJA-100", 450_000 + delta, 500_000)
+    if expected is None:
+        assert note is None
+    else:
+        assert expected in note
+        assert "CJA-100" in note
+
+
+def test_headroom_note_absent_at_or_over_budget():
+    assert perf_check._headroom_note("x", 500_000, 500_000) is None
+    assert perf_check._headroom_note("x", 500_001, 500_000) is None
+
+
+def test_measure_report_includes_headroom_note_without_failing(monkeypatch):
+    monkeypatch.setattr(perf_check, "render", lambda impl: "x" * 460_000)
+    monkeypatch.setattr(perf_check.time, "perf_counter", lambda: 0)
+    failures, report = perf_check._measure(
+        "CJA-100", {}, lambda snap: None, size_budget_bytes=500_000
+    )
+    assert failures == []
+    assert "warning: [CJA-100] HTML size at 92% of budget" in report
+
+
+@pytest.mark.parametrize("mode,label", [("compare", "CJA-compare"), ("trend", "CJA-trend")])
+def test_comparative_report_includes_headroom_note_without_failing(monkeypatch, mode, label):
+    monkeypatch.setattr(perf_check, "cja_adapt", lambda snap: None)
+    monkeypatch.setattr(perf_check, "build_payload_with_options", lambda impl: {"meta": {}})
+    monkeypatch.setattr(perf_check, "diff_implementations", lambda *args: {"baseline": {}})
+    monkeypatch.setattr(perf_check, "build_trend", lambda *args, **kwargs: {})
+    monkeypatch.setattr(perf_check, "render_payload", lambda payload: "x" * 4_050_000)
+    monkeypatch.setattr(perf_check.time, "perf_counter", lambda: 0)
+    if mode == "compare":
+        failures, report = perf_check._measure_compare({}, {})
+    else:
+        failures, report = perf_check._measure_trend({}, lambda snap: snap)
+    assert failures == []
+    assert f"warning: [{label}] HTML size at 90% of budget" in report
+
+
+def test_main_fails_when_any_tier_fixture_missing(tmp_path, monkeypatch, capsys):
+    for name in ("CJA_SMALL", "CJA_MEDIUM", "CJA_LARGE", "AA_LARGE", "CJA_XL"):
+        monkeypatch.setattr(perf_check, name, tmp_path / f"{name.lower()}.json")
+    assert perf_check.main() == 2
+    out = capsys.readouterr()
+    for flag in ("--scale 0.083", "--scale 0.417", "--scale 1.67", "generate_aa_large_fixture"):
+        assert flag in out.err
+    for name in ("cja_small", "cja_medium", "cja_large", "aa_large", "cja_xl"):
+        assert f"{name}.json missing" in out.err
+    assert "OK: all budgets met" not in out.out
+
+
+def test_main_names_only_the_missing_tier(tmp_path, monkeypatch, capsys):
+    present = tmp_path / "present.json"
+    present.write_text("{}", encoding="utf-8")
+    for name in ("CJA_MEDIUM", "CJA_LARGE", "AA_LARGE", "CJA_XL"):
+        monkeypatch.setattr(perf_check, name, present)
+    monkeypatch.setattr(perf_check, "CJA_SMALL", tmp_path / "cja_snapshot_small.json")
+    assert perf_check.main() == 2
+    err = capsys.readouterr().err
+    assert "cja_snapshot_small.json" in err
+    assert "--scale 0.417" not in err
