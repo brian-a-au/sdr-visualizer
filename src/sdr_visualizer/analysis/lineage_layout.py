@@ -1,4 +1,4 @@
-"""Deterministic, build-side geometry for the CJA lineage POC."""
+"""Deterministic, build-side geometry for the CJA lineage report."""
 
 from __future__ import annotations
 

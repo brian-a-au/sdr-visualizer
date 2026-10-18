@@ -1,4 +1,4 @@
-"""Private, content-free output boundary for the CJA lineage POC."""
+"""Content-free output boundary for the CJA lineage report."""
 
 from __future__ import annotations
 
