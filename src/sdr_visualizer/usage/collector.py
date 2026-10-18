@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import contextlib
 import importlib.metadata
 import os
 import selectors
@@ -416,10 +417,16 @@ def _stop(process):
         except PermissionError as error:
             # On macOS an exiting process group can reject a signal before
             # waitpid reports its leader's exit. Only accept cleanup once the
-            # child has actually exited, within the existing wait bound.
+            # child has actually exited, within the existing wait bound;
+            # otherwise kill the leader directly so the Popen context can finish
+            # once it exits, then report the refused group signal.
             try:
                 process.wait(timeout=2)
             except subprocess.TimeoutExpired:
+                with contextlib.suppress(OSError):
+                    process.kill()
+                with contextlib.suppress(subprocess.TimeoutExpired):
+                    process.wait(timeout=2)
                 raise error from None
             return
     process.wait(timeout=2)
