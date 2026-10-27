@@ -4,6 +4,13 @@ All notable changes to `sdr-visualizer` will be documented here. The format foll
 
 ## [Unreleased]
 
+### Changed
+
+- Advance the catalog tested-through generator markers to `cja_auto_sdr`
+  3.13.2 and `aa_auto_sdr` 1.24.1. Snapshots that declare those versions no
+  longer print a newer-than-tested warning. Later versions are still accepted
+  with a compatibility warning. The separate lineage allowlist is unchanged.
+
 ## [1.2.5] - 2026-10-17
 
 ### Fixed

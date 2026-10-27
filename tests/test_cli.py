@@ -1101,10 +1101,10 @@ def test_tested_generator_version_does_not_warn(tmp_path, capsys):
 @pytest.mark.parametrize(
     ("platform", "version", "warns"),
     [
-        ("cja", "3.12.12", False),
-        ("cja", "3.12.13", True),
-        ("aa", "1.21.24", False),
-        ("aa", "1.21.25", True),
+        ("cja", "3.13.2", False),
+        ("cja", "3.13.3", True),
+        ("aa", "1.24.1", False),
+        ("aa", "1.24.2", True),
     ],
 )
 def test_catalog_generator_warning_boundary(platform, version, warns, tmp_path, capsys):
