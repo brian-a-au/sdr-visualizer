@@ -39,19 +39,16 @@ confidentiality and data-handling policy.
 
 ## Public preview scope
 
-This project is in public preview. A report describes what is configured in a
-snapshot. It does not grade the implementation, and it does not confirm that a
-configuration is correct, complete, or working at runtime. Review the details
+This project is in public preview. A report shows what a snapshot configures. It
+does not grade the implementation or confirm that it works. Check the details
 against the source implementation before you act on them.
 
-The report embeds the supported normalized component catalog, not every
-platform-specific field. Optional Workspace project references are unverified
-candidates, and an empty result never means a component is unused. Keep the
-original generator snapshot for anything the report does not embed.
-
-The tool is verified on Ubuntu with Python 3.11, 3.12, and 3.14. Other platforms
-and later Python versions are not yet verified. The package installs on Python
-3.11 or newer.
+- The report embeds the supported components, not every platform field. Keep the
+  original generator snapshot for anything the report does not embed.
+- Workspace project references are unverified. An empty result does not mean a
+  component is unused.
+- The tool is verified on Ubuntu with Python 3.11, 3.12, and 3.14. It installs on
+  Python 3.11 or newer.
 
 ## Install
 
