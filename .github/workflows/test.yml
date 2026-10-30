@@ -103,24 +103,8 @@ jobs:
               raise SystemExit(f"Python version mismatch: expected {expected}, got {actual}")
           PYTHON
 
-      - name: Resolve Playwright version
-        id: playwright
-        run: echo "version=$(uv run --locked python -c 'import importlib.metadata as m; print(m.version("playwright"))')" >> "$GITHUB_OUTPUT"
-
-      - name: Cache Playwright browsers
-        id: playwright-cache
-        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        with:
-          path: ~/.cache/ms-playwright
-          key: playwright-${{ runner.os }}-${{ steps.playwright.outputs.version }}-chromium-webkit
-
       - name: Install browsers
-        if: steps.playwright-cache.outputs.cache-hit != 'true'
         run: uv run --locked playwright install --with-deps chromium webkit
-
-      - name: Install browser system dependencies
-        if: steps.playwright-cache.outputs.cache-hit == 'true'
-        run: uv run --locked playwright install-deps chromium webkit
 
       - name: Generate fixtures
         run: |
