@@ -437,6 +437,13 @@ versions, and one live generation path against the frozen candidate. Any drift
 from candidate evidence stops publication and requires complete
 requalification; it is not patched into the release after tagging.
 
+Before tagging, a maintainer may dispatch `release.yml` manually on the
+candidate commit (`gh workflow run release.yml --ref <branch>`) as a dry run.
+It runs the browser and performance gates, the build, and the installed-artifact
+smoke run, and it skips the tag-version check, PyPI publication, and the GitHub
+release. A dry run's `dist` artifact is not the authoritative release artifact;
+only the tag-triggered run produces that.
+
 After the candidate is approved, a separate explicit tag authorization starts
 the release workflow. Record the workflow run ID and attempt, event, tag,
 `headSha`, job conclusions, retained artifact ID, artifact expiry, distribution

@@ -4,6 +4,9 @@ on:
   push:
     tags:
       - 'v*.*.*'
+  # Dry run: every gate, the build, and the installed-artifact smoke run, but
+  # publish (and so github-release) is skipped.
+  workflow_dispatch:
 
 jobs:
   browser-perf:
@@ -102,6 +105,7 @@ jobs:
         run: uv run pytest -n auto --ignore=tests/test_browser_functional.py --ignore=tests/test_lineage_browser.py --cov=sdr_visualizer --cov-branch --cov-report=term-missing --cov-report=json --cov-fail-under=99
 
       - name: Verify tag matches package version
+        if: github.event_name == 'push'
         run: |
           TAG_VERSION="${GITHUB_REF_NAME#v}"
           PKG_VERSION="$(uv run python -c 'from sdr_visualizer import __version__; print(__version__)')"
@@ -151,6 +155,7 @@ jobs:
 
   publish:
     needs: build
+    if: github.event_name == 'push'
     runs-on: ubuntu-latest
     # Trusted publishing: the pypi.org pending publisher names this
     # workflow and this environment. No token is stored anywhere; the

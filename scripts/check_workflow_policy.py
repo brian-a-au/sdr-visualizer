@@ -29,6 +29,9 @@ EXPECTED_CODEQL_MATRIX = {
 }
 EXPECTED_CODEQL_CONFIG_FILE = "./.github/codeql/codeql-config.yml"
 EXPECTED_CODEQL_IGNORES = ["examples/**"]
+# The one job guard release.yml may use: it skips publication on manual dry
+# runs and, lacking a status function, still implies success().
+RELEASE_PUBLISH_GUARD = "github.event_name == 'push'"
 
 
 def _error(path: Path, message: str) -> str:
@@ -243,12 +246,26 @@ def _release_errors(path: Path, workflow: dict[str, Any]) -> list[str]:
         errors.append(_error(path, "github-release must need publish"))
     for job_name, job in jobs.items():
         if isinstance(job, dict):
+            item = job
+            if job_name == "publish" and job.get("if") == RELEASE_PUBLISH_GUARD:
+                item = {key: value for key, value in job.items() if key != "if"}
             _require_default_success(
                 errors,
                 path=path,
                 label=f"job {job_name!r}",
-                item=job,
+                item=item,
             )
+    # PyYAML reads the bare `on` key as boolean True.
+    triggers = workflow.get("on", workflow.get(True))
+    trigger_names = set(triggers) if isinstance(triggers, (dict, list)) else {triggers}
+    if trigger_names != {"push"} and publish.get("if") != RELEASE_PUBLISH_GUARD:
+        errors.append(
+            _error(
+                path,
+                f"publish must use 'if: {RELEASE_PUBLISH_GUARD}' when release has "
+                "triggers other than push",
+            )
+        )
 
     build_distribution = _step_index(
         build, lambda step: _run_is(step, "uv build --out-dir dist/packages")

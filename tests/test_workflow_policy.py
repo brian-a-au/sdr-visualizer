@@ -530,6 +530,48 @@ def test_rejects_always_running_github_release_after_pypi_failure(tmp_path):
     assert any("default success gating" in error for error in check_workflow_policy.check(workflow))
 
 
+def test_release_dry_run_trigger_requires_push_guard_on_publish(tmp_path):
+    dispatch = _release_workflow().replace("on: push", "on: [push, workflow_dispatch]", 1)
+    unguarded = _write(tmp_path, "release.yml", dispatch)
+    assert any(
+        "publish must use 'if: github.event_name == 'push''" in error
+        for error in check_workflow_policy.check(unguarded)
+    )
+
+    guarded = _write(
+        tmp_path,
+        "release.yml",
+        dispatch.replace(
+            "publish:\n    needs: build",
+            "publish:\n    needs: build\n    if: github.event_name == 'push'",
+        ),
+    )
+    assert check_workflow_policy.check(guarded) == []
+
+
+@pytest.mark.parametrize(
+    "guard",
+    [
+        "always() && github.event_name == 'push'",
+        "github.event_name == 'push' || failure()",
+        "github.event_name != 'workflow_dispatch'",
+    ],
+)
+def test_publish_rejects_any_other_job_guard(tmp_path, guard):
+    workflow = _write(
+        tmp_path,
+        "release.yml",
+        _release_workflow().replace(
+            "publish:\n    needs: build",
+            f"publish:\n    needs: build\n    if: {guard}",
+        ),
+    )
+    assert any(
+        "job 'publish' must use default success gating" in error
+        for error in check_workflow_policy.check(workflow)
+    )
+
+
 def test_rejects_release_stage_without_digest_verification(tmp_path):
     workflow = _write(
         tmp_path,
