@@ -15,7 +15,7 @@ resolution-markers = [
 
 [[package]]
 name = "aanalytics2"
-version = "0.5.5.post2"
+version = "0.5.5.post3"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "deprecation" },
@@ -31,9 +31,9 @@ dependencies = [
     { name = "requests" },
     { name = "rich" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/09/54/bd547207f2f193d2e58c9a24f405f0e53e99b067c2692618b30b2c3790d4/aanalytics2-0.5.5.post2.tar.gz", hash = "sha256:efc1d9c6abfbc040a091f3020b60a077b203a30b910692c3af28d504b41a9fb6", size = 306708, upload-time = "2026-09-30T08:48:08.917Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/00/ea/8766c0fdbe5f2523fb2c946f2c03dc5547dd8eccd2a1a77d54e7eb413269/aanalytics2-0.5.5.post3.tar.gz", hash = "sha256:da263f2ee210345e04f8f439c69ba95b5e486a993a8062d679c6421160747951", size = 320023, upload-time = "2026-10-24T15:36:47.278Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/2c/ee/5e9e8c93dca9f83490de6159b9a0b368d4618893637d56623b91b0cb453a/aanalytics2-0.5.5.post2-py3-none-any.whl", hash = "sha256:0cc9a543f1f8a19d4ca1d3a06763b1d4966c4665a601e59afabf90d046c8dc93", size = 179546, upload-time = "2026-09-30T08:48:07.647Z" },
+    { url = "https://files.pythonhosted.org/packages/45/da/8436bf359995378ae4dd55cb50a53aee75981e8d7f87fc019df6bee73f9e/aanalytics2-0.5.5.post3-py3-none-any.whl", hash = "sha256:9e8896d8bd95289f9056041fccfd801fb93f205d0ecf6a3c9b62f29bdf321fc6", size = 188577, upload-time = "2026-10-24T15:36:45.963Z" },
 ]
 
 [[package]]
@@ -1803,7 +1803,7 @@ dev = [
 
 [package.metadata]
 requires-dist = [
-    { name = "aanalytics2", marker = "extra == 'workspace-aa'", specifier = "==0.5.5.post2" },
+    { name = "aanalytics2", marker = "extra == 'workspace-aa'", specifier = "==0.5.5.post3" },
     { name = "cjapy", marker = "extra == 'workspace-cja'", specifier = "==0.3.1" },
     { name = "jinja2", specifier = ">=3.1" },
     { name = "requests", marker = "extra == 'workspace-aa'", specifier = ">=2.32" },
