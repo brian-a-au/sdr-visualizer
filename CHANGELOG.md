@@ -13,6 +13,10 @@ All notable changes to `sdr-visualizer` will be documented here. The format foll
   once on Python 3.14, superseded pull request runs are cancelled, and every
   job has a timeout. The `version-sync` check now runs inside the `lint`
   workflow, and Pages publishes the committed examples.
+- Allow a manual `release.yml` dry run that runs every release gate and the
+  build but skips the tag-version check, PyPI publication, and the GitHub
+  release. The workflow policy now requires that guard on `publish` whenever
+  the release workflow has a trigger other than a tag push.
 
 ## [1.2.6] - 2026-10-27
 
