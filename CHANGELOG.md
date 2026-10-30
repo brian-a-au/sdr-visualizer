@@ -4,6 +4,12 @@ All notable changes to `sdr-visualizer` will be documented here. The format foll
 
 ## [Unreleased]
 
+### Changed
+
+- Update the optional AA Workspace SDK to `aanalytics2==0.5.5.post3` and align
+  its collection version guard with the package pin. The upstream change is
+  limited to the knowledge graph module, which collection does not use.
+
 ## [1.2.6] - 2026-10-27
 
 ### Changed
