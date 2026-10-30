@@ -9,6 +9,10 @@ All notable changes to `sdr-visualizer` will be documented here. The format foll
 - Update the optional AA Workspace SDK to `aanalytics2==0.5.5.post3` and align
   its collection version guard with the package pin. The upstream change is
   limited to the knowledge graph module, which collection does not use.
+- Speed up CI. Tests run in parallel with `pytest-xdist`, coverage is measured
+  once on Python 3.14, superseded pull request runs are cancelled, and every
+  job has a timeout. The `version-sync` check now runs inside the `lint`
+  workflow, and Pages publishes the committed examples.
 
 ## [1.2.6] - 2026-10-27
 
