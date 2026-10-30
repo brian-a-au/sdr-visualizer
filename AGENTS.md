@@ -47,7 +47,8 @@ only requires Jinja2. The `dev` group supplies Python test/lint tooling and
 `browser` supplies Playwright. On Linux, use
 `uv run playwright install --with-deps chromium webkit` if browser system libraries
 are missing. `tests/conftest.py` generates missing large CJA/AA fixtures on demand.
-Do not commit generated performance fixtures or caches.
+Do not commit generated performance fixtures or caches. Add `-n auto` to any
+pytest command below to run it in parallel with `pytest-xdist`, as CI does.
 
 Use `uv run ruff format` to format changes. Use a focused `uv run pytest tests/test_*.py`
 selection while iterating, then complete the PR checks below. Offline CLI smoke:

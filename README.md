@@ -3,7 +3,6 @@
 [![PyPI](https://img.shields.io/pypi/v/sdr-visualizer)](https://pypi.org/project/sdr-visualizer/)
 [![Tests](https://github.com/brian-a-au/sdr-visualizer/actions/workflows/test.yml/badge.svg)](https://github.com/brian-a-au/sdr-visualizer/actions/workflows/test.yml)
 [![Lint](https://github.com/brian-a-au/sdr-visualizer/actions/workflows/lint.yml/badge.svg)](https://github.com/brian-a-au/sdr-visualizer/actions/workflows/lint.yml)
-[![Version Sync](https://github.com/brian-a-au/sdr-visualizer/actions/workflows/version-sync.yml/badge.svg)](https://github.com/brian-a-au/sdr-visualizer/actions/workflows/version-sync.yml)
 [![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-blue.svg)](https://www.python.org/downloads/)
 [![Coverage](https://img.shields.io/badge/coverage-99%25-brightgreen.svg)](https://github.com/brian-a-au/sdr-visualizer/tree/main/tests)
 [![Ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json)](https://github.com/astral-sh/ruff)
