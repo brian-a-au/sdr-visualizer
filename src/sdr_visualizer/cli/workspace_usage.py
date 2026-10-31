@@ -8,7 +8,7 @@ import stat
 import tempfile
 from pathlib import Path
 
-from sdr_visualizer.cli.output_safety import paths_alias
+from sdr_visualizer.cli.output_safety import path_within, paths_alias
 from sdr_visualizer.core.exceptions import InvalidSnapshotError
 from sdr_visualizer.input.loader import STDIN_TOKEN, list_snapshot_candidates
 
@@ -28,9 +28,7 @@ def outside_snapshot_directories(path, args, role):
         if not directory.is_dir():
             continue
         try:
-            contained = path.absolute().is_relative_to(
-                directory.absolute()
-            ) or path.resolve().is_relative_to(directory.resolve())
+            contained = path_within(path, directory)
         except (OSError, RuntimeError) as exc:
             raise InvalidSnapshotError("could not verify Workspace file identity") from exc
         if contained or any(alias(path, p) for p in list_snapshot_candidates(directory)):
