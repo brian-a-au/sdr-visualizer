@@ -287,3 +287,16 @@ def test_aa_string_attribution_fields_are_kept(tmp_path, capsys):
     entry = next(item for item in payload["calculated_metrics"] if item["id"] == metric_id)
     assert entry["attribution_model"] == "linear"
     assert entry["allocation"] == "participation"
+
+
+def test_undecodable_stdin_is_invalid_input_in_process(monkeypatch, tmp_path, capsys):
+    class Undecodable:
+        def read(self):
+            raise UnicodeDecodeError("utf-8", b"\xff", 0, 1, "invalid start byte")
+
+    monkeypatch.setattr(sys, "stdin", Undecodable())
+
+    code, err = _run(["-", "--output", str(tmp_path / "o.html")], capsys)
+
+    assert code == 3
+    assert "stdin is not valid UTF-8" in err

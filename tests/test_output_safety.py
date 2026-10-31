@@ -328,3 +328,14 @@ def test_case_variant_spelling_of_snapshot_directory_is_inside_it(tmp_path):
     if not _case_insensitive(tmp_path):
         pytest.skip("case-sensitive filesystem")
     assert path_within(tmp_path / "SNAPS" / "usage.json", snaps)
+
+
+def test_path_within_follows_symlinked_parents(tmp_path):
+    from sdr_visualizer.cli.output_safety import path_within
+
+    snaps = tmp_path / "snaps"
+    snaps.mkdir()
+    link = tmp_path / "link"
+    link.symlink_to(snaps, target_is_directory=True)
+
+    assert path_within(link / "usage.json", snaps)
