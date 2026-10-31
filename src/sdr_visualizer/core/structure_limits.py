@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from collections.abc import Iterator
 from typing import Any
 
@@ -10,6 +11,7 @@ from sdr_visualizer.core.exceptions import InvalidSnapshotError
 MAX_STRUCTURE_DEPTH = 100
 MAX_STRUCTURE_NODES = 250_000
 MAX_DEFINITION_NODES = 10_000
+_SURROGATE_RE = re.compile(r"[\ud800-\udfff]")
 
 
 def _iter_structure(value: Any) -> Iterator[tuple[Any, int]]:
@@ -101,7 +103,7 @@ def validate_unicode_scalars(value: Any, *, label: str) -> None:
 
 
 def _validate_string(value: Any, *, label: str) -> None:
-    if isinstance(value, str) and any(0xD800 <= ord(character) <= 0xDFFF for character in value):
+    if isinstance(value, str) and _SURROGATE_RE.search(value):
         raise InvalidSnapshotError(f"{label} contains a Unicode surrogate code point")
 
 

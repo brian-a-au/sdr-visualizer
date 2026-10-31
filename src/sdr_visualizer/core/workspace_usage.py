@@ -17,6 +17,7 @@ from sdr_visualizer.core.models import Implementation
 
 MAX_INPUT_BYTES = 2_097_152
 MAX_PAYLOAD_BYTES = 1_048_576
+_SURROGATE_RE = re.compile(r"[\ud800-\udfff]")
 DIGEST_ALGORITHM = "sdr-python-json-sha256-v1"
 NO_RESULTS_LIMITATION = "No results were collected"
 CLOCK_REVERSAL_LIMITATION = "Collection clock moved backwards; retrieval interval unavailable"
@@ -191,7 +192,7 @@ def validate_json_value(value, *, max_depth=20, max_nodes=100_000):
 
 
 def _unicode(value):
-    if any(0xD800 <= ord(c) <= 0xDFFF for c in value):
+    if _SURROGATE_RE.search(value):
         _reject("$", "Unicode surrogate code point")
 
 
