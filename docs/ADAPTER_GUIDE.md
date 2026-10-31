@@ -216,8 +216,8 @@ These deltas are pinned by `test_nan_snapshot_exits_3`, `test_nan_in_snapshot_ra
 **AA calculated-metric attribution — intentional divergence:** the visualizer
 keeps `attribution`/`attribution_model` and `allocation` only when they are
 strings and otherwise omits them, so the payload matches its published schema
-(1.2.8). The grader rejects a non-string attribution as invalid input; its
-matching `allocation` guard is part of the same release cycle.
+(1.2.8). The grader rejects a non-string attribution or allocation as invalid
+input (sdr-grader #156).
 
 **Visualizer-only output protection — do not port to the grader:** before its
 first write, the visualizer compares both HTML and optional JSON destinations

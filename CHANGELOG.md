@@ -33,6 +33,14 @@ All notable changes to `sdr-visualizer` will be documented here. The format foll
   snapshot directory through a different letter case is now also rejected.
 - Print "Workspace artifact writing interrupted" when Ctrl-C stops usage file
   writing; the message was empty.
+- Drop null, number, boolean and empty-string values from a component's tags
+  instead of turning them into tags such as `"None"` or `"7"`. Tag objects
+  still contribute their `name`, or else their `id`. This matches sdr-grader.
+- Reject a definition, tag list or reference list whose embedded JSON repeats
+  a key within one object, as invalid input (exit 3), instead of keeping the
+  last value. Snapshot files already reject this. This matches sdr-grader.
+- Report a snapshot directory that cannot be read as an input error. Before,
+  it looked like an empty directory. This matches sdr-grader.
 - `cja-lineage` now checks that the output's parent directory exists before
   reading discovery input, and exits 3 as LINEAGE.md documents. It used to
   exit 1 after discovery had already run.
