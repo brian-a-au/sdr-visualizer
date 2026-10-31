@@ -11,6 +11,7 @@ cja_auto_sdr repository for its authoritative output shape.
 from __future__ import annotations
 
 import json
+import math
 from typing import Any
 
 from sdr_visualizer.core.exceptions import InvalidSnapshotError
@@ -118,9 +119,9 @@ def _component_from_record(
             "(required identifier key: 'id', 'component_id', or 'metric_id')"
         )
 
-    name = record.get("name") or record.get("title") or component_id
+    name = _present(record.get("name")) or _present(record.get("title")) or component_id
     description = _normalize_description(record.get("description"))
-    data_type = record.get("dataType") or record.get("type")
+    data_type = _present(record.get("dataType")) or _present(record.get("type"))
     polarity = _normalize_polarity(record.get("polarity"))
 
     handled = {
@@ -180,7 +181,7 @@ def _derived_field_from_record(record: dict[str, Any], *, index: int | None = No
             "(required identifier key: 'component_id' or 'id')"
         )
 
-    name = record.get("component_name") or record.get("name") or component_id
+    name = _present(record.get("component_name")) or _present(record.get("name")) or component_id
     description = _normalize_description(record.get("description"))
     handled = {
         "component_id",
@@ -243,7 +244,7 @@ def _calc_metric_from_record(
             "(required identifier key: 'metric_id' or 'id')"
         )
 
-    name = record.get("metric_name") or record.get("name") or metric_id
+    name = _present(record.get("metric_name")) or _present(record.get("name")) or metric_id
     description = _normalize_description(record.get("description"))
     formula = _parse_definition_json(
         record.get("definition_json"),
@@ -325,7 +326,7 @@ def _segment_from_record(record: dict[str, Any], *, index: int | None = None) ->
             "(required identifier key: 'segment_id' or 'id')"
         )
 
-    name = record.get("segment_name") or record.get("name") or segment_id
+    name = _present(record.get("segment_name")) or _present(record.get("name")) or segment_id
     description = _normalize_description(record.get("description"))
     definition = _parse_definition_json(
         record.get("definition_json"),
@@ -552,6 +553,13 @@ def _as_int(value: Any) -> int:
         return int(value)
     except (TypeError, ValueError, OverflowError) as exc:
         raise InvalidSnapshotError(f"expected an integer, got {type(value).__name__}") from exc
+
+
+def _present(value: Any) -> Any:
+    """Treat a non-finite float as missing; pandas writes NaN for empty cells."""
+    if isinstance(value, float) and not math.isfinite(value):
+        return None
+    return value
 
 
 def _record_context(collection: str, index: int | None) -> str:

@@ -41,6 +41,17 @@ All notable changes to `sdr-visualizer` will be documented here. The format foll
   last value. Snapshot files already reject this. This matches sdr-grader.
 - Report a snapshot directory that cannot be read as an input error. Before,
   it looked like an empty directory. This matches sdr-grader.
+- Decode standard input as UTF-8 whatever the terminal's locale encoding is.
+  This matches sdr-grader.
+- Reject an empty `--dataview` or `--rsid` ID, or one that starts with `-`,
+  before running the generator (exit 3). The generator would read such a value
+  as an option. This matches sdr-grader.
+- Detect an AA snapshot from the same `report_suite` key the AA adapter reads.
+  This matches sdr-grader.
+- Treat a NaN or infinite component, derived field, calculated metric or
+  segment name, a component type, or an AA report suite name as missing,
+  instead of showing "nan". Spreadsheet-based exports write NaN for an empty
+  cell. This matches sdr-grader.
 - `cja-lineage` now checks that the output's parent directory exists before
   reading discovery input, and exits 3 as LINEAGE.md documents. It used to
   exit 1 after discovery had already run.

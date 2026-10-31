@@ -176,10 +176,18 @@ The fixtures may diverge from sdr-grader's over time — the visualizer wants mo
   never by echoing record content. Mirrored from sdr-grader `011b3d2` in 1.2.8.
 - `input.shell_out` failure messages — a nonzero generator exit reports the
   tool and exit status only; generator stderr is not echoed (sdr-grader
-  `011b3d2`). The grader's capture byte limits and process-group cleanup are
-  not yet mirrored.
-- `input.loader` stdin — undecodable stdin is invalid input ("stdin is not valid
-  UTF-8"), mirrored from sdr-grader `2b18cd1` in 1.2.8.
+  `011b3d2`). An empty or dash-leading `--dataview` / `--rsid` ID is rejected
+  before the generator starts, because it would be read as an option
+  (sdr-grader `90a9b3f`). The grader's capture byte limits and process-group
+  cleanup are not yet mirrored.
+- `input.loader` stdin — stdin bytes are decoded as UTF-8 whatever the locale
+  encoding, and undecodable stdin is invalid input ("stdin is not valid UTF-8"),
+  mirrored from sdr-grader `2b18cd1` and `82c742e` in 1.2.8.
+- `input.detect` — AA detection reads `report_suite` whenever that key is
+  present, the same key choice as the AA adapter (sdr-grader `5736d46`).
+- `_present` — component, derived-field, calculated-metric and segment names
+  and component types (plus the AA report suite name) treat a non-finite float
+  as missing, because pandas writes NaN for an empty cell (sdr-grader `7cf980b`).
 - `_parse_tag_list` / `_parse_ref_list` — parse `tags` and reference fields
   that `cja_auto_sdr` ships as JSON-encoded list strings (`'["a"]'`) while
   tolerating native lists. Ordinary JSON syntax failures drop to `[]`;
@@ -203,6 +211,22 @@ The fixtures may diverge from sdr-grader's over time — the visualizer wants mo
 - `generator_version_warning` / `_version_tuple` / `TESTED_THROUGH_GENERATOR_VERSION` — the Q5 version-compat warning mechanism (1.0.0). The helper bodies are behavior-identical; the constant's *value* is per-platform and per-release by design (the newest generator version that release was validated against).
 - `_optional_timestamp` — guards `created_at`/`modified_at`: keeps the value only if it's already a non-empty string, else `None`, so `_compact` drops a non-string timestamp (an epoch int, say) instead of leaking it into the payload. Present in both `cja.py` and `aa.py` here, and mirrored into the grader's copies of both adapters — a non-string timestamp is *missing*, not a value worth coercing to a numeric string.
 - `_optional_str` (CJA only) — guards `owner` and the derived-field `data_type` at the CJA record builders that previously passed them straight through unguarded (`str(x) if x else None`, the same pattern the metric/dimension `data_type` path already used). No grader-side mirror needed for `owner`: the grader's `_normalize_owner` (governance helper, see below) already reduces a non-string owner to `None` — a different mechanism, the same outcome — so grader `owner` needs no additional guard. AA needs no `_optional_str` mirror either: its three `owner_id` builder sites and its one `data_type` site were already cast (`str(x) if x else None`) before this cycle.
+
+**Reviewed for 1.2.8 and not mirrored:** sdr-grader 1.7.0 also changed these
+shared paths. Each is a deliberate project difference, not a missed defensive
+fix:
+
+- `49ed033` computes CJA segment `nesting_depth` from the definition's
+  containers so a grading threshold means the same on both platforms. The
+  visualizer describes the exported value, so it keeps `cja_auto_sdr`'s
+  `nesting_depth`.
+- `f63704a` adds a grader warning for a degraded AA `fetch_status`. It is a new
+  diagnostic tied to grading findings, not input hardening.
+- `0ceb788` and the earlier `19c9e94` accept a UTF-8 BOM. The visualizer still
+  rejects a BOM on file and stdin input alike; accepting it would widen input
+  acceptance and is left to a feature release.
+- `2bed8a1` raises the grader's snapshot node budget to 1,000,000. The
+  visualizer's 250,000-node budget is its own published contract limit.
 
 **Grader-only (do not port — evaluative, not descriptive):** the grader carries logic that exists only to serve its grading rules — governance signals (`_governance_approved`, `_governance_shared_to_count`, `_normalize_owner`, `_aa_governance_signals`) and inline-echo de-duplication (`_echoes_derived_field`, which drops a metric/dimension that merely re-declares a derived field so rule SCH-001 doesn't false-fire on the duplicate name). The visualizer describes rather than grades: it keeps such echoes and instead warns on duplicate component ids (last-writer-wins for anatomy), so it never adopts these helpers.
 

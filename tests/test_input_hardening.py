@@ -300,3 +300,108 @@ def test_undecodable_stdin_is_invalid_input_in_process(monkeypatch, tmp_path, ca
 
     assert code == 3
     assert "stdin is not valid UTF-8" in err
+
+
+# sdr-grader 1.7.0 parity: 82c742e, 90a9b3f, 5736d46, 7cf980b.
+
+
+def _stdin_bytes(data: bytes, *, encoding: str):
+    import io
+
+    # A text stream whose locale encoding is not UTF-8; .buffer holds the raw bytes.
+    return io.TextIOWrapper(io.BytesIO(data), encoding=encoding)
+
+
+def test_stdin_is_decoded_as_utf8_regardless_of_locale_encoding(monkeypatch):
+    from sdr_visualizer.input.loader import load_snapshot
+
+    snapshot = copy.deepcopy(AA)
+    snapshot["report_suite"]["name"] = "Café Ünïcode"
+    payload = json.dumps(snapshot, ensure_ascii=False).encode("utf-8")
+    monkeypatch.setattr(sys, "stdin", _stdin_bytes(payload, encoding="latin-1"))
+
+    loaded, source = load_snapshot("-")
+
+    assert source == "stdin"
+    assert loaded["report_suite"]["name"] == "Café Ünïcode"
+
+
+def test_stdin_bytes_that_are_not_utf8_are_invalid(monkeypatch):
+    from sdr_visualizer.core.exceptions import InvalidSnapshotError
+    from sdr_visualizer.input.loader import load_snapshot
+
+    monkeypatch.setattr(sys, "stdin", _stdin_bytes(b'{"name": "\xff"}', encoding="latin-1"))
+
+    with pytest.raises(InvalidSnapshotError, match="^stdin is not valid UTF-8$"):
+        load_snapshot("-")
+
+
+@pytest.mark.parametrize("flag", ["--dataview", "--rsid"])
+@pytest.mark.parametrize("identifier", ["", "--help", "-x", "--output=/tmp/x"])
+def test_live_ids_that_are_empty_or_option_like_are_rejected_before_spawning(
+    monkeypatch, flag, identifier
+):
+    from sdr_visualizer.core.exceptions import InvalidSnapshotError
+    from sdr_visualizer.input import shell_out
+
+    def no_spawn(*_args, **_kwargs):
+        raise AssertionError("the upstream tool must not be started")
+
+    monkeypatch.setattr(shell_out.shutil, "which", lambda _tool: sys.executable)
+    monkeypatch.setattr(shell_out.subprocess, "run", no_spawn)
+    shell = shell_out.shell_cja if flag == "--dataview" else shell_out.shell_aa
+
+    with pytest.raises(InvalidSnapshotError) as exc_info:
+        shell(identifier)
+
+    assert str(exc_info.value) == (
+        f"{flag} requires an ID that is not empty and does not start with '-'"
+    )
+
+
+def test_option_like_live_id_exits_3_from_the_cli(tmp_path, capsys):
+    code, err = _run(["--rsid=--help", "--output", str(tmp_path / "o.html")], capsys)
+
+    assert code == 3
+    assert "--rsid requires an ID" in err
+
+
+@pytest.mark.parametrize("primary", [None, {}, "", []])
+def test_detection_reads_the_same_report_suite_key_as_the_adapter(primary):
+    from sdr_visualizer.core.exceptions import UnknownPlatformError
+    from sdr_visualizer.input.detect import detect_platform
+
+    snapshot = {
+        "report_suite": primary,
+        "reportSuite": {"rsid": "rs1", "name": "Main suite"},
+        "dimensions": [],
+        "metrics": [],
+    }
+
+    with pytest.raises(UnknownPlatformError, match="could not auto-detect platform"):
+        detect_platform(snapshot)
+
+
+@pytest.mark.parametrize("missing", [float("nan"), float("inf"), float("-inf")])
+def test_non_finite_names_and_types_count_as_missing(missing):
+    from sdr_visualizer.adapters import aa, cja
+
+    component = aa._component_from_record(
+        {"id": "evar1", "name": missing, "type": missing}, "dimension", {}
+    )
+    assert (component.name, component.data_type) == ("evar1", None)
+    assert aa._calc_from_record({"id": "cm1", "name": missing}).name == "cm1"
+    assert aa._segment_from_record({"id": "s1", "name": missing}).name == "s1"
+    snapshot = {"report_suite": {"rsid": "rs1", "name": missing}, "dimensions": [], "metrics": []}
+    assert aa.adapt(snapshot, source="nan.json").instance_name == "rs1"
+
+    metric = cja._component_from_record(
+        {"id": "metrics/m1", "name": missing, "title": "Title", "type": missing}, "metric"
+    )
+    assert (metric.name, metric.data_type) == ("Title", None)
+    derived = cja._derived_field_from_record(
+        {"component_id": "variables/df1", "component_name": missing}
+    )
+    assert derived.name == "variables/df1"
+    assert cja._calc_metric_from_record({"metric_id": "cm1", "metric_name": missing}).name == "cm1"
+    assert cja._segment_from_record({"segment_id": "s1", "segment_name": missing}).name == "s1"
