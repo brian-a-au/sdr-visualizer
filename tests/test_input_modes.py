@@ -345,7 +345,7 @@ def test_shell_out_json_recursion_error_is_domain_error(monkeypatch):
         lambda cmd, **_kwargs: _write_cja_json_output(cmd, "{}"),
     )
 
-    def recurse(_value):
+    def recurse(_value, **_kwargs):
         raise RecursionError("decoder recursion")
 
     monkeypatch.setattr("sdr_visualizer.input.shell_out.json.loads", recurse)
@@ -471,7 +471,7 @@ def test_invalid_utf8_file_exits_3(tmp_path, capsys):
 def test_stdin_json_recursion_error_is_domain_error(monkeypatch):
     monkeypatch.setattr("sys.stdin", io.StringIO("{}"))
 
-    def recurse(_value):
+    def recurse(_value, **_kwargs):
         raise RecursionError("decoder recursion")
 
     monkeypatch.setattr("sdr_visualizer.input.loader.json.loads", recurse)
@@ -484,7 +484,7 @@ def test_file_json_recursion_error_is_domain_error(tmp_path, monkeypatch):
     snapshot = tmp_path / "snapshot.json"
     snapshot.write_text("{}", encoding="utf-8")
 
-    def recurse(_value):
+    def recurse(_value, **_kwargs):
         raise RecursionError("decoder recursion")
 
     monkeypatch.setattr("sdr_visualizer.input.loader.json.loads", recurse)
@@ -738,3 +738,71 @@ def test_mode3_ignores_platform_with_warning(tmp_path, monkeypatch, capsys):
     rc = main(["--dataview", "dv_xyz", "--platform", "aa", "--output", str(output), "--quiet"])
     assert rc == 0
     assert "--platform does not apply to --dataview / --rsid" in capsys.readouterr().err
+
+
+DUPLICATE_KEY_JSON = '{"metadata": {"secret_name": 1, "secret_name": 2}}'
+
+
+def test_file_with_duplicate_keys_exits_3_without_echoing_keys(tmp_path, capsys):
+    snapshot = tmp_path / "duplicate.json"
+    snapshot.write_text(DUPLICATE_KEY_JSON, encoding="utf-8")
+
+    rc = main([str(snapshot), "--quiet"])
+
+    assert rc == 3
+    err = capsys.readouterr().err
+    assert "JSON contains duplicate object keys" in err
+    assert "secret_name" not in err
+
+
+def test_identical_duplicate_values_are_still_rejected(tmp_path):
+    snapshot = tmp_path / "duplicate.json"
+    snapshot.write_text('{"a": 1, "a": 1}', encoding="utf-8")
+
+    with pytest.raises(InvalidSnapshotError, match="duplicate object keys"):
+        load_snapshot(str(snapshot))
+
+
+def test_stdin_with_duplicate_keys_exits_3(monkeypatch, capsys):
+    monkeypatch.setattr("sys.stdin", io.StringIO(DUPLICATE_KEY_JSON))
+
+    rc = main(["-", "--quiet"])
+
+    assert rc == 3
+    err = capsys.readouterr().err
+    assert "stdin JSON contains duplicate object keys" in err
+    assert "secret_name" not in err
+
+
+def test_compare_baseline_with_duplicate_keys_exits_3(tmp_path, capsys):
+    baseline = tmp_path / "baseline.json"
+    baseline.write_text(DUPLICATE_KEY_JSON, encoding="utf-8")
+
+    rc = main(
+        [
+            str(FIXTURES / "cja_snapshot_clean.json"),
+            "--compare-to",
+            str(baseline),
+            "--output",
+            str(tmp_path / "report.html"),
+            "--quiet",
+        ]
+    )
+
+    assert rc == 3
+    assert "duplicate object keys" in capsys.readouterr().err
+    assert not (tmp_path / "report.html").exists()
+
+
+def test_shell_out_duplicate_keys_is_domain_error(monkeypatch):
+    monkeypatch.setattr("sdr_visualizer.input.shell_out.shutil.which", lambda _name: "/bin/tool")
+    monkeypatch.setattr(
+        "sdr_visualizer.input.shell_out.subprocess.run",
+        lambda cmd, **_kwargs: _write_cja_json_output(cmd, DUPLICATE_KEY_JSON),
+    )
+
+    with pytest.raises(
+        InvalidSnapshotError, match="output contains duplicate object keys"
+    ) as raised:
+        shell_cja("dv_xyz")
+    assert "secret_name" not in str(raised.value)

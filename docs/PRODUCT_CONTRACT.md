@@ -171,6 +171,12 @@ or coercion; decoder resource-limit failures and structure-limit violations
 are invalid input. Values decoded from embedded JSON are checked again because
 escaped surrogates first materialize at that boundary.
 
+A JSON object that repeats a member name is invalid input, even when the
+repeated values are identical. This applies to snapshot files, stdin, live
+generator output, comparison baselines, and trend members. The error does not
+echo the key or its values. A trend member with a repeated key is skipped with
+a warning, like any other unreadable member.
+
 The graph includes directed edges only when both source and target exist.
 CJA-derived-field component references are normalized and contribute to those
 edges and degree counts. Dangling references do not create graph edges.

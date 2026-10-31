@@ -44,6 +44,19 @@ def test_unparseable_snapshot_skipped_with_warning(tmp_path, capsys):
     assert "skipping snapshot_2026-02-01T00-00-00.json" in err
 
 
+def test_duplicate_key_snapshot_skipped_with_warning(tmp_path, capsys):
+    _write(tmp_path, "snapshot_2026-01-01T00-00-00.json", {"n": 1})
+    (tmp_path / "snapshot_2026-02-01T00-00-00.json").write_text(
+        '{"n": 2, "n": 2}', encoding="utf-8"
+    )
+    _write(tmp_path, "snapshot_2026-03-01T00-00-00.json", {"n": 3})
+    entries, _ = list_snapshot_series(str(tmp_path))
+    assert [s["n"] for s, _ in entries] == [1, 3]
+    err = capsys.readouterr().err
+    assert "skipping snapshot_2026-02-01T00-00-00.json" in err
+    assert "duplicate object keys" in err
+
+
 def test_cap_keeps_most_recent_and_warns(tmp_path, capsys):
     # Hours/minutes kept valid for any i (i=60+ as a minute would fail
     # timestamp parsing and silently change what this test exercises).
