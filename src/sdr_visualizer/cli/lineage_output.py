@@ -48,6 +48,13 @@ def validate_lineage_destination(
 
     if metadata is not None and (not stat.S_ISREG(metadata.st_mode) or metadata.st_nlink != 1):
         return LineageOutputFailure(LineageOutputFailureCode.UNSAFE_DESTINATION)
+    try:
+        parent_is_directory = destination.parent.is_dir()
+    except (OSError, RuntimeError):
+        parent_is_directory = False
+    if not parent_is_directory:
+        # Fail before discovery: LINEAGE.md requires an existing parent directory.
+        return LineageOutputFailure(LineageOutputFailureCode.UNSAFE_DESTINATION)
 
     for protected in protected_paths:
         alias = paths_alias(destination, protected)
