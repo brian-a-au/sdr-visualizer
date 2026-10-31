@@ -183,7 +183,9 @@ The fixtures may diverge from sdr-grader's over time — the visualizer wants mo
 - `input/json_io.py` (`unique_object`, `DuplicateJSONKeyError`) — snapshot
   files, stdin, and generator output reject a JSON object that repeats a member
   name, mirrored from sdr-grader #127 (`c8e7316`). The helper body is
-  identical; only the module docstring differs.
+  identical; only the module docstring differs. The embedded JSON in
+  definitions, tag lists and reference lists uses the same hook and raises
+  "<label> JSON contains duplicate object keys" (sdr-grader #156).
 - `_optional_list` (AA) — an absent/null optional section is `[]`, but a present non-list value raises `InvalidSnapshotError` (a malformed export, not an empty one). CJA gets the same guarantee through `_section_records`.
 - `generator_version_warning` / `_version_tuple` / `TESTED_THROUGH_GENERATOR_VERSION` — the Q5 version-compat warning mechanism (1.0.0). The helper bodies are behavior-identical; the constant's *value* is per-platform and per-release by design (the newest generator version that release was validated against).
 - `_optional_timestamp` — guards `created_at`/`modified_at`: keeps the value only if it's already a non-empty string, else `None`, so `_compact` drops a non-string timestamp (an epoch int, say) instead of leaking it into the payload. Present in both `cja.py` and `aa.py` here, and mirrored into the grader's copies of both adapters — a non-string timestamp is *missing*, not a value worth coercing to a numeric string.

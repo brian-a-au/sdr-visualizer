@@ -418,7 +418,7 @@ def test_invalid_stringified_tags_are_dropped(tags):
 def test_aa_tag_decoder_resource_errors_are_invalid_snapshot(monkeypatch, error):
     snapshot = _minimal_aa(dimensions=[{"id": "variables/evar1", "tags": '["paid"]'}])
 
-    def fail(_value):
+    def fail(_value, **_kwargs):
         raise error
 
     monkeypatch.setattr("sdr_visualizer.adapters.aa.json.loads", fail)

@@ -23,6 +23,7 @@ from sdr_visualizer.core.structure_limits import (
     validate_snapshot_structure,
     validate_unicode_scalars,
 )
+from sdr_visualizer.input.json_io import DuplicateJSONKeyError, unique_object
 
 
 def adapt(snapshot: dict[str, Any], *, source: str = "<unknown>") -> Implementation:
@@ -415,9 +416,11 @@ def _parse_tag_list(value: Any) -> list[str]:
         return _tag_names(value)
     if isinstance(value, str):
         try:
-            parsed = json.loads(value)
+            parsed = json.loads(value, object_pairs_hook=unique_object)
         except json.JSONDecodeError:
             return []
+        except DuplicateJSONKeyError:
+            raise InvalidSnapshotError("tag list JSON contains duplicate object keys") from None
         except (ValueError, RecursionError) as exc:
             raise InvalidSnapshotError("tag list JSON exceeds decoder limits") from exc
         validate_decoded_structure(parsed, label="tag list")
