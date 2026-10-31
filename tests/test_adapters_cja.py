@@ -890,3 +890,21 @@ def test_synthetic_timestamp_keys_keep_precedence():
     md["Generated Date & timestamp and timezone"] = "2026-05-20 10:56:29 PDT"
     impl = adapt(snap)
     assert impl.snapshot_taken_at == "2026-01-01 00:00:00"
+
+
+# sdr-grader parity (sdr-grader #161): scalar tag values are not tags.
+@pytest.mark.parametrize("module_name", ["cja", "aa"])
+@pytest.mark.parametrize(
+    "value",
+    [
+        ["first", 7, None, False, "", {"name": "Named"}, {"id": "last"}, {"name": ""}],
+        '["first", 7, null, false, "", {"name": "Named"}, {"id": "last"}, {"name": ""}]',
+    ],
+    ids=["native", "json-encoded"],
+)
+def test_tag_lists_keep_only_non_empty_string_tags(module_name, value):
+    from sdr_visualizer.adapters import aa, cja
+
+    parse_tag_list = {"aa": aa, "cja": cja}[module_name]._parse_tag_list
+
+    assert parse_tag_list(value) == ["first", "Named", "last"]
