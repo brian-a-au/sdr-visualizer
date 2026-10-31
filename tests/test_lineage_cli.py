@@ -20,8 +20,7 @@ def test_saved_report_and_help(tmp_path, capsys):
     assert caught.value.code == 0
     help_text = capsys.readouterr().out
     assert "--output" in help_text
-    for version in ("3.11.8", "3.12.0", "3.12.2", "3.12.4"):
-        assert version in help_text
+    assert "3.11.8 or newer" in help_text
 
 
 def test_alias_preserves_source(tmp_path):
@@ -95,6 +94,21 @@ def test_live_route_and_runtime_failures(tmp_path, monkeypatch, capsys):
     with pytest.raises(SystemExit) as caught:
         lineage.main(["--live", "--binary", "/tmp/tool", "--config-file", "relative"])
     assert caught.value.code == 2
+
+
+def test_live_version_warning_prints_even_when_quiet(tmp_path, monkeypatch, capsys):
+    def acquire(*_a, on_warning, **_kw):
+        on_warning("cja_auto_sdr 3.14.0 is newer than tested")
+
+    monkeypatch.setattr(lineage, "acquire_live", acquire)
+    monkeypatch.setattr(lineage, "render", lambda *a, **kw: "report")
+    args = ["--live", "--binary", "/tmp/cja_auto_sdr", "--output", str(tmp_path / "out.html")]
+
+    assert lineage.main([*args, "--quiet"]) == 0
+    assert (
+        capsys.readouterr().err
+        == "cja-lineage: warning: cja_auto_sdr 3.14.0 is newer than tested\n"
+    )
 
 
 def test_module_version(monkeypatch, capsys):

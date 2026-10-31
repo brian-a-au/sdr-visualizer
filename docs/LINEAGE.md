@@ -42,15 +42,21 @@ cja-lineage --live --binary /absolute/path/to/cja_auto_sdr \
 Alternatively use `--profile profile-name`, or omit both credential selectors
 to use the upstream default credential route. `--profile` and `--config-file`
 are mutually exclusive and apply only to `--live`. The executable and explicit
-configuration paths must be absolute. Live discovery currently accepts exactly
-`cja_auto_sdr` 3.11.8, 3.12.0, 3.12.2, and 3.12.4. Other versions fail closed pending
-compatibility qualification; saved discovery is validated by shape rather than
+configuration paths must be absolute. Live discovery accepts
+`cja_auto_sdr` 3.11.8 or newer. The executable must report a plain `X.Y.Z`
+release version. Pre-release, local, or decorated version strings, other tools,
+and versions older than 3.11.8 fail closed with `executable-version-mismatch`
+before credentials are used. Live output is validated by shape, the same as
+saved discovery. A version newer than 3.13.6, the newest version exercised for
+this release, still runs and prints a warning, because newer discovery fields
+may not be represented. Saved discovery is validated by shape rather than
 generator version. Version 3.12.2 was qualified against the offline discovery
-contract with synthetic inventories and blocked network access. That compatibility
-check does not qualify credentials, network behavior, or a live release. No
-generator is installed automatically. Version 3.12.4 was qualified with fresh
-read-only dataset discovery and saved-shape validation; this does not imply
-complete visibility into every dataset or Connection.
+contract with synthetic inventories and blocked network access; that check does
+not qualify credentials, network behavior, or a live release. Versions 3.12.4
+and 3.13.6 were qualified with fresh read-only dataset discovery and saved-shape
+validation; for the same scope, the 3.13.6 discovery output was byte-identical to
+3.12.4's. This does not imply complete visibility into every dataset or
+Connection. No generator is installed automatically.
 
 The command currently targets macOS and Linux, using POSIX process and
 owner-only output protections. Windows execution is not qualified. The generated
@@ -120,7 +126,7 @@ Keep live reports private to their authorized audience. The repository
 | `invalid-json` / `invalid-utf8` | Save complete UTF-8 JSON output, without terminal messages mixed into it. |
 | `saved-read-failed` | Check that the saved file exists and is readable. |
 | `executable-invalid` | Use an absolute, current-user-owned executable that is not group/world writable. |
-| `executable-version-mismatch` | Use a qualified upstream version listed above. |
+| `executable-version-mismatch` | Use a `cja_auto_sdr` release at 3.11.8 or newer that reports a plain `X.Y.Z` version. |
 | `selector-invalid` | Check the profile or absolute configuration path and use one credential selector. |
 | `process-failed` / `timeout` | Check upstream authentication and discovery independently; acquisition has a 600-second limit. |
 | `saved-too-large` / `stdout-limit-exceeded` / `stderr-limit-exceeded` | Reduce the discovery scope; capture is bounded at 64 MiB for saved/stdout and 1 MiB for stderr. |

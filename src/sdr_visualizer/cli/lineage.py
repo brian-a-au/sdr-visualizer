@@ -34,7 +34,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument(
         "--binary",
         type=Path,
-        help="Absolute path to cja_auto_sdr 3.11.8, 3.12.0, 3.12.2, or 3.12.4 (live only)",
+        help="Absolute path to cja_auto_sdr 3.11.8 or newer (live only)",
     )
     auth = parser.add_mutually_exclusive_group()
     auth.add_argument("--profile", help="Named upstream credential profile (live only)")
@@ -80,7 +80,11 @@ def main(argv: list[str] | None = None) -> int:
         return 3
     topology = (
         acquire_live(
-            args.binary, scope_label=label, profile=args.profile, config_file=args.config_file
+            args.binary,
+            scope_label=label,
+            profile=args.profile,
+            config_file=args.config_file,
+            on_warning=lambda message: print(f"cja-lineage: warning: {message}", file=sys.stderr),
         )
         if args.live
         else acquire_saved(args.saved, scope_label=label)

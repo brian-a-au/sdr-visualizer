@@ -102,7 +102,8 @@ def test_saved_and_live_success_return_the_same_normalized_topology(tmp_path: Pa
 
 
 @pytest.mark.parametrize(
-    "version", ["cja_auto_sdr 3.12.0", "cja_auto_sdr 3.12.2", "cja_auto_sdr 3.12.4"]
+    "version",
+    ["cja_auto_sdr 3.12.0", "cja_auto_sdr 3.12.2", "cja_auto_sdr 3.12.4", "cja_auto_sdr 3.13.6"],
 )
 def test_live_312_acquires_enriched_relationship_metadata(tmp_path: Path, version: str) -> None:
     executable, record_path = _fake_executable(
@@ -132,22 +133,26 @@ def test_live_312_acquires_enriched_relationship_metadata(tmp_path: Path, versio
 @pytest.mark.parametrize(
     "version",
     [
-        "cja_auto_sdr 3.12.1",
-        "cja_auto_sdr 3.12.3",
-        "cja_auto_sdr 3.12.5",
+        "cja_auto_sdr 3.11.7",
+        "cja_auto_sdr 3.10.99",
+        "cja_auto_sdr 2.99.99",
+        "cja_auto_sdr 3.13",
+        "cja_auto_sdr 3.13.6.1",
+        "cja_auto_sdr 1234567.0.0",
+        "cja_auto_sdr 3.13.6rc1",
+        "cja_auto_sdr 3.13.6+local",
+        "prefix cja_auto_sdr 3.13.6",
+        "cja_auto_sdr 3.13.6 extra",
+        "banner\ncja_auto_sdr 3.13.6",
+        "other_tool 3.13.6",
         "cja_auto_sdr 3.12.4rc1",
         "cja_auto_sdr 3.12.4+local",
         "prefix cja_auto_sdr 3.12.4",
         "cja_auto_sdr 3.12.4 extra",
         "banner\ncja_auto_sdr 3.12.4",
-        "cja_auto_sdr 3.12.2rc1",
-        "cja_auto_sdr 3.12.2+local",
-        "prefix cja_auto_sdr 3.12.2",
-        "cja_auto_sdr 3.12.2 extra",
-        "banner\ncja_auto_sdr 3.12.2",
     ],
 )
-def test_live_rejects_unqualified_exact_versions_before_acquisition(
+def test_live_rejects_malformed_or_too_old_versions_before_acquisition(
     tmp_path: Path, monkeypatch, version: str
 ) -> None:
     executable, record_path = _fake_executable(tmp_path, version=version)
@@ -165,6 +170,53 @@ def test_live_rejects_unqualified_exact_versions_before_acquisition(
     )
     assert not record_path.exists()
     _assert_content_free(result)
+
+
+@pytest.mark.parametrize(
+    ("version", "warns"),
+    [
+        ("cja_auto_sdr 3.11.8", False),
+        ("cja_auto_sdr 3.12.1", False),
+        ("cja_auto_sdr 3.12.3", False),
+        ("cja_auto_sdr 3.13.5", False),
+        ("cja_auto_sdr 3.13.6", False),
+        ("cja_auto_sdr 3.13.7", True),
+        ("cja_auto_sdr 3.14.0", True),
+        ("cja_auto_sdr 4.0.0", True),
+    ],
+)
+def test_live_accepts_versions_from_floor_and_warns_past_tested(
+    tmp_path: Path, version: str, warns: bool
+) -> None:
+    executable, record_path = _fake_executable(
+        tmp_path, payload=json.dumps(_enriched_payload()).encode(), version=version
+    )
+    warnings: list[str] = []
+
+    topology = lineage_discovery.acquire_live(
+        executable, scope_label="Scope", profile="existing", on_warning=warnings.append
+    )
+
+    assert not isinstance(topology, lineage_discovery.LineageDiscoveryFailure)
+    assert record_path.exists()
+    if warns:
+        assert len(warnings) == 1
+        assert version.split()[-1] in warnings[0]
+        assert lineage_discovery.TESTED_THROUGH_LIVE_GENERATOR_VERSION in warnings[0]
+    else:
+        assert warnings == []
+
+
+def test_live_newer_version_without_callback_still_acquires(tmp_path: Path) -> None:
+    executable, _ = _fake_executable(
+        tmp_path,
+        payload=json.dumps(_enriched_payload()).encode(),
+        version="cja_auto_sdr 9.0.0",
+    )
+
+    topology = lineage_discovery.acquire_live(executable, scope_label="Scope", profile="existing")
+
+    assert not isinstance(topology, lineage_discovery.LineageDiscoveryFailure)
 
 
 def test_profile_live_uses_only_the_profile_selector(tmp_path: Path) -> None:
