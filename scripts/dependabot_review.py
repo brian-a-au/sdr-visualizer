@@ -36,6 +36,7 @@ REQUIRED_CHECKS = frozenset(
         "lint",
         "test (3.12)",
         "actionlint",
+        "test (3.13)",
         "test (3.14)",
     }
 )

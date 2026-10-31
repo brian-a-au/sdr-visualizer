@@ -214,6 +214,7 @@ cannot be closed by recording the current delta as diff-backed N/A.
 | Exact-SHA test matrix run(s) | pending |
 | `test (3.11)` | pending |
 | `test (3.12)` | pending |
+| `test (3.13)` | pending |
 | `test (3.14)` | pending |
 | `browser-perf` | pending |
 | `analyze (python, none)` | pending |

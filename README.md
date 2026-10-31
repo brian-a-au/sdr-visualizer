@@ -46,7 +46,7 @@ against the source implementation before you act on them.
   original generator snapshot for anything the report does not embed.
 - Workspace project references are unverified. An empty result does not mean a
   component is unused.
-- The tool is verified on Ubuntu with Python 3.11, 3.12, and 3.14. It installs on
+- The tool is verified on Ubuntu with Python 3.11 through 3.14. It installs on
   Python 3.11 or newer.
 
 ## Install

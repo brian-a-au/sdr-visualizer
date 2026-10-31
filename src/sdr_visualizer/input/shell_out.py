@@ -15,6 +15,7 @@ from pathlib import Path
 from typing import Any
 
 from sdr_visualizer.core.exceptions import InvalidSnapshotError
+from sdr_visualizer.input.json_io import DuplicateJSONKeyError, unique_object
 
 SHELL_OUT_TIMEOUT_SECONDS = 600
 
@@ -107,7 +108,9 @@ def _shell_out(
             raise InvalidSnapshotError(f"{tool} JSON output could not be read: {exc}") from exc
 
     try:
-        snapshot = json.loads(snapshot_text)
+        snapshot = json.loads(snapshot_text, object_pairs_hook=unique_object)
+    except DuplicateJSONKeyError:
+        raise InvalidSnapshotError(f"{tool} output contains duplicate object keys") from None
     except json.JSONDecodeError as exc:
         raise InvalidSnapshotError(f"{tool} produced output that is not valid JSON: {exc}") from exc
     except ValueError as exc:

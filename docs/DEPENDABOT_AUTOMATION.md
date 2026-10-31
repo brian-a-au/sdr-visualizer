@@ -57,7 +57,7 @@ Adobe credential, or external review service is needed.
 The deployment enables **Allow auto-merge** and adds `dependabot-policy` to the
 existing required checks, with the GitHub Actions app as the check source:
 
-`lint`, `test (3.11)`, `test (3.12)`, `test (3.14)`, `browser-perf`, `check`, `verify`, `analyze (python, none)`, `analyze (javascript-typescript, none)`, `dependency-review`, `actionlint`, `lockfile`, `dependabot-policy`.
+`lint`, `test (3.11)`, `test (3.12)`, `test (3.13)`, `test (3.14)`, `browser-perf`, `check`, `verify`, `analyze (python, none)`, `analyze (javascript-typescript, none)`, `dependency-review`, `actionlint`, `lockfile`, `dependabot-policy`.
 
 Branch protection continues to require up-to-date branches and enforce the
 requirements for administrators. Existing review requirements are preserved;

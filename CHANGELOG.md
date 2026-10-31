@@ -4,8 +4,28 @@ All notable changes to `sdr-visualizer` will be documented here. The format foll
 
 ## [Unreleased]
 
+## [1.2.7] - 2026-10-30
+
 ### Changed
 
+- Advance the catalog tested-through generator markers to `cja_auto_sdr`
+  3.13.6 and `aa_auto_sdr` 1.24.5. Snapshots that declare those versions no
+  longer print a newer-than-tested warning.
+- Accept any `cja_auto_sdr` release at 3.11.8 or newer for live `cja-lineage`
+  discovery, instead of an exact list of versions. A version newer than 3.13.6,
+  the newest version exercised for this release, still runs and prints a
+  warning. Pre-release, local, or decorated version strings, other tools, and
+  versions older than 3.11.8 still fail closed before credentials are used.
+  Live output keeps the same shape validation as saved discovery.
+- Reject a snapshot whose JSON repeats a key within one object, instead of
+  silently keeping the last value. This applies to snapshot files, stdin, live
+  generator output, comparison baselines, and trend members, and matches
+  sdr-grader. The error does not echo the key. A trend member with a repeated
+  key is skipped with a warning.
+- Verify Python 3.13 in CI and list Python 3.11 through 3.14 in the package
+  classifiers. The installation requirement is still Python 3.11 or newer.
+- Maintainer tooling only: CI pins uv 0.13.6, matching sdr-grader, so CI and
+  contributors resolve the lockfile with the same uv.
 - Update the optional AA Workspace SDK to `aanalytics2==0.5.5.post3` and align
   its collection version guard with the package pin. The upstream change is
   limited to the knowledge graph module, which collection does not use.
@@ -795,7 +815,8 @@ The following are explicitly internal and may change without notice:
 - Workspace project visualization (v0.4)
 - Schema map view (v0.5)
 
-[Unreleased]: https://github.com/brian-a-au/sdr-visualizer/compare/v1.2.6...HEAD
+[Unreleased]: https://github.com/brian-a-au/sdr-visualizer/compare/v1.2.7...HEAD
+[1.2.7]: https://github.com/brian-a-au/sdr-visualizer/releases/tag/v1.2.7
 [1.2.6]: https://github.com/brian-a-au/sdr-visualizer/releases/tag/v1.2.6
 [1.2.5]: https://github.com/brian-a-au/sdr-visualizer/releases/tag/v1.2.5
 [1.2.4]: https://github.com/brian-a-au/sdr-visualizer/releases/tag/v1.2.4

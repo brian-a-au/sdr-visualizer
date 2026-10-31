@@ -19,7 +19,7 @@ jobs:
       contents: read
     strategy:
       matrix:
-        python-version: ["3.11", "3.12", "3.14"]
+        python-version: ["3.11", "3.12", "3.13", "3.14"]
         # Coverage runs once, on the version whose sys.monitoring tracer keeps
         # it cheap; the 99% gate is version-independent.
         include:
@@ -31,6 +31,7 @@ jobs:
       - name: Install uv
         uses: astral-sh/setup-uv@07a047e608db84b3d8c06cd9a7c7dcc9c355c18e # v10.3.2
         with:
+          version: 0.13.6
           enable-cache: true
           prune-cache: false
 
@@ -81,6 +82,7 @@ jobs:
       - name: Install uv
         uses: astral-sh/setup-uv@07a047e608db84b3d8c06cd9a7c7dcc9c355c18e # v10.3.2
         with:
+          version: 0.13.6
           enable-cache: true
           prune-cache: false
 

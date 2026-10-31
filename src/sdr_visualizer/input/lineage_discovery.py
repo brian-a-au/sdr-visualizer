@@ -12,6 +12,7 @@ import signal
 import stat
 import subprocess
 import time
+from collections.abc import Callable
 from contextlib import suppress
 from dataclasses import dataclass
 from enum import StrEnum
@@ -27,7 +28,12 @@ DEFAULT_SAVED_LIMIT = DEFAULT_STDOUT_LIMIT
 DEFAULT_TIMEOUT_SECONDS = 600.0
 
 _READ_SIZE = 64 * 1024
-_VERSION_OUTPUT = re.compile(rb"\Acja_auto_sdr (?:3\.11\.8|3\.12\.0|3\.12\.2|3\.12\.4)(?:\r?\n)?\Z")
+# Live discovery accepts any plain X.Y.Z release at or above the first
+# qualified version. Output is shape-validated like saved discovery, so a
+# version newer than the last one exercised warns instead of failing.
+MINIMUM_LIVE_GENERATOR_VERSION = "3.11.8"
+TESTED_THROUGH_LIVE_GENERATOR_VERSION = "3.13.6"
+_VERSION_OUTPUT = re.compile(rb"\Acja_auto_sdr (\d{1,6})\.(\d{1,6})\.(\d{1,6})(?:\r?\n)?\Z")
 _VERSION_OUTPUT_LIMIT = 8 * 1024
 _VERSION_TIMEOUT_SECONDS = 10.0
 _PROFILE = re.compile(r"\A[A-Za-z0-9][A-Za-z0-9_.-]{0,127}\Z")
@@ -124,11 +130,13 @@ def acquire_live(
     stdout_limit: int = DEFAULT_STDOUT_LIMIT,
     stderr_limit: int = DEFAULT_STDERR_LIMIT,
     timeout_seconds: float = DEFAULT_TIMEOUT_SECONDS,
+    on_warning: Callable[[str], None] | None = None,
 ) -> LineageDiscoveryResult:
     """Run verified CJA discovery and normalize its bounded stdout.
 
     Executable identity and version are checked in a credential-free process
     before profile/config selectors or the live environment are constructed.
+    A version newer than the tested-through marker is passed to ``on_warning``.
     """
     if (
         not _positive_limit(stdout_limit)
@@ -147,8 +155,11 @@ def acquire_live(
 
     executable_path = Path(executable)
     verification = _verify_executable(executable_path)
-    if verification is not None:
+    if isinstance(verification, LineageDiscoveryFailure):
         return verification
+    warning = _live_version_warning(verification)
+    if warning is not None and on_warning is not None:
+        on_warning(warning)
 
     argv = [str(executable_path)]
     if normalized_profile is not None:
@@ -174,7 +185,7 @@ def acquire_live(
     return _decode_and_normalize(captured.stdout, scope_label=scope_label)
 
 
-def _verify_executable(path: Path) -> LineageDiscoveryFailure | None:
+def _verify_executable(path: Path) -> LineageDiscoveryFailure | tuple[int, int, int]:
     if not path.is_absolute():
         return LineageDiscoveryFailure(LineageDiscoveryFailureCode.EXECUTABLE_INVALID)
     try:
@@ -198,9 +209,29 @@ def _verify_executable(path: Path) -> LineageDiscoveryFailure | None:
     )
     if isinstance(captured, LineageDiscoveryFailure) or captured.returncode != 0:
         return LineageDiscoveryFailure(LineageDiscoveryFailureCode.EXECUTABLE_INVALID)
-    if _VERSION_OUTPUT.fullmatch(captured.stdout) is None:
+    match = _VERSION_OUTPUT.fullmatch(captured.stdout)
+    if match is None:
         return LineageDiscoveryFailure(LineageDiscoveryFailureCode.EXECUTABLE_VERSION_MISMATCH)
-    return None
+    version = (int(match[1]), int(match[2]), int(match[3]))
+    if version < _parse_version(MINIMUM_LIVE_GENERATOR_VERSION):
+        return LineageDiscoveryFailure(LineageDiscoveryFailureCode.EXECUTABLE_VERSION_MISMATCH)
+    return version
+
+
+def _parse_version(text: str) -> tuple[int, int, int]:
+    major, minor, patch = (int(part) for part in text.split("."))
+    return major, minor, patch
+
+
+def _live_version_warning(version: tuple[int, int, int]) -> str | None:
+    if version <= _parse_version(TESTED_THROUGH_LIVE_GENERATOR_VERSION):
+        return None
+    return (
+        f"cja_auto_sdr {'.'.join(map(str, version))} is newer than the newest version "
+        f"this release was tested against for live lineage "
+        f"({TESTED_THROUGH_LIVE_GENERATOR_VERSION}); newer discovery fields may not be "
+        "represented"
+    )
 
 
 def _validate_selectors(
