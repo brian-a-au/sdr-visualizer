@@ -39,6 +39,9 @@ All notable changes to `sdr-visualizer` will be documented here. The format foll
 
 ### Changed
 
+- Advance the AA tested-through generator marker to `aa_auto_sdr` 1.24.6.
+  Snapshots that declare that version no longer print a newer-than-tested
+  warning. The CJA marker stays at `cja_auto_sdr` 3.13.6, the current release.
 - Build reports faster. The check for invalid Unicode in snapshot text now
   uses the same compiled pattern as sdr-grader. Median build time is 39% to
   46% lower across the synthetic performance tiers. Output is byte-identical.
