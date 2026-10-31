@@ -4,6 +4,8 @@ All notable changes to `sdr-visualizer` will be documented here. The format foll
 
 ## [Unreleased]
 
+## [1.2.7] - 2026-10-30
+
 ### Changed
 
 - Advance the catalog tested-through generator markers to `cja_auto_sdr`
@@ -813,7 +815,8 @@ The following are explicitly internal and may change without notice:
 - Workspace project visualization (v0.4)
 - Schema map view (v0.5)
 
-[Unreleased]: https://github.com/brian-a-au/sdr-visualizer/compare/v1.2.6...HEAD
+[Unreleased]: https://github.com/brian-a-au/sdr-visualizer/compare/v1.2.7...HEAD
+[1.2.7]: https://github.com/brian-a-au/sdr-visualizer/releases/tag/v1.2.7
 [1.2.6]: https://github.com/brian-a-au/sdr-visualizer/releases/tag/v1.2.6
 [1.2.5]: https://github.com/brian-a-au/sdr-visualizer/releases/tag/v1.2.5
 [1.2.4]: https://github.com/brian-a-au/sdr-visualizer/releases/tag/v1.2.4
