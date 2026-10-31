@@ -4,12 +4,53 @@ All notable changes to `sdr-visualizer` will be documented here. The format foll
 
 ## [Unreleased]
 
+### Fixed
+
+- Treat a number too large to convert, such as a 400-digit
+  `complexity_score` or an infinite segment `nesting_depth`, as invalid input
+  (exit 3) instead of an unexpected error (exit 1). `--trend` skips such a
+  snapshot with a warning instead of stopping.
+- Treat an `--at` value that its UTC offset pushes outside the supported date
+  range, and standard input that is not UTF-8, as invalid input (exit 3)
+  instead of an unexpected error. The stdin change matches sdr-grader.
+- Skip a `*.json` entry whose file metadata cannot be read, such as a broken
+  symlink, when a directory is ordered by modification time. It no longer
+  stops the run, and it is still protected from being overwritten by an output.
+- Stop error messages from repeating snapshot content. A record without an ID
+  is now reported by its list and position, such as `CJA metrics[3]`, instead
+  of by printing the whole record. Number errors name the value's type, not
+  the value. A failed live run reports the generator's exit status but no
+  longer prints its error output. These match sdr-grader.
+- Leave out an AA calculated metric's `attribution` or `allocation` when it is
+  not a string, so the embedded payload and `--json` sidecar match
+  `docs/payload-schema.json`.
+- Reject an HTML and `--json` destination pair whose names differ only in
+  letter case or Unicode normalization, in the same directory. On a
+  case-insensitive filesystem, such as the macOS default, the JSON used to
+  replace the report. A Workspace usage output or config path that reaches a
+  snapshot directory through a different letter case is now also rejected.
+- Print "Workspace artifact writing interrupted" when Ctrl-C stops usage file
+  writing; the message was empty.
+- `cja-lineage` now checks that the output's parent directory exists before
+  reading discovery input, and exits 3 as LINEAGE.md documents. It used to
+  exit 1 after discovery had already run.
+
 ### Changed
 
+- Build reports faster. The check for invalid Unicode in snapshot text now
+  uses the same compiled pattern as sdr-grader. Median build time is 39% to
+  46% lower across the synthetic performance tiers. Output is byte-identical.
 - Maintainer tooling only: Dependabot auto-merge now also covers `pytest-xdist`
   patch updates and `hypothesis` minor and patch updates. Every automatically
   merged release must be at least 3 days old on PyPI, and Dependabot waits 3
   days before opening `uv` update PRs.
+- Maintainer tooling only: `uv.lock` now uses lockfile revision 5, which is the
+  format Dependabot writes, so Dependabot lockfile PRs no longer fail the
+  policy's settings check. No package versions changed.
+- Maintainer tooling only: make tests independent of pytest 9.2.0 internals
+  and of machine load. One test no longer fakes `os.fstat` for the whole
+  process, two collection tests no longer depend on interpreter startup time,
+  and browser tests wait for results instead of sleeping.
 
 ## [1.2.7] - 2026-10-30
 
