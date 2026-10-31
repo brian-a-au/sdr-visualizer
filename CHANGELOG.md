@@ -7,7 +7,7 @@ All notable changes to `sdr-visualizer` will be documented here. The format foll
 ### Changed
 
 - Advance the catalog tested-through generator markers to `cja_auto_sdr`
-  3.13.5 and `aa_auto_sdr` 1.24.4. Snapshots that declare those versions no
+  3.13.6 and `aa_auto_sdr` 1.24.5. Snapshots that declare those versions no
   longer print a newer-than-tested warning. The separate lineage allowlist is
   unchanged.
 - Reject a snapshot whose JSON repeats a key within one object, instead of

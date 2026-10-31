@@ -858,7 +858,7 @@ def test_equal_older_or_unparseable_versions_do_not_warn():
 
 
 def test_tuple_length_mismatch_versions_compare_correctly():
-    # (3, 14) > (3, 13, 5), while the shorter (3, 13) sorts below the
+    # (3, 14) > (3, 13, 6), while the shorter (3, 13) sorts below the
     # longer tested tuple. This pins Python tuple ordering as the contract.
     from sdr_visualizer.adapters.cja import generator_version_warning
 
