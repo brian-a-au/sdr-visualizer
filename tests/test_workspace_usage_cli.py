@@ -584,16 +584,23 @@ def test_creation_mode_failure_cleans_staging_and_preserves_finals(tmp_path, mon
 
         monkeypatch.setattr(Path, "open", open_probe)
     elif failure == "stat":
-        import stat
+        # Fail only the helper's own probe descriptor; pytest's capture also calls fstat.
+        original_open, original_fstat = Path.open, helper.os.fstat
+        probes = set()
 
-        original = helper.os.fstat
+        def open_probe(path, *args, **kwargs):
+            handle = original_open(path, *args, **kwargs)
+            if path.name == "probe":
+                probes.add(handle.fileno())
+            return handle
 
         def stat_probe(fd):
-            result = original(fd)
-            if stat.S_ISREG(result.st_mode):
+            if fd in probes:
+                probes.discard(fd)
                 raise OSError("synthetic mode failure")
-            return result
+            return original_fstat(fd)
 
+        monkeypatch.setattr(Path, "open", open_probe)
         monkeypatch.setattr(helper.os, "fstat", stat_probe)
     else:
         original = helper.os.chmod
