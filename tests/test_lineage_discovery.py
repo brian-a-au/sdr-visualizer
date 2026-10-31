@@ -460,7 +460,9 @@ def test_non_finite_timeout_is_rejected_before_spawning(
 
 
 def test_live_timeout_is_content_free(tmp_path: Path) -> None:
-    executable, _ = _fake_executable(tmp_path, delay=2)
+    # The bound proves the 30 s run was cut short. It stays loose because the
+    # --version probe pays interpreter startup, which is slow under parallel load.
+    executable, _ = _fake_executable(tmp_path, delay=30)
 
     started = time.monotonic()
     result = lineage_discovery.acquire_live(
@@ -470,7 +472,7 @@ def test_live_timeout_is_content_free(tmp_path: Path) -> None:
         timeout_seconds=0.05,
     )
 
-    assert time.monotonic() - started < 1.5
+    assert time.monotonic() - started < 10
     assert result == lineage_discovery.LineageDiscoveryFailure(
         lineage_discovery.LineageDiscoveryFailureCode.TIMEOUT
     )
