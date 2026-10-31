@@ -6,6 +6,7 @@ import importlib.util
 import io
 import json
 from copy import deepcopy
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from unittest.mock import Mock
 
@@ -49,13 +50,21 @@ def locks() -> tuple[dict, dict]:
                 "name": "sdr-visualizer",
                 "dependencies": [{"name": "cjapy"}],
                 "dev-dependencies": {
-                    "dev": [{"name": "ruff"}, {"name": "pytest"}, {"name": "pytest-cov"}]
+                    "dev": [
+                        {"name": "ruff"},
+                        {"name": "pytest"},
+                        {"name": "pytest-cov"},
+                        {"name": "pytest-xdist"},
+                        {"name": "hypothesis"},
+                    ]
                 },
             },
             package("ruff", "0.16.8"),
             package("cjapy", "0.5.5"),
             package("pytest", "9.1.0"),
             package("pytest-cov", "7.1.0"),
+            package("pytest-xdist", "3.8.0"),
+            package("hypothesis", "6.170.9"),
         ],
     }
     after = deepcopy(before)
@@ -81,9 +90,18 @@ def pr() -> dict:
 
 
 @pytest.mark.parametrize(
-    ("name", "version"), [("ruff", "0.16.9"), ("pytest", "9.1.1"), ("pytest-cov", "7.1.1")]
+    ("name", "version"),
+    [
+        ("ruff", "0.16.9"),
+        ("pytest", "9.1.1"),
+        ("pytest-cov", "7.1.1"),
+        ("pytest-xdist", "3.8.1"),
+        ("hypothesis", "6.170.12"),
+        ("hypothesis", "6.171.0"),
+        ("hypothesis", "6.200.3"),
+    ],
 )
-def test_allowlisted_dev_patches(locks, name, version):
+def test_allowlisted_dev_updates_within_their_level(locks, name, version):
     before, after = locks
     after = deepcopy(before)
     index = next(i for i, item in enumerate(after["package"]) if item["name"] == name)
@@ -98,6 +116,34 @@ def test_reject_non_patch_versions(locks, version):
     before, after = locks
     after["package"][1] = package("ruff", version)
     assert not review.review_locks(before, after)[0]
+
+
+@pytest.mark.parametrize(
+    ("name", "version"),
+    [
+        ("pytest", "9.2.0"),
+        ("pytest-cov", "8.0.0"),
+        ("pytest-xdist", "3.9.0"),
+        ("hypothesis", "7.0.0"),
+        ("hypothesis", "6.170.8"),
+        ("hypothesis", "6.169.20"),
+        ("hypothesis", "6.171.0rc1"),
+    ],
+)
+def test_reject_updates_beyond_their_level(locks, name, version):
+    before, after = locks
+    after = deepcopy(before)
+    index = next(i for i, item in enumerate(after["package"]) if item["name"] == name)
+    after["package"][index] = package(name, version)
+    eligible, reason = review.review_locks(before, after)
+    assert not eligible
+    assert name in reason
+
+
+def test_update_levels_cover_exactly_the_allowlist():
+    assert set(review.UPDATE_LEVELS.values()) <= {"patch", "minor"}
+    assert frozenset(review.UPDATE_LEVELS) == review.ALLOWED_PACKAGES
+    assert review.UPDATE_LEVELS["ruff"] == "patch"
 
 
 def test_reject_runtime_sdk_even_with_patch(locks):
@@ -203,6 +249,7 @@ def test_registry_provenance(locks, monkeypatch, change):
             "digests": {"sha256": item["hash"][7:]},
             "size": item["size"],
             "yanked": False,
+            "upload_time_iso_8601": "2026-01-01T00:00:00.000000Z",
         }
         for item in [changed["sdist"], *changed["wheels"]]
     ]
@@ -218,10 +265,86 @@ def test_registry_provenance(locks, monkeypatch, change):
         review, "urlopen", lambda *_args, **_kwargs: io.StringIO(json.dumps({"urls": urls}))
     )
     if change == "none":
-        review.verify_pypi_artifacts(before, after)
+        assert review.verify_pypi_artifacts(before, after) is None
     else:
         with pytest.raises(ValueError, match="PyPI metadata"):
             review.verify_pypi_artifacts(before, after)
+
+
+def published(locks, uploaded: str) -> list[dict]:
+    changed = locks[1]["package"][1]
+    return [
+        {
+            "url": item["url"],
+            "digests": {"sha256": item["hash"][7:]},
+            "size": item["size"],
+            "yanked": False,
+            "upload_time_iso_8601": uploaded,
+        }
+        for item in [changed["sdist"], *changed["wheels"]]
+    ]
+
+
+NOW = datetime(2026, 11, 10, 12, 0, tzinfo=UTC)
+
+
+@pytest.mark.parametrize(
+    ("age", "waits"),
+    [
+        (timedelta(days=3), False),
+        (timedelta(days=30), False),
+        (timedelta(days=3) - timedelta(seconds=1), True),
+        (timedelta(hours=1), True),
+    ],
+)
+def test_release_age_gate(locks, monkeypatch, age, waits):
+    uploaded = (NOW - age).isoformat().replace("+00:00", "Z")
+    urls = published(locks, uploaded)
+    monkeypatch.setattr(
+        review, "urlopen", lambda *_args, **_kwargs: io.StringIO(json.dumps({"urls": urls}))
+    )
+    reason = review.verify_pypi_artifacts(*locks, now=NOW)
+    if waits:
+        assert reason == "ruff was released less than 3 days ago"
+    else:
+        assert reason is None
+
+
+@pytest.mark.parametrize("uploaded", ["2026-01-01T00:00:00", None])
+def test_release_age_gate_fails_closed_on_bad_upload_time(locks, monkeypatch, uploaded):
+    urls = published(locks, "2026-01-01T00:00:00Z")
+    for item in urls:
+        if uploaded is None:
+            del item["upload_time_iso_8601"]
+        else:
+            item["upload_time_iso_8601"] = uploaded
+    monkeypatch.setattr(
+        review, "urlopen", lambda *_args, **_kwargs: io.StringIO(json.dumps({"urls": urls}))
+    )
+    with pytest.raises((KeyError, ValueError)):
+        review.verify_pypi_artifacts(*locks, now=NOW)
+
+
+def test_too_new_release_needs_manual_merge(pr, locks, monkeypatch):
+    before, after = locks
+    files = [{"filename": "uv.lock", "status": "modified"}]
+    monkeypatch.setattr(review, "gh_json", lambda *_args: files)
+    monkeypatch.setattr(review, "read_lock", lambda _repo, sha: before if sha == "base" else after)
+    monkeypatch.setattr(
+        review, "verify_pypi_artifacts", lambda *_args: "ruff was released less than 3 days ago"
+    )
+    assert review.evaluate_pr(review.REPOSITORY, pr) == (
+        False,
+        "ruff was released less than 3 days ago",
+    )
+
+
+def test_cooldown_matches_release_age_gate():
+    import yaml
+
+    config = yaml.safe_load((Path(__file__).parents[1] / ".github" / "dependabot.yml").read_text())
+    uv = next(item for item in config["updates"] if item["package-ecosystem"] == "uv")
+    assert uv["cooldown"]["default-days"] == review.MIN_RELEASE_AGE.days
 
 
 def gate_responses() -> tuple[dict, dict]:

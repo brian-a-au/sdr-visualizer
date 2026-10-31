@@ -1,8 +1,15 @@
 # Dependabot review and auto-merge
 
-The repository automatically reviews and merges **patch updates to `ruff`,
-`pytest`, and `pytest-cov`** when all required CI checks pass on an up-to-date
-branch. Other dependency updates remain available for manual review and merge.
+The repository automatically reviews and merges these development-tool updates
+when the release is at least 3 days old and all required CI checks pass on an
+up-to-date branch:
+
+| Package | Automatic updates |
+|---|---|
+| `ruff`, `pytest`, `pytest-cov`, `pytest-xdist` | Patch (same major and minor version) |
+| `hypothesis` | Minor and patch (same major version) |
+
+Other dependency updates remain available for manual review and merge.
 This is a deterministic policy review; it does not claim to review arbitrary
 upstream source code or to provide an AI review.
 
@@ -16,14 +23,19 @@ The reviewer parses the base and head lockfiles and requires:
 
 - Only allowlisted, direct development dependencies change. A dependency
   reachable from the runtime or any optional extra is excluded.
-- Versions move forward within the same major and minor version. Prereleases,
-  postreleases, downgrades, and nonstandard versions are excluded.
+- Versions move forward within each package's allowed level in the table above.
+  Prereleases, postreleases, downgrades, and nonstandard versions are excluded.
 - Dependency metadata, all other packages, and lockfile settings are unchanged.
   Transitive updates and new packages require manual review. Unchanged alternative
   platform/Python resolutions are retained exactly; runtime exclusion traverses
   every alternative. Changes to a multiply resolved package require manual review.
 - Artifacts use the expected PyPI URLs and filenames with SHA-256 hashes. Every
   URL, hash, and size must match PyPI's release metadata; yanked files are rejected.
+- Every changed artifact was uploaded to PyPI at least 3 days ago. A newer
+  release gets a **manual merge required** decision, because it could still be
+  yanked or found compromised. Dependabot's `cooldown` of 3 days for `uv`
+  updates normally keeps such PRs from opening at all. A missing or malformed
+  upload time fails the check.
 
 Malformed lockfiles and API failures fail the check. A well-formed PR outside
 the policy passes the check with a **manual merge required** decision and receives
@@ -63,7 +75,7 @@ Branch protection continues to require up-to-date branches and enforce the
 requirements for administrators. Existing review requirements are preserved;
 this setup does not introduce a second-maintainer requirement for human PRs.
 The dependency-review check rejects newly introduced vulnerabilities of moderate
-severity or higher. The test gates cover Python 3.11/3.12/3.14 tests with 99% combined line/branch coverage, Chromium and WebKit functional tests, browser performance, example drift, version identity, and Python/JavaScript CodeQL. Required CI sync and run commands use `--locked`.
+severity or higher. The test gates cover Python 3.11/3.12/3.13/3.14 tests with 99% combined line/branch coverage, Chromium and WebKit functional tests, browser performance, example drift, version identity, and Python/JavaScript CodeQL. Required CI sync and run commands use `--locked`.
 
 Install the workflow through a normal PR before requiring its new check. Its
 first installation PR is explicitly treated as a manual bootstrap because the
