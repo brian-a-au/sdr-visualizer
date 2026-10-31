@@ -82,10 +82,12 @@ def _shell_out(
             f"{tool} exceeded {SHELL_OUT_TIMEOUT_SECONDS}-second timeout"
         ) from exc
     except subprocess.CalledProcessError as exc:
-        stderr = exc.stderr or ""
+        # Generator stderr can quote implementation names and owners; keep it out
+        # of diagnostics, as sdr-grader does.
         raise InvalidSnapshotError(
-            f"{tool} exited {exc.returncode}: {stderr.strip() or '(no stderr)'}"
-        ) from exc
+            f"{tool} exited {exc.returncode}; its error output is not shown. "
+            f"Run {tool} directly to see the details."
+        ) from None
     except (OSError, UnicodeError) as exc:
         raise InvalidSnapshotError(f"{tool} could not be invoked: {exc}") from exc
 

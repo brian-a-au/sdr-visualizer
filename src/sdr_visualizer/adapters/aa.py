@@ -57,13 +57,21 @@ def adapt(snapshot: dict[str, Any], *, source: str = "<unknown>") -> Implementat
     classifications_by_parent = _index_classifications(snapshot.get("classifications"))
 
     dimensions = [
-        _component_from_record(r, "dimension", classifications_by_parent) for r in dims_raw
+        _component_from_record(r, "dimension", classifications_by_parent, index=index)
+        for index, r in enumerate(dims_raw)
     ]
-    metrics = [_component_from_record(r, "metric", classifications_by_parent) for r in metrics_raw]
+    metrics = [
+        _component_from_record(r, "metric", classifications_by_parent, index=index)
+        for index, r in enumerate(metrics_raw)
+    ]
     calculated_metrics = [
-        _calc_from_record(r) for r in _optional_list(snapshot, "calculated_metrics")
+        _calc_from_record(r, index=index)
+        for index, r in enumerate(_optional_list(snapshot, "calculated_metrics"))
     ]
-    segments = [_segment_from_record(r) for r in _optional_list(snapshot, "segments")]
+    segments = [
+        _segment_from_record(r, index=index)
+        for index, r in enumerate(_optional_list(snapshot, "segments"))
+    ]
 
     return Implementation(
         platform="aa",
@@ -87,15 +95,23 @@ def adapt(snapshot: dict[str, Any], *, source: str = "<unknown>") -> Implementat
 
 
 def _component_from_record(
-    record: Any, component_type: str, classifications_by_parent: dict[str, list[str]]
+    record: Any,
+    component_type: str,
+    classifications_by_parent: dict[str, list[str]],
+    *,
+    index: int | None = None,
 ) -> Component:
+    context = _record_context(f"{component_type}s", index)
     if not isinstance(record, dict):
         raise InvalidSnapshotError(
-            f"expected {component_type} record to be an object, got {type(record).__name__}"
+            f"{context}: expected {component_type} record to be an object, "
+            f"got {type(record).__name__}"
         )
     component_id = record.get("id")
     if not component_id:
-        raise InvalidSnapshotError(f"{component_type} record is missing 'id': {record!r}")
+        raise InvalidSnapshotError(
+            f"{context}: {component_type} record is missing 'id' (required key)"
+        )
 
     name = record.get("name") or component_id
     description = _normalize_description(record.get("description"))
@@ -189,14 +205,15 @@ def _stringify_formula_arg(arg: Any) -> str:
     return _formula_value(arg)
 
 
-def _calc_from_record(record: Any) -> CalculatedMetric:
+def _calc_from_record(record: Any, *, index: int | None = None) -> CalculatedMetric:
+    context = _record_context("calculated_metrics", index)
     if not isinstance(record, dict):
         raise InvalidSnapshotError(
-            f"expected calculated metric to be an object, got {type(record).__name__}"
+            f"{context}: expected calculated metric to be an object, got {type(record).__name__}"
         )
     metric_id = record.get("id")
     if not metric_id:
-        raise InvalidSnapshotError(f"calc metric missing 'id': {record!r}")
+        raise InvalidSnapshotError(f"{context}: calc metric missing 'id' (required key)")
     name = record.get("name") or metric_id
     description = _normalize_description(record.get("description"))
     definition = record.get("definition") or {}
@@ -218,8 +235,10 @@ def _calc_from_record(record: Any) -> CalculatedMetric:
         description=description,
         formula=formula if isinstance(formula, dict) else {},
         formula_text=formula_text,
-        attribution_model=record.get("attribution") or record.get("attribution_model"),
-        allocation=record.get("allocation"),
+        attribution_model=_str_or_none(
+            record.get("attribution") or record.get("attribution_model")
+        ),
+        allocation=_str_or_none(record.get("allocation")),
         complexity_score=_as_float(record.get("complexity_score")),
         references=references,
         reference_types=reference_types,
@@ -283,12 +302,15 @@ def _extract_aa_references(
 # ---------------------------------------------------------------------------
 
 
-def _segment_from_record(record: Any) -> Segment:
+def _segment_from_record(record: Any, *, index: int | None = None) -> Segment:
+    context = _record_context("segments", index)
     if not isinstance(record, dict):
-        raise InvalidSnapshotError(f"expected segment to be an object, got {type(record).__name__}")
+        raise InvalidSnapshotError(
+            f"{context}: expected segment to be an object, got {type(record).__name__}"
+        )
     segment_id = record.get("id")
     if not segment_id:
-        raise InvalidSnapshotError(f"segment missing 'id': {record!r}")
+        raise InvalidSnapshotError(f"{context}: segment missing 'id' (required key)")
     name = record.get("name") or segment_id
     description = _normalize_description(record.get("description"))
     definition = record.get("definition") or {}
@@ -471,8 +493,19 @@ def _as_float(value: Any) -> float:
         return 0.0
     try:
         return float(value)
-    except (TypeError, ValueError) as exc:
-        raise InvalidSnapshotError(f"expected a number, got {value!r}") from exc
+    except (TypeError, ValueError, OverflowError) as exc:
+        raise InvalidSnapshotError(f"expected a number, got {type(value).__name__}") from exc
+
+
+def _str_or_none(value: Any) -> str | None:
+    """Keep a string field; drop any other JSON value so the payload stays typed."""
+    return value if isinstance(value, str) else None
+
+
+def _record_context(collection: str, index: int | None) -> str:
+    """Return bounded structural context without including record values."""
+    suffix = f"[{index}]" if index is not None else " record"
+    return f"AA {collection}{suffix}"
 
 
 def _ensure_list(snapshot: dict[str, Any], key: str) -> list[Any]:

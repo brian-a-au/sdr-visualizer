@@ -18,9 +18,9 @@ from sdr_visualizer.input.loader import (
     STDIN_TOKEN,
     _extract_timestamp,
     _load_from_file,
-    _mtime_timestamp,
     _parse_iso_timestamp,
     list_snapshot_candidates,
+    mtime_candidates,
 )
 
 # Hard window cap (SPEC 0.5.0): bounds build time and payload size.
@@ -89,7 +89,7 @@ def list_snapshot_series(
                     file=sys.stderr,
                 )
     if not stamped:
-        stamped = [(p, _mtime_timestamp(p)) for p in candidates]
+        stamped = mtime_candidates(candidates)
 
     if at is not None:
         target = _parse_iso_timestamp(at)

@@ -167,6 +167,19 @@ The fixtures may diverge from sdr-grader's over time — the visualizer wants mo
   window-cap filtering (including an empty list for an empty directory) and
   maps discovery failures to `InvalidSnapshotError`.
   The grader mirrors this loader primitive even though it has no trend mode.
+  The grader also drops non-regular files here. The visualizer keeps them,
+  because a dangling symlink or `*.json` directory must stay a protected output
+  candidate; mtime-based selection skips a candidate whose metadata cannot be
+  read, with a warning (1.2.8).
+- Record diagnostics — a malformed or ID-less record is reported by collection
+  and index (`CJA metrics[3]`, `AA segments[0]`) through `_record_context`,
+  never by echoing record content. Mirrored from sdr-grader `011b3d2` in 1.2.8.
+- `input.shell_out` failure messages — a nonzero generator exit reports the
+  tool and exit status only; generator stderr is not echoed (sdr-grader
+  `011b3d2`). The grader's capture byte limits and process-group cleanup are
+  not yet mirrored.
+- `input.loader` stdin — undecodable stdin is invalid input ("stdin is not valid
+  UTF-8"), mirrored from sdr-grader `2b18cd1` in 1.2.8.
 - `_parse_tag_list` / `_parse_ref_list` — parse `tags` and reference fields
   that `cja_auto_sdr` ships as JSON-encoded list strings (`'["a"]'`) while
   tolerating native lists. Ordinary JSON syntax failures drop to `[]`;
@@ -191,10 +204,16 @@ The fixtures may diverge from sdr-grader's over time — the visualizer wants mo
 
 **Visualizer-only numeric coercion — intentional divergence, do NOT reconcile to the grader:** `_as_float` / `_as_int` are the visualizer's variant of the grader's tolerant `_safe_float` / `_safe_int`. Two deltas, both driven by visualizer-only features:
 
-1. A present-but-unconvertible numeric **raises** `InvalidSnapshotError` (the grader defaults). Trend mode relies on the raise to *skip* a malformed snapshot rather than chart a fabricated value; a single snapshot exits 3.
+1. A present-but-unconvertible numeric **raises** `InvalidSnapshotError` (the grader defaults). Trend mode relies on the raise to *skip* a malformed snapshot rather than chart a fabricated value; a single snapshot exits 3. This includes values that overflow the conversion, such as a 400-digit integer or an infinite `nesting_depth` (1.2.8). The message names the value's type, not the value.
 2. `NaN` / `Infinity` **pass through** to the renderer's `allow_nan=False` guard, which rejects the whole report (audit H2). The grader coerces them to a default. A visualizer report that embeds `NaN` cannot boot in a browser, so rejecting loudly beats substituting `0.0`.
 
 These deltas are pinned by `test_nan_snapshot_exits_3`, `test_nan_in_snapshot_raises_invalid_snapshot_error`, and the trend bad-scalar skip test — a sync that "fixes" the divergence will fail them.
+
+**AA calculated-metric attribution — intentional divergence:** the visualizer
+keeps `attribution`/`attribution_model` and `allocation` only when they are
+strings and otherwise omits them, so the payload matches its published schema
+(1.2.8). The grader rejects a non-string attribution as invalid input; its
+matching `allocation` guard is part of the same release cycle.
 
 **Visualizer-only output protection — do not port to the grader:** before its
 first write, the visualizer compares both HTML and optional JSON destinations
