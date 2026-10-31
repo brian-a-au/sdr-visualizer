@@ -104,8 +104,10 @@ def _load_from_directory(directory: Path, *, at: str | None) -> tuple[dict[str, 
 
 def list_snapshot_candidates(directory: Path) -> list[Path]:
     """Return every sorted ``.json`` candidate owned by a snapshot directory."""
+    # iterdir() raises when the directory cannot be read; glob() returns no
+    # matches instead, which reported an unreadable directory as empty.
     try:
-        candidates = sorted(directory.glob("*.json"))
+        candidates = sorted(p for p in directory.iterdir() if p.name.endswith(".json"))
     except (OSError, RuntimeError) as exc:
         raise InvalidSnapshotError(
             f"could not inspect snapshot directory {directory}: {exc}"

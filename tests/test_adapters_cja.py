@@ -515,7 +515,7 @@ def test_cja_definition_json_recursion_error_is_invalid_snapshot(monkeypatch):
         }
     )
 
-    def recurse(_value):
+    def recurse(_value, **_kwargs):
         raise RecursionError("decoder recursion")
 
     monkeypatch.setattr("sdr_visualizer.adapters.cja.json.loads", recurse)
@@ -534,7 +534,7 @@ def test_cja_definition_json_decoder_resource_errors_are_invalid_snapshot(monkey
         }
     )
 
-    def fail(_value):
+    def fail(_value, **_kwargs):
         raise error
 
     monkeypatch.setattr("sdr_visualizer.adapters.cja.json.loads", fail)
@@ -635,7 +635,7 @@ def test_cja_embedded_json_rejects_surrogates_materialized_after_decode(snapshot
 def test_cja_embedded_list_decoder_resource_errors_are_invalid_snapshot(
     monkeypatch, field, snapshot, error
 ):
-    def fail(_value):
+    def fail(_value, **_kwargs):
         raise error
 
     monkeypatch.setattr("sdr_visualizer.adapters.cja.json.loads", fail)
@@ -890,3 +890,43 @@ def test_synthetic_timestamp_keys_keep_precedence():
     md["Generated Date & timestamp and timezone"] = "2026-05-20 10:56:29 PDT"
     impl = adapt(snap)
     assert impl.snapshot_taken_at == "2026-01-01 00:00:00"
+
+
+# sdr-grader parity (sdr-grader #161): scalar tag values are not tags.
+@pytest.mark.parametrize("module_name", ["cja", "aa"])
+@pytest.mark.parametrize(
+    "value",
+    [
+        ["first", 7, None, False, "", {"name": "Named"}, {"id": "last"}, {"name": ""}],
+        '["first", 7, null, false, "", {"name": "Named"}, {"id": "last"}, {"name": ""}]',
+    ],
+    ids=["native", "json-encoded"],
+)
+def test_tag_lists_keep_only_non_empty_string_tags(module_name, value):
+    from sdr_visualizer.adapters import aa, cja
+
+    parse_tag_list = {"aa": aa, "cja": cja}[module_name]._parse_tag_list
+
+    assert parse_tag_list(value) == ["first", "Named", "last"]
+
+
+# sdr-grader parity: embedded JSON rejects duplicate keys like the outer document.
+@pytest.mark.parametrize(
+    ("parser", "value", "message"),
+    [
+        ("cja._parse_definition_json", '{"context": "hits", "context": "visitors"}', "definition"),
+        ("cja._parse_tag_list", '[{"name": "a", "name": "b"}]', "tag list"),
+        ("cja._parse_ref_list", '[{"id": "a", "id": "b"}]', "reference list"),
+        ("aa._parse_tag_list", '[{"name": "a", "name": "b"}]', "tag list"),
+    ],
+)
+def test_embedded_json_rejects_duplicate_keys_like_the_outer_document(parser, value, message):
+    from sdr_visualizer.adapters import aa, cja
+
+    module_name, function_name = parser.split(".")
+    function = getattr({"aa": aa, "cja": cja}[module_name], function_name)
+
+    with pytest.raises(
+        InvalidSnapshotError, match=f"^{message} JSON contains duplicate object keys$"
+    ):
+        function(value)

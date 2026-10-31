@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import os
+import sys
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
@@ -212,10 +213,10 @@ def test_candidate_discovery_error_is_an_input_error(tmp_path, monkeypatch, caps
     directory = tmp_path / "snapshots"
     directory.mkdir()
 
-    def fail_discovery(_self, _pattern):
+    def fail_discovery(_self):
         raise OSError("discovery unavailable")
 
-    monkeypatch.setattr(Path, "glob", fail_discovery)
+    monkeypatch.setattr(Path, "iterdir", fail_discovery)
 
     rc = main([str(directory), "--output", str(tmp_path / "report.html"), "--quiet"])
 
@@ -339,3 +340,45 @@ def test_path_within_follows_symlinked_parents(tmp_path):
     link.symlink_to(snaps, target_is_directory=True)
 
     assert path_within(link / "usage.json", snaps)
+
+
+def test_candidate_listing_keeps_json_glob_matching(tmp_path):
+    directory = tmp_path / "snapshots"
+    directory.mkdir()
+    (directory / "sub.json").mkdir()
+    for name in ["a.json", ".hidden.json", ".json", "UPPER.JSON", "b.json.bak", "é.json"]:
+        (directory / name).write_text("{}", encoding="utf-8")
+    (directory / "link.json").symlink_to(directory / "a.json")
+    (directory / "dangling.json").symlink_to(directory / "missing")
+
+    names = [path.name for path in list_snapshot_candidates(directory)]
+
+    assert names == [
+        ".hidden.json",
+        ".json",
+        "a.json",
+        "dangling.json",
+        "link.json",
+        "sub.json",
+        "é.json",
+    ]
+
+
+@pytest.mark.skipif(
+    sys.platform == "win32" or os.geteuid() == 0,
+    reason="needs POSIX permissions enforced for a non-root user",
+)
+def test_unreadable_snapshot_directory_is_an_input_error(tmp_path, capsys):
+    # sdr-grader parity: Path.glob returned no matches for an unreadable
+    # directory, so it was reported as empty instead of unreadable.
+    directory = tmp_path / "snapshots"
+    directory.mkdir()
+    (directory / "snapshot_2026-04-01.json").write_text("{}", encoding="utf-8")
+    directory.chmod(0)
+    try:
+        rc = main([str(directory), "--output", str(tmp_path / "report.html"), "--quiet"])
+    finally:
+        directory.chmod(0o755)
+
+    assert rc == 3
+    assert "could not inspect snapshot directory" in capsys.readouterr().err

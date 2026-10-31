@@ -26,6 +26,7 @@ from sdr_visualizer.core.structure_limits import (
     validate_snapshot_structure,
     validate_unicode_scalars,
 )
+from sdr_visualizer.input.json_io import DuplicateJSONKeyError, unique_object
 
 
 def adapt(snapshot: dict[str, Any], *, source: str = "<unknown>") -> Implementation:
@@ -463,9 +464,11 @@ def _parse_tag_list(value: Any) -> list[str]:
         return _tag_names(value)
     if isinstance(value, str):
         try:
-            parsed = json.loads(value)
+            parsed = json.loads(value, object_pairs_hook=unique_object)
         except json.JSONDecodeError:
             return []
+        except DuplicateJSONKeyError:
+            raise InvalidSnapshotError("tag list JSON contains duplicate object keys") from None
         except (ValueError, RecursionError) as exc:
             raise InvalidSnapshotError("tag list JSON exceeds decoder limits") from exc
         validate_decoded_structure(parsed, label="tag list")
@@ -477,14 +480,17 @@ def _parse_tag_list(value: Any) -> list[str]:
 
 
 def _tag_names(values: list[Any]) -> list[str]:
-    """Keep string tags and reduce API tag objects to their useful identity."""
+    """Keep string tags and reduce API tag objects to their useful identity.
+
+    Null, numbers, booleans and empty strings are not tags. Turning them into
+    "None", "7" or "False" would count an untagged component as tagged.
+    """
     tags = []
     for value in values:
         if isinstance(value, dict):
             value = value.get("name") or value.get("id")
-            if not isinstance(value, str) or not value:
-                continue
-        tags.append(str(value))
+        if isinstance(value, str) and value:
+            tags.append(value)
     return tags
 
 
@@ -498,9 +504,13 @@ def _parse_ref_list(value: Any) -> list[str]:
         return [str(t) for t in value]
     if isinstance(value, str):
         try:
-            parsed = json.loads(value)
+            parsed = json.loads(value, object_pairs_hook=unique_object)
         except json.JSONDecodeError:
             return []
+        except DuplicateJSONKeyError:
+            raise InvalidSnapshotError(
+                "reference list JSON contains duplicate object keys"
+            ) from None
         except (ValueError, RecursionError) as exc:
             raise InvalidSnapshotError("reference list JSON exceeds decoder limits") from exc
         validate_decoded_structure(parsed, label="reference list")
@@ -599,9 +609,11 @@ def _parse_definition_json(value: Any, *, label: str = "definition") -> dict[str
         parsed = value
     elif isinstance(value, str):
         try:
-            parsed = json.loads(value)
+            parsed = json.loads(value, object_pairs_hook=unique_object)
         except json.JSONDecodeError:
             return {}
+        except DuplicateJSONKeyError:
+            raise InvalidSnapshotError(f"{label} JSON contains duplicate object keys") from None
         except (ValueError, RecursionError) as exc:
             raise InvalidSnapshotError(f"{label} JSON exceeds decoder limits") from exc
         validate_unicode_scalars(parsed, label=label)
