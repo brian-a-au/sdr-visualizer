@@ -21,7 +21,8 @@ def detect_platform(snapshot: Any) -> str:
         k in metadata for k in ("Data View ID", "data_view_id", "dataViewId")
     )
     looks_cja = looks_cja or "data_view" in snapshot or "dataView" in snapshot
-    rs = snapshot.get("report_suite") or snapshot.get("reportSuite")
+    # Same key choice as the AA adapter: `report_suite` whenever present.
+    rs = snapshot["report_suite"] if "report_suite" in snapshot else snapshot.get("reportSuite")
     looks_aa = isinstance(rs, dict) and bool(rs.get("rsid") or rs.get("RSID"))
 
     if looks_cja and looks_aa:

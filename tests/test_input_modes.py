@@ -268,7 +268,7 @@ def test_mode3_unknown_tool_returns_validation_error(tmp_path, monkeypatch, caps
 
 
 @pytest.mark.parametrize("stderr", ["credentials rejected\n", None])
-def test_shell_out_nonzero_exit_preserves_status_and_stderr(monkeypatch, stderr):
+def test_shell_out_nonzero_exit_preserves_status_and_hides_stderr(monkeypatch, stderr):
     monkeypatch.setattr("sdr_visualizer.input.shell_out.shutil.which", lambda _name: "/bin/tool")
 
     def fail(cmd, **_kwargs):
@@ -281,7 +281,8 @@ def test_shell_out_nonzero_exit_preserves_status_and_stderr(monkeypatch, stderr)
 
     message = str(exc_info.value)
     assert "cja_auto_sdr exited 7" in message
-    assert ("credentials rejected" if stderr else "(no stderr)") in message
+    assert "credentials rejected" not in message
+    assert "error output is not shown" in message
 
 
 def test_shell_out_file_disappearing_after_lookup_is_domain_error(monkeypatch):

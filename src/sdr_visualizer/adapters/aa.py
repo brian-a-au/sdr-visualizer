@@ -8,6 +8,7 @@ classifications attach as tags on the parent dimension.
 from __future__ import annotations
 
 import json
+import math
 from typing import Any
 
 from sdr_visualizer.core.exceptions import InvalidSnapshotError
@@ -23,6 +24,7 @@ from sdr_visualizer.core.structure_limits import (
     validate_snapshot_structure,
     validate_unicode_scalars,
 )
+from sdr_visualizer.input.json_io import DuplicateJSONKeyError, unique_object
 
 
 def adapt(snapshot: dict[str, Any], *, source: str = "<unknown>") -> Implementation:
@@ -44,7 +46,7 @@ def adapt(snapshot: dict[str, Any], *, source: str = "<unknown>") -> Implementat
     instance_id = rs.get("rsid") or rs.get("RSID")
     if not instance_id:
         raise InvalidSnapshotError("AA snapshot 'report_suite' missing 'rsid'")
-    instance_name = rs.get("name") or instance_id
+    instance_name = _present(rs.get("name")) or instance_id
     snapshot_taken_at = snapshot.get("captured_at") or snapshot.get("captured")
     if isinstance(snapshot_taken_at, str):
         snapshot_taken_at = snapshot_taken_at.strip() or None
@@ -57,13 +59,21 @@ def adapt(snapshot: dict[str, Any], *, source: str = "<unknown>") -> Implementat
     classifications_by_parent = _index_classifications(snapshot.get("classifications"))
 
     dimensions = [
-        _component_from_record(r, "dimension", classifications_by_parent) for r in dims_raw
+        _component_from_record(r, "dimension", classifications_by_parent, index=index)
+        for index, r in enumerate(dims_raw)
     ]
-    metrics = [_component_from_record(r, "metric", classifications_by_parent) for r in metrics_raw]
+    metrics = [
+        _component_from_record(r, "metric", classifications_by_parent, index=index)
+        for index, r in enumerate(metrics_raw)
+    ]
     calculated_metrics = [
-        _calc_from_record(r) for r in _optional_list(snapshot, "calculated_metrics")
+        _calc_from_record(r, index=index)
+        for index, r in enumerate(_optional_list(snapshot, "calculated_metrics"))
     ]
-    segments = [_segment_from_record(r) for r in _optional_list(snapshot, "segments")]
+    segments = [
+        _segment_from_record(r, index=index)
+        for index, r in enumerate(_optional_list(snapshot, "segments"))
+    ]
 
     return Implementation(
         platform="aa",
@@ -87,19 +97,27 @@ def adapt(snapshot: dict[str, Any], *, source: str = "<unknown>") -> Implementat
 
 
 def _component_from_record(
-    record: Any, component_type: str, classifications_by_parent: dict[str, list[str]]
+    record: Any,
+    component_type: str,
+    classifications_by_parent: dict[str, list[str]],
+    *,
+    index: int | None = None,
 ) -> Component:
+    context = _record_context(f"{component_type}s", index)
     if not isinstance(record, dict):
         raise InvalidSnapshotError(
-            f"expected {component_type} record to be an object, got {type(record).__name__}"
+            f"{context}: expected {component_type} record to be an object, "
+            f"got {type(record).__name__}"
         )
     component_id = record.get("id")
     if not component_id:
-        raise InvalidSnapshotError(f"{component_type} record is missing 'id': {record!r}")
+        raise InvalidSnapshotError(
+            f"{context}: {component_type} record is missing 'id' (required key)"
+        )
 
-    name = record.get("name") or component_id
+    name = _present(record.get("name")) or component_id
     description = _normalize_description(record.get("description"))
-    data_type = record.get("type")
+    data_type = _present(record.get("type"))
     polarity = _normalize_polarity(record.get("polarity"))
     tags = _parse_tag_list(record.get("tags"))
     # Pick up classifications attached to this component as tags.
@@ -189,15 +207,16 @@ def _stringify_formula_arg(arg: Any) -> str:
     return _formula_value(arg)
 
 
-def _calc_from_record(record: Any) -> CalculatedMetric:
+def _calc_from_record(record: Any, *, index: int | None = None) -> CalculatedMetric:
+    context = _record_context("calculated_metrics", index)
     if not isinstance(record, dict):
         raise InvalidSnapshotError(
-            f"expected calculated metric to be an object, got {type(record).__name__}"
+            f"{context}: expected calculated metric to be an object, got {type(record).__name__}"
         )
     metric_id = record.get("id")
     if not metric_id:
-        raise InvalidSnapshotError(f"calc metric missing 'id': {record!r}")
-    name = record.get("name") or metric_id
+        raise InvalidSnapshotError(f"{context}: calc metric missing 'id' (required key)")
+    name = _present(record.get("name")) or metric_id
     description = _normalize_description(record.get("description"))
     definition = record.get("definition") or {}
     if not isinstance(definition, dict):
@@ -218,8 +237,10 @@ def _calc_from_record(record: Any) -> CalculatedMetric:
         description=description,
         formula=formula if isinstance(formula, dict) else {},
         formula_text=formula_text,
-        attribution_model=record.get("attribution") or record.get("attribution_model"),
-        allocation=record.get("allocation"),
+        attribution_model=_str_or_none(
+            record.get("attribution") or record.get("attribution_model")
+        ),
+        allocation=_str_or_none(record.get("allocation")),
         complexity_score=_as_float(record.get("complexity_score")),
         references=references,
         reference_types=reference_types,
@@ -283,13 +304,16 @@ def _extract_aa_references(
 # ---------------------------------------------------------------------------
 
 
-def _segment_from_record(record: Any) -> Segment:
+def _segment_from_record(record: Any, *, index: int | None = None) -> Segment:
+    context = _record_context("segments", index)
     if not isinstance(record, dict):
-        raise InvalidSnapshotError(f"expected segment to be an object, got {type(record).__name__}")
+        raise InvalidSnapshotError(
+            f"{context}: expected segment to be an object, got {type(record).__name__}"
+        )
     segment_id = record.get("id")
     if not segment_id:
-        raise InvalidSnapshotError(f"segment missing 'id': {record!r}")
-    name = record.get("name") or segment_id
+        raise InvalidSnapshotError(f"{context}: segment missing 'id' (required key)")
+    name = _present(record.get("name")) or segment_id
     description = _normalize_description(record.get("description"))
     definition = record.get("definition") or {}
     if isinstance(definition, dict):
@@ -356,7 +380,7 @@ def _walk_segment_definition(definition: Any) -> tuple[int, list[str]]:
 # and the historical compatibility corpus; snapshot declarations alone do not
 # establish this marker. Undeclared versions stay unknown and do not warn.
 # The compatibility policy warns about newer declared versions, never refuses.
-TESTED_THROUGH_GENERATOR_VERSION = "1.24.5"
+TESTED_THROUGH_GENERATOR_VERSION = "1.24.6"
 
 
 def generator_version_warning(adapter_version: str) -> str | None:
@@ -415,9 +439,11 @@ def _parse_tag_list(value: Any) -> list[str]:
         return _tag_names(value)
     if isinstance(value, str):
         try:
-            parsed = json.loads(value)
+            parsed = json.loads(value, object_pairs_hook=unique_object)
         except json.JSONDecodeError:
             return []
+        except DuplicateJSONKeyError:
+            raise InvalidSnapshotError("tag list JSON contains duplicate object keys") from None
         except (ValueError, RecursionError) as exc:
             raise InvalidSnapshotError("tag list JSON exceeds decoder limits") from exc
         validate_decoded_structure(parsed, label="tag list")
@@ -428,14 +454,17 @@ def _parse_tag_list(value: Any) -> list[str]:
 
 
 def _tag_names(values: list[Any]) -> list[str]:
-    """Keep string tags and reduce API tag objects to their useful identity."""
+    """Keep string tags and reduce API tag objects to their useful identity.
+
+    Null, numbers, booleans and empty strings are not tags. Turning them into
+    "None", "7" or "False" would count an untagged component as tagged.
+    """
     tags = []
     for value in values:
         if isinstance(value, dict):
             value = value.get("name") or value.get("id")
-            if not isinstance(value, str) or not value:
-                continue
-        tags.append(str(value))
+        if isinstance(value, str) and value:
+            tags.append(value)
     return tags
 
 
@@ -471,8 +500,26 @@ def _as_float(value: Any) -> float:
         return 0.0
     try:
         return float(value)
-    except (TypeError, ValueError) as exc:
-        raise InvalidSnapshotError(f"expected a number, got {value!r}") from exc
+    except (TypeError, ValueError, OverflowError) as exc:
+        raise InvalidSnapshotError(f"expected a number, got {type(value).__name__}") from exc
+
+
+def _present(value: Any) -> Any:
+    """Treat a non-finite float as missing; pandas writes NaN for empty cells."""
+    if isinstance(value, float) and not math.isfinite(value):
+        return None
+    return value
+
+
+def _str_or_none(value: Any) -> str | None:
+    """Keep a string field; drop any other JSON value so the payload stays typed."""
+    return value if isinstance(value, str) else None
+
+
+def _record_context(collection: str, index: int | None) -> str:
+    """Return bounded structural context without including record values."""
+    suffix = f"[{index}]" if index is not None else " record"
+    return f"AA {collection}{suffix}"
 
 
 def _ensure_list(snapshot: dict[str, Any], key: str) -> list[Any]:

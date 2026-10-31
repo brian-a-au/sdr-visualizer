@@ -24,6 +24,7 @@ def shell_cja(
     dataview_id: str, *, extra_args: list[str] | None = None
 ) -> tuple[dict[str, Any], str]:
     """Shell out to cja_auto_sdr against a CJA data view ID."""
+    _require_positional_id(dataview_id, flag="--dataview")
     try:
         with tempfile.TemporaryDirectory(prefix="sdr-visualizer-cja-") as output_dir:
             return _shell_out(
@@ -47,11 +48,21 @@ def shell_cja(
 
 def shell_aa(rsid: str, *, extra_args: list[str] | None = None) -> tuple[dict[str, Any], str]:
     """Shell out to aa_auto_sdr against an AA report suite ID."""
+    _require_positional_id(rsid, flag="--rsid")
     return _shell_out(
         "aa_auto_sdr",
         [rsid, "--format", "json", "--output", "-", *(extra_args or [])],
         flag="--rsid",
     )
+
+
+def _require_positional_id(identifier: str, *, flag: str) -> None:
+    # The ID is the upstream tool's first positional argument. An empty or
+    # dash-leading value would be read there as a missing ID or an option.
+    if not identifier or identifier.startswith("-"):
+        raise InvalidSnapshotError(
+            f"{flag} requires an ID that is not empty and does not start with '-'"
+        )
 
 
 def _shell_out(
@@ -82,10 +93,12 @@ def _shell_out(
             f"{tool} exceeded {SHELL_OUT_TIMEOUT_SECONDS}-second timeout"
         ) from exc
     except subprocess.CalledProcessError as exc:
-        stderr = exc.stderr or ""
+        # Generator stderr can quote implementation names and owners; keep it out
+        # of diagnostics, as sdr-grader does.
         raise InvalidSnapshotError(
-            f"{tool} exited {exc.returncode}: {stderr.strip() or '(no stderr)'}"
-        ) from exc
+            f"{tool} exited {exc.returncode}; its error output is not shown. "
+            f"Run {tool} directly to see the details."
+        ) from None
     except (OSError, UnicodeError) as exc:
         raise InvalidSnapshotError(f"{tool} could not be invoked: {exc}") from exc
 

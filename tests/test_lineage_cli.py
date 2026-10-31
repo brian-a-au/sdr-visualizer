@@ -30,6 +30,31 @@ def test_alias_preserves_source(tmp_path):
     assert source.read_bytes() == FIXTURE.read_bytes()
 
 
+def test_missing_output_parent_fails_preflight_before_discovery(tmp_path, monkeypatch, capsys):
+    calls = []
+    monkeypatch.setattr(lineage, "acquire_saved", lambda *a, **k: calls.append(a))
+    output = tmp_path / "missing" / "lineage.html"
+    assert lineage.main(["--saved", str(FIXTURE), "--output", str(output)]) == 3
+    assert "unsafe destination" in capsys.readouterr().err
+    assert not calls
+    assert not output.parent.exists()
+
+
+def test_output_parent_that_cannot_be_inspected_fails_preflight(tmp_path, monkeypatch):
+    from sdr_visualizer.cli import lineage_output
+
+    original = Path.is_dir
+
+    def fail(path):
+        if path == tmp_path:
+            raise PermissionError("private")
+        return original(path)
+
+    monkeypatch.setattr(Path, "is_dir", fail)
+    failure = lineage_output.validate_lineage_destination(tmp_path / "lineage.html")
+    assert failure.code == lineage_output.LineageOutputFailureCode.UNSAFE_DESTINATION
+
+
 @pytest.mark.parametrize(
     "args",
     [[], ["--live"], ["--saved", "x", "--profile", "x"], ["--saved", "x", "--scope-label", ""]],

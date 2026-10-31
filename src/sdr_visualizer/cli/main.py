@@ -257,11 +257,11 @@ def main(argv: list[str] | None = None) -> int:
             artifacts.append((usage_output_path, usage_text, True))
         try:
             usage_cli.write_artifacts(artifacts)
-        except (OSError, KeyboardInterrupt) as exc:
-            print(
-                f"sdr-visualizer: {exc or 'Workspace artifact writing interrupted'}",
-                file=sys.stderr,
-            )
+        except KeyboardInterrupt:
+            print("sdr-visualizer: Workspace artifact writing interrupted", file=sys.stderr)
+            return RUNTIME_ERROR
+        except OSError as exc:
+            print(f"sdr-visualizer: {exc}", file=sys.stderr)
             return RUNTIME_ERROR
         if not args.quiet:
             for path, _, _ in artifacts:

@@ -91,7 +91,9 @@ Before the first write, the visualizer verifies that the HTML and optional JSON
 destinations do not alias one another or any filesystem snapshot input. For a
 primary, baseline, or trend directory, every `*.json` candidate is protected,
 including corrupt, skipped, retained, and capped-out members. The check covers
-resolved paths, symlinks, symlinked parents, and existing hard links; a
+resolved paths, symlinks, symlinked parents, existing hard links, and new
+names in one directory that differ only in letter case or Unicode
+normalization (which a case-insensitive filesystem stores as one file); a
 collision is invalid input and leaves source bytes unchanged.
 
 Offline is a transport property, not a confidentiality classification.
@@ -214,7 +216,7 @@ unusable, and capped-out members do not warn. The current markers are:
 | Platform | Warning threshold |
 |---|---:|
 | CJA (`cja_auto_sdr`) | 3.13.6 |
-| AA (`aa_auto_sdr`) | 1.24.5 |
+| AA (`aa_auto_sdr`) | 1.24.6 |
 
 A marker is evidence of exercised compatibility, not a promise about every
 possible snapshot produced by that version. It may advance only after a

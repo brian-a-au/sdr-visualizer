@@ -1103,8 +1103,8 @@ def test_tested_generator_version_does_not_warn(tmp_path, capsys):
     [
         ("cja", "3.13.6", False),
         ("cja", "3.13.7", True),
-        ("aa", "1.24.5", False),
-        ("aa", "1.24.6", True),
+        ("aa", "1.24.6", False),
+        ("aa", "1.24.7", True),
     ],
 )
 def test_catalog_generator_warning_boundary(platform, version, warns, tmp_path, capsys):

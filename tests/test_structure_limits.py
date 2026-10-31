@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import pytest
 
+from sdr_visualizer.core import structure_limits
 from sdr_visualizer.core.exceptions import InvalidSnapshotError
 from sdr_visualizer.core.structure_limits import (
     MAX_DEFINITION_NODES,
@@ -86,3 +87,22 @@ def test_snapshot_structure_accepts_valid_non_bmp_unicode_without_changing_count
     validate_snapshot_structure(value, label="test snapshot")
 
     assert measure_structure(value) == (5, 2)
+
+
+def test_surrogate_checks_reject_exactly_the_surrogate_range():
+    """Both string checks reject U+D800-U+DFFF and accept every other code point."""
+    from sdr_visualizer.core import workspace_usage
+
+    for codepoint in range(0x110000):
+        surrogate = 0xD800 <= codepoint <= 0xDFFF
+        value = f"a{chr(codepoint)}b"
+        assert bool(structure_limits._SURROGATE_RE.search(value)) is surrogate, hex(codepoint)
+        assert bool(workspace_usage._SURROGATE_RE.search(value)) is surrogate, hex(codepoint)
+    for codepoint in (0xD7FF, 0xD800, 0xDFFF, 0xE000):
+        surrogate = 0xD800 <= codepoint <= 0xDFFF
+        try:
+            workspace_usage.validate_json_value({"k": [chr(codepoint)]})
+        except InvalidSnapshotError:
+            assert surrogate, hex(codepoint)
+        else:
+            assert not surrogate, hex(codepoint)

@@ -327,6 +327,48 @@ def test_interrupt_during_collection_writes_nothing(tmp_path, monkeypatch, capsy
     assert "interrupted" in capsys.readouterr().err
 
 
+def test_interrupt_during_replace_reports_interruption(tmp_path, monkeypatch, capsys):
+    from sdr_visualizer.cli import workspace_usage as helper
+
+    monkeypatch.setattr(collector, "_acquire", lambda _: acquisition())
+
+    def interrupt(*_args):
+        raise KeyboardInterrupt
+
+    monkeypatch.setattr(helper.os, "replace", interrupt)
+    assert main(command(tmp_path)) == 1
+    assert "Workspace artifact writing interrupted" in capsys.readouterr().err
+    assert not list(tmp_path.glob(".*.tmp"))
+
+
+def _case_insensitive(directory):
+    probe = directory / "CaseProbe"
+    probe.write_text("x")
+    try:
+        return (directory / "caseprobe").exists()
+    finally:
+        probe.unlink()
+
+
+@pytest.mark.parametrize("option", ["--workspace-usage-output", "--workspace-usage-config"])
+def test_case_variant_paths_inside_snapshot_directory_are_rejected(
+    tmp_path, empty_lookup, capsys, option
+):
+    if not _case_insensitive(tmp_path):
+        pytest.skip("case-sensitive filesystem")
+    args = command(tmp_path)
+    snaps = tmp_path / "snaps"
+    snaps.mkdir()
+    (snaps / "snapshot.json").write_bytes(Path(args[0]).read_bytes())
+    (snaps / "adobe.cfg").write_text("{}")
+    args[0] = str(snaps)
+    name = "usage.json" if option == "--workspace-usage-output" else "adobe.cfg"
+    assert main([*args, option, str(tmp_path / "SNAPS" / name)]) == 3
+    assert "must be outside snapshot directories" in capsys.readouterr().err
+    assert sorted(path.name for path in snaps.iterdir()) == ["adobe.cfg", "snapshot.json"]
+    assert not empty_lookup
+
+
 @pytest.mark.parametrize("failure", ["stage", "replace", "interrupt"])
 def test_staged_writes_preserve_complete_files_and_cleanup(
     tmp_path, monkeypatch, empty_lookup, capsys, failure
@@ -584,16 +626,23 @@ def test_creation_mode_failure_cleans_staging_and_preserves_finals(tmp_path, mon
 
         monkeypatch.setattr(Path, "open", open_probe)
     elif failure == "stat":
-        import stat
+        # Fail only the helper's own probe descriptor; pytest's capture also calls fstat.
+        original_open, original_fstat = Path.open, helper.os.fstat
+        probes = set()
 
-        original = helper.os.fstat
+        def open_probe(path, *args, **kwargs):
+            handle = original_open(path, *args, **kwargs)
+            if path.name == "probe":
+                probes.add(handle.fileno())
+            return handle
 
         def stat_probe(fd):
-            result = original(fd)
-            if stat.S_ISREG(result.st_mode):
+            if fd in probes:
+                probes.discard(fd)
                 raise OSError("synthetic mode failure")
-            return result
+            return original_fstat(fd)
 
+        monkeypatch.setattr(Path, "open", open_probe)
         monkeypatch.setattr(helper.os, "fstat", stat_probe)
     else:
         original = helper.os.chmod

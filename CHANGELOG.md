@@ -4,12 +4,77 @@ All notable changes to `sdr-visualizer` will be documented here. The format foll
 
 ## [Unreleased]
 
+## [1.2.8] - 2026-10-31
+
+### Fixed
+
+- Treat a number too large to convert, such as a 400-digit
+  `complexity_score` or an infinite segment `nesting_depth`, as invalid input
+  (exit 3) instead of an unexpected error (exit 1). `--trend` skips such a
+  snapshot with a warning instead of stopping.
+- Treat an `--at` value that its UTC offset pushes outside the supported date
+  range, and standard input that is not UTF-8, as invalid input (exit 3)
+  instead of an unexpected error. The stdin change matches sdr-grader.
+- Skip a `*.json` entry whose file metadata cannot be read, such as a broken
+  symlink, when a directory is ordered by modification time. It no longer
+  stops the run, and it is still protected from being overwritten by an output.
+- Stop error messages from repeating snapshot content. A record without an ID
+  is now reported by its list and position, such as `CJA metrics[3]`, instead
+  of by printing the whole record. Number errors name the value's type, not
+  the value. A failed live run reports the generator's exit status but no
+  longer prints its error output. These match sdr-grader.
+- Leave out an AA calculated metric's `attribution` or `allocation` when it is
+  not a string, so the embedded payload and `--json` sidecar match
+  `docs/payload-schema.json`.
+- Reject an HTML and `--json` destination pair whose names differ only in
+  letter case or Unicode normalization, in the same directory. On a
+  case-insensitive filesystem, such as the macOS default, the JSON used to
+  replace the report. A Workspace usage output or config path that reaches a
+  snapshot directory through a different letter case is now also rejected.
+- Print "Workspace artifact writing interrupted" when Ctrl-C stops usage file
+  writing; the message was empty.
+- Drop null, number, boolean and empty-string values from a component's tags
+  instead of turning them into tags such as `"None"` or `"7"`. Tag objects
+  still contribute their `name`, or else their `id`. This matches sdr-grader.
+- Reject a definition, tag list or reference list whose embedded JSON repeats
+  a key within one object, as invalid input (exit 3), instead of keeping the
+  last value. Snapshot files already reject this. This matches sdr-grader.
+- Report a snapshot directory that cannot be read as an input error. Before,
+  it looked like an empty directory. This matches sdr-grader.
+- Decode standard input as UTF-8 whatever the terminal's locale encoding is.
+  This matches sdr-grader.
+- Reject an empty `--dataview` or `--rsid` ID, or one that starts with `-`,
+  before running the generator (exit 3). The generator would read such a value
+  as an option. This matches sdr-grader.
+- Detect an AA snapshot from the same `report_suite` key the AA adapter reads.
+  This matches sdr-grader.
+- Treat a NaN or infinite component, derived field, calculated metric or
+  segment name, a component type, or an AA report suite name as missing,
+  instead of showing "nan". Spreadsheet-based exports write NaN for an empty
+  cell. This matches sdr-grader.
+- `cja-lineage` now checks that the output's parent directory exists before
+  reading discovery input, and exits 3 as LINEAGE.md documents. It used to
+  exit 1 after discovery had already run.
+
 ### Changed
 
+- Advance the AA tested-through generator marker to `aa_auto_sdr` 1.24.6.
+  Snapshots that declare that version no longer print a newer-than-tested
+  warning. The CJA marker stays at `cja_auto_sdr` 3.13.6, the current release.
+- Build reports faster. The check for invalid Unicode in snapshot text now
+  uses the same compiled pattern as sdr-grader. Median build time is 39% to
+  46% lower across the synthetic performance tiers. Output is byte-identical.
 - Maintainer tooling only: Dependabot auto-merge now also covers `pytest-xdist`
   patch updates and `hypothesis` minor and patch updates. Every automatically
   merged release must be at least 3 days old on PyPI, and Dependabot waits 3
   days before opening `uv` update PRs.
+- Maintainer tooling only: `uv.lock` now uses lockfile revision 5, which is the
+  format Dependabot writes, so Dependabot lockfile PRs no longer fail the
+  policy's settings check. No package versions changed.
+- Maintainer tooling only: make tests independent of pytest 9.2.0 internals
+  and of machine load. One test no longer fakes `os.fstat` for the whole
+  process, two collection tests no longer depend on interpreter startup time,
+  and browser tests wait for results instead of sleeping.
 
 ## [1.2.7] - 2026-10-30
 
@@ -822,7 +887,8 @@ The following are explicitly internal and may change without notice:
 - Workspace project visualization (v0.4)
 - Schema map view (v0.5)
 
-[Unreleased]: https://github.com/brian-a-au/sdr-visualizer/compare/v1.2.7...HEAD
+[Unreleased]: https://github.com/brian-a-au/sdr-visualizer/compare/v1.2.8...HEAD
+[1.2.8]: https://github.com/brian-a-au/sdr-visualizer/releases/tag/v1.2.8
 [1.2.7]: https://github.com/brian-a-au/sdr-visualizer/releases/tag/v1.2.7
 [1.2.6]: https://github.com/brian-a-au/sdr-visualizer/releases/tag/v1.2.6
 [1.2.5]: https://github.com/brian-a-au/sdr-visualizer/releases/tag/v1.2.5

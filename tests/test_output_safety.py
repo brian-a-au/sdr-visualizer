@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import os
+import sys
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
@@ -212,10 +213,10 @@ def test_candidate_discovery_error_is_an_input_error(tmp_path, monkeypatch, caps
     directory = tmp_path / "snapshots"
     directory.mkdir()
 
-    def fail_discovery(_self, _pattern):
+    def fail_discovery(_self):
         raise OSError("discovery unavailable")
 
-    monkeypatch.setattr(Path, "glob", fail_discovery)
+    monkeypatch.setattr(Path, "iterdir", fail_discovery)
 
     rc = main([str(directory), "--output", str(tmp_path / "report.html"), "--quiet"])
 
@@ -251,3 +252,133 @@ def test_candidate_listing_returns_every_sorted_json_path(tmp_path):
     (directory / "ignored.txt").write_text("{}", encoding="utf-8")
 
     assert list_snapshot_candidates(directory) == expected
+
+
+def _case_insensitive(directory: Path) -> bool:
+    probe = directory / "CaseProbe"
+    probe.write_text("x", encoding="utf-8")
+    try:
+        return (directory / "caseprobe").exists()
+    finally:
+        probe.unlink()
+
+
+@pytest.mark.parametrize(
+    ("left", "right", "expected"),
+    [
+        ("report.html", "REPORT.HTML", True),
+        ("report.html", "Report.html", True),
+        ("r\u00e9port.html", "re\u0301port.html", True),
+        ("r\u00e9port.html", "RE\u0301PORT.HTML", True),
+        ("report.html", "report.json", False),
+        ("report.html", "r\u00e9port.html", False),
+    ],
+)
+def test_new_destinations_differing_only_in_case_or_normalization_alias(
+    tmp_path, left, right, expected
+):
+    from sdr_visualizer.cli.output_safety import paths_alias
+
+    assert paths_alias(tmp_path / left, tmp_path / right) is expected
+
+
+def test_case_folded_names_in_different_directories_do_not_alias(tmp_path):
+    from sdr_visualizer.cli.output_safety import paths_alias
+
+    (tmp_path / "a").mkdir()
+    (tmp_path / "b").mkdir()
+    assert paths_alias(tmp_path / "a" / "r.html", tmp_path / "b" / "R.HTML") is False
+    assert paths_alias(tmp_path / "missing" / "r.html", tmp_path / "MISSING" / "R.html") is False
+
+
+def test_html_and_json_outputs_differing_only_in_case_are_rejected(tmp_path, capsys):
+    source = tmp_path / "snapshot.json"
+    original = _write_snapshot(source)
+
+    code = main(
+        [str(source), "--output", str(tmp_path / "r.html"), "--json", str(tmp_path / "R.HTML")]
+    )
+
+    assert code == 3
+    assert "HTML output aliases JSON output" in capsys.readouterr().err
+    assert sorted(path.name for path in tmp_path.iterdir()) == ["snapshot.json"]
+    assert source.read_bytes() == original
+
+
+def test_path_within_compares_existing_ancestors_by_identity(tmp_path, monkeypatch):
+    from sdr_visualizer.cli.output_safety import path_within
+
+    snaps = tmp_path / "snaps"
+    snaps.mkdir()
+    link = tmp_path / "link"
+    link.symlink_to(snaps, target_is_directory=True)
+    (tmp_path / "other").mkdir()
+    # Disable the lexical and resolved checks so only ancestor identity decides.
+    monkeypatch.setattr(Path, "resolve", lambda self, strict=False: self)
+
+    assert path_within(link / "usage.json", snaps)
+    assert not path_within(tmp_path / "other" / "usage.json", snaps)
+    assert not path_within(tmp_path / "missing" / "usage.json", snaps)
+
+
+def test_case_variant_spelling_of_snapshot_directory_is_inside_it(tmp_path):
+    from sdr_visualizer.cli.output_safety import path_within
+
+    snaps = tmp_path / "snaps"
+    snaps.mkdir()
+    if not _case_insensitive(tmp_path):
+        pytest.skip("case-sensitive filesystem")
+    assert path_within(tmp_path / "SNAPS" / "usage.json", snaps)
+
+
+def test_path_within_follows_symlinked_parents(tmp_path):
+    from sdr_visualizer.cli.output_safety import path_within
+
+    snaps = tmp_path / "snaps"
+    snaps.mkdir()
+    link = tmp_path / "link"
+    link.symlink_to(snaps, target_is_directory=True)
+
+    assert path_within(link / "usage.json", snaps)
+
+
+def test_candidate_listing_keeps_json_glob_matching(tmp_path):
+    directory = tmp_path / "snapshots"
+    directory.mkdir()
+    (directory / "sub.json").mkdir()
+    for name in ["a.json", ".hidden.json", ".json", "UPPER.JSON", "b.json.bak", "é.json"]:
+        (directory / name).write_text("{}", encoding="utf-8")
+    (directory / "link.json").symlink_to(directory / "a.json")
+    (directory / "dangling.json").symlink_to(directory / "missing")
+
+    names = [path.name for path in list_snapshot_candidates(directory)]
+
+    assert names == [
+        ".hidden.json",
+        ".json",
+        "a.json",
+        "dangling.json",
+        "link.json",
+        "sub.json",
+        "é.json",
+    ]
+
+
+@pytest.mark.skipif(
+    sys.platform == "win32" or os.geteuid() == 0,
+    reason="needs POSIX permissions enforced for a non-root user",
+)
+def test_unreadable_snapshot_directory_is_an_input_error(tmp_path, capsys):
+    # sdr-grader parity: Path.glob returned no matches for an unreadable
+    # directory, so it was reported as empty instead of unreadable.
+    directory = tmp_path / "snapshots"
+    directory.mkdir()
+    (directory / "snapshot_2026-04-01.json").write_text("{}", encoding="utf-8")
+    directory.chmod(0)
+    try:
+        rc = main([str(directory), "--output", str(tmp_path / "report.html"), "--quiet"])
+    finally:
+        directory.chmod(0o755)
+
+    assert rc == 3
+    assert "could not inspect snapshot directory" in capsys.readouterr().err

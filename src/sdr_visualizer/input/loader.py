@@ -57,7 +57,13 @@ def load_snapshot(path_or_token: str, *, at: str | None = None) -> tuple[dict[st
 
 
 def _load_stdin() -> tuple[dict[str, Any], str]:
-    raw = sys.stdin.read()
+    # Decode stdin bytes as UTF-8, like file input, instead of the locale
+    # encoding of sys.stdin. A text-only stream (no .buffer) is already decoded.
+    try:
+        buffer = getattr(sys.stdin, "buffer", None)
+        raw = buffer.read().decode("utf-8") if buffer is not None else sys.stdin.read()
+    except UnicodeError:
+        raise InvalidSnapshotError("stdin is not valid UTF-8") from None
     if not raw.strip():
         raise InvalidSnapshotError("stdin is empty; expected JSON snapshot")
     try:
@@ -101,8 +107,10 @@ def _load_from_directory(directory: Path, *, at: str | None) -> tuple[dict[str, 
 
 def list_snapshot_candidates(directory: Path) -> list[Path]:
     """Return every sorted ``.json`` candidate owned by a snapshot directory."""
+    # iterdir() raises when the directory cannot be read; glob() returns no
+    # matches instead, which reported an unreadable directory as empty.
     try:
-        candidates = sorted(directory.glob("*.json"))
+        candidates = sorted(p for p in directory.iterdir() if p.name.endswith(".json"))
     except (OSError, RuntimeError) as exc:
         raise InvalidSnapshotError(
             f"could not inspect snapshot directory {directory}: {exc}"
@@ -133,8 +141,11 @@ def _pick_snapshot(candidates: list[Path], *, at: str | None) -> Path:
     if not has_timestamp:
         # Fall back to filesystem mtime on the same UTC-naive clock used by
         # filename timestamps and parsed --at values.
-        annotated_mtime = [(p, _mtime_timestamp(p)) for p in candidates]
-        has_timestamp = annotated_mtime
+        has_timestamp = mtime_candidates(candidates)
+        if not has_timestamp:
+            raise InvalidSnapshotError(
+                f"no readable .json snapshots found in {candidates[0].parent}"
+            )
 
     if at is None:
         return max(has_timestamp, key=lambda pair: pair[1])[0]
@@ -173,15 +184,34 @@ def _mtime_timestamp(path: Path) -> datetime:
     return datetime.fromtimestamp(path.stat().st_mtime, tz=UTC).replace(tzinfo=None)
 
 
+def mtime_candidates(candidates: list[Path]) -> list[tuple[Path, datetime]]:
+    """Pair candidates with mtime, skipping any that cannot be inspected.
+
+    A dangling symlink or a file removed after listing has no mtime. It stays
+    a protected output candidate, but it cannot be selected.
+    """
+    stamped = []
+    for path in candidates:
+        try:
+            stamped.append((path, _mtime_timestamp(path)))
+        except OSError:
+            print(
+                f"sdr-visualizer: warning: skipping {path.name}: could not read file metadata",
+                file=sys.stderr,
+            )
+    return stamped
+
+
 def _parse_iso_timestamp(value: str) -> datetime | None:
     candidate = value.strip().replace("/", "-")
     if candidate.endswith("Z"):
         candidate = candidate[:-1] + "+00:00"
     try:
         parsed = datetime.fromisoformat(candidate)
-    except ValueError:
+        if parsed.tzinfo is not None:
+            # Filename timestamps are naive; compare on the UTC clock.
+            parsed = parsed.astimezone(UTC).replace(tzinfo=None)
+    except (ValueError, OverflowError):
+        # OverflowError: an offset pushes the value outside datetime's range.
         return None
-    if parsed.tzinfo is not None:
-        # Filename timestamps are naive; compare on the UTC clock.
-        parsed = parsed.astimezone(UTC).replace(tzinfo=None)
     return parsed
