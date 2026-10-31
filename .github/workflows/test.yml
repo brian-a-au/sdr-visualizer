@@ -19,7 +19,7 @@ jobs:
       contents: read
     strategy:
       matrix:
-        python-version: ["3.11", "3.12", "3.14"]
+        python-version: ["3.11", "3.12", "3.13", "3.14"]
         # Coverage runs once, on the version whose sys.monitoring tracer keeps
         # it cheap; the 99% gate is version-independent.
         include:
