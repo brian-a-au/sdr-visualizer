@@ -16,12 +16,26 @@ import re
 import subprocess
 import sys
 import tomllib
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
 from urllib.parse import unquote, urlsplit
 from urllib.request import urlopen
 
-ALLOWED_PACKAGES = frozenset({"ruff", "pytest", "pytest-cov"})
+# The furthest update each automated package may take: "patch" keeps the
+# major and minor version, "minor" keeps the major version. Every other
+# package, and any larger update, needs a manual merge.
+UPDATE_LEVELS = {
+    "ruff": "patch",
+    "pytest": "patch",
+    "pytest-cov": "patch",
+    "pytest-xdist": "patch",
+    "hypothesis": "minor",
+}
+ALLOWED_PACKAGES = frozenset(UPDATE_LEVELS)
+# Matches Dependabot's cooldown. A release this new could still be yanked
+# or found compromised, so it waits for a manual merge instead.
+MIN_RELEASE_AGE = timedelta(days=3)
 REQUIRED_CHECKS = frozenset(
     {
         "dependabot-policy",
@@ -130,7 +144,7 @@ def _valid_artifact(artifact: dict[str, Any], name: str, version: str, *, wheel:
 
 
 def review_locks(before: dict[str, Any], after: dict[str, Any]) -> tuple[bool, str]:
-    """Conservatively approve only direct dev patches with no other changes."""
+    """Conservatively approve only allowlisted direct dev updates with no other changes."""
     if {key: value for key, value in before.items() if key != "package"} != {
         key: value for key, value in after.items() if key != "package"
     }:
@@ -159,8 +173,10 @@ def review_locks(before: dict[str, Any], after: dict[str, Any]) -> tuple[bool, s
         old_version, new_version = [
             tuple(map(int, match.groups())) for match in versions if match is not None
         ]
-        if old_version[:2] != new_version[:2] or new_version[2] <= old_version[2]:
-            return False, f"{name} is not a forward patch update"
+        level = UPDATE_LEVELS[name]
+        kept = 2 if level == "patch" else 1
+        if old_version[:kept] != new_version[:kept] or new_version <= old_version:
+            return False, f"{name} is not a forward {level} update"
         allowed_fields = {"version", "sdist", "wheels"}
         if {key: value for key, value in previous.items() if key not in allowed_fields} != {
             key: value for key, value in updated.items() if key not in allowed_fields
@@ -186,8 +202,16 @@ def read_lock(repo: str, sha: str) -> dict[str, Any]:
     return tomllib.loads(base64.b64decode(content["content"]).decode("utf-8"))
 
 
-def verify_pypi_artifacts(before: dict[str, Any], after: dict[str, Any]) -> None:
-    """Compare every changed artifact with the registry's published metadata."""
+def verify_pypi_artifacts(
+    before: dict[str, Any], after: dict[str, Any], *, now: datetime | None = None
+) -> str | None:
+    """Compare every changed artifact with the registry's published metadata.
+
+    Mismatched or yanked artifacts raise. A release younger than
+    MIN_RELEASE_AGE returns the reason it must wait for a manual merge.
+    """
+    now = now or datetime.now(UTC)
+    too_new = []
     old, new = _packages(before), _packages(after)
     for name, resolutions in new.items():
         if resolutions == old[name]:
@@ -209,6 +233,15 @@ def verify_pypi_artifacts(before: dict[str, Any], after: dict[str, Any]) -> None
                 or artifact["size"] != match["size"]
             ):
                 raise ValueError("Artifact differs from PyPI metadata or has been yanked")
+            uploaded = datetime.fromisoformat(match["upload_time_iso_8601"])
+            if uploaded.tzinfo is None:
+                raise ValueError("PyPI upload time has no timezone")
+            if now - uploaded < MIN_RELEASE_AGE:
+                too_new.append(name)
+    if too_new:
+        days = MIN_RELEASE_AGE.days
+        return f"{', '.join(sorted(set(too_new)))} was released less than {days} days ago"
+    return None
 
 
 def evaluate_pr(repo: str, pr: dict[str, Any]) -> tuple[bool, str]:
@@ -222,8 +255,8 @@ def evaluate_pr(repo: str, pr: dict[str, Any]) -> tuple[bool, str]:
         return False, "Only an existing uv.lock may be modified"
     before, after = read_lock(repo, pr["base"]["sha"]), read_lock(repo, pr["head"]["sha"])
     eligible, reason = review_locks(before, after)
-    if eligible:
-        verify_pypi_artifacts(before, after)
+    if eligible and (wait := verify_pypi_artifacts(before, after)):
+        return False, wait
     return eligible, reason
 
 
@@ -289,7 +322,8 @@ def apply_review(repo: str, pr: dict[str, Any], reason: str) -> None:
             "body": (
                 f"Automatic policy review: {reason}.\n\n"
                 "Verified a lockfile-only update of exclusively direct development dependencies, "
-                "unchanged dependency metadata, forward patch versions, and PyPI artifact URLs and hashes. "
+                "unchanged dependency metadata, forward updates within each package's allowed level, "
+                f"PyPI artifact URLs and hashes, and releases at least {MIN_RELEASE_AGE.days} days old. "
                 "All required CI checks passed. GitHub must also enforce an up-to-date branch at merge time."
             ),
         },

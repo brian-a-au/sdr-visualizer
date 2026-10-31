@@ -4,6 +4,13 @@ All notable changes to `sdr-visualizer` will be documented here. The format foll
 
 ## [Unreleased]
 
+### Changed
+
+- Maintainer tooling only: Dependabot auto-merge now also covers `pytest-xdist`
+  patch updates and `hypothesis` minor and patch updates. Every automatically
+  merged release must be at least 3 days old on PyPI, and Dependabot waits 3
+  days before opening `uv` update PRs.
+
 ## [1.2.7] - 2026-10-30
 
 ### Changed

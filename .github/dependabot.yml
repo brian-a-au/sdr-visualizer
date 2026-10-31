@@ -15,5 +15,8 @@ updates:
     directory: "/"
     schedule:
       interval: "weekly"
+    # Matches MIN_RELEASE_AGE in scripts/dependabot_review.py.
+    cooldown:
+      default-days: 3
     commit-message:
       prefix: "chore"
