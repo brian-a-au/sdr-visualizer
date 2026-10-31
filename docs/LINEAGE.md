@@ -43,20 +43,11 @@ Alternatively use `--profile profile-name`, or omit both credential selectors
 to use the upstream default credential route. `--profile` and `--config-file`
 are mutually exclusive and apply only to `--live`. The executable and explicit
 configuration paths must be absolute. Live discovery accepts
-`cja_auto_sdr` 3.11.8 or newer. The executable must report a plain `X.Y.Z`
-release version. Pre-release, local, or decorated version strings, other tools,
-and versions older than 3.11.8 fail closed with `executable-version-mismatch`
-before credentials are used. Live output is validated by shape, the same as
-saved discovery. A version newer than 3.13.6, the newest version exercised for
-this release, still runs and prints a warning, because newer discovery fields
-may not be represented. Saved discovery is validated by shape rather than
-generator version. Version 3.12.2 was qualified against the offline discovery
-contract with synthetic inventories and blocked network access; that check does
-not qualify credentials, network behavior, or a live release. Versions 3.12.4
-and 3.13.6 were qualified with fresh read-only dataset discovery and saved-shape
-validation; for the same scope, the 3.13.6 discovery output was byte-identical to
-3.12.4's. This does not imply complete visibility into every dataset or
-Connection. No generator is installed automatically.
+`cja_auto_sdr` 3.11.8 or newer, reported as a plain `X.Y.Z` version. Older
+versions, pre-release or local builds, and other tools fail closed before
+credentials are used. Versions newer than 3.13.6 run with a warning. Live and
+saved discovery output are both validated by shape. No generator is installed
+automatically.
 
 The command currently targets macOS and Linux, using POSIX process and
 owner-only output protections. Windows execution is not qualified. The generated
