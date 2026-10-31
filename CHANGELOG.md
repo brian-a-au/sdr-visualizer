@@ -6,6 +6,20 @@ All notable changes to `sdr-visualizer` will be documented here. The format foll
 
 ### Changed
 
+- Advance the catalog tested-through generator markers to `cja_auto_sdr`
+  3.13.5 and `aa_auto_sdr` 1.24.4. Snapshots that declare those versions no
+  longer print a newer-than-tested warning. The separate lineage allowlist is
+  unchanged.
+- Reject a snapshot whose JSON repeats a key within one object, instead of
+  silently keeping the last value. This applies to snapshot files, stdin, live
+  generator output, comparison baselines, and trend members, and matches
+  sdr-grader. The error does not echo the key. A trend member with a repeated
+  key is skipped with a warning.
+- Verify Python 3.13 in CI and list Python 3.11 through 3.14 in the package
+  classifiers. The installation requirement is still Python 3.11 or newer.
+- Maintainer tooling only: CI pins uv 0.13.6, matching sdr-grader, so CI and
+  contributors resolve the lockfile with the same uv.
+
 - Update the optional AA Workspace SDK to `aanalytics2==0.5.5.post3` and align
   its collection version guard with the package pin. The upstream change is
   limited to the knowledge graph module, which collection does not use.
