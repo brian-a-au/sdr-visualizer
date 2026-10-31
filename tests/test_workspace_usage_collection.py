@@ -434,6 +434,12 @@ def protocol(messages, *, timeout=2, stall=False, req=None):
         [sys.executable, "-c", code], stdout=subprocess.PIPE, start_new_session=True, env={}
     ) as process:
         try:
+            if stall:
+                # Start the short deadline only after the child has written, so
+                # interpreter startup on a loaded machine cannot consume it.
+                import select
+
+                assert select.select([process.stdout], [], [], 30)[0]
             return collector._receive(process, req or request(), timeout=timeout)
         finally:
             collector._stop(process)

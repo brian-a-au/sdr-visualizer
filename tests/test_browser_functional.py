@@ -32,6 +32,16 @@ from sdr_visualizer.render.renderer import (  # noqa: E402
 FIXTURES = Path(__file__).parent / "fixtures"
 
 
+def _wait_for_change_rows(page, count: int) -> None:
+    """Wait for the debounced Changes filter to settle on ``count`` visible rows."""
+    page.wait_for_function(
+        """count => Array.from(document.querySelectorAll('#changes-body .change-row'))
+            .filter(function (row) { return !row.hidden; }).length === count""",
+        arg=count,
+        timeout=5_000,
+    )
+
+
 @pytest.fixture(scope="module", params=["chromium", "webkit"])
 def browser_page(request):
     """One page per engine; every test in this module runs on both.
@@ -152,11 +162,9 @@ def test_url_hash_written_on_filter_change(browser_page, tmp_path):
     browser_page.goto(out.as_uri())
     browser_page.wait_for_selector("#catalog-body tr", state="attached", timeout=10_000)
     browser_page.fill("#search-input", "revenue")
-    browser_page.wait_for_timeout(300)  # debounce (120ms) + slack
-    assert "q=revenue" in browser_page.evaluate("location.hash")
+    browser_page.wait_for_function("location.hash.includes('q=revenue')", timeout=5_000)
     browser_page.fill("#search-input", "")
-    browser_page.wait_for_timeout(300)
-    assert "q=" not in browser_page.evaluate("location.hash")
+    browser_page.wait_for_function("!location.hash.includes('q=')", timeout=5_000)
 
 
 def test_perf_filter_hook_waits_for_frame_and_layout(browser_page, tmp_path):
@@ -809,10 +817,10 @@ def test_changes_view_shows_no_description_chip(browser_page, tmp_path):
     browser_page.click('.view-button[data-view="changes"]')
     added_id = added_without_description["id"]
     browser_page.fill("#changes-search", added_id)
-    browser_page.wait_for_timeout(300)
     chip = browser_page.locator(
         f'.change-added:has(button.ref-link[data-id="{added_id}"]) .change-no-desc'
     )
+    chip.wait_for(state="attached", timeout=5_000)
     assert chip.count() == 1
     assert chip.is_visible()
 
@@ -829,7 +837,9 @@ def test_detail_panel_marks_missing_description(browser_page, tmp_path):
     browser_page.goto(out.as_uri())
     browser_page.wait_for_selector("#catalog-body tr", state="attached", timeout=10_000)
     browser_page.fill("#search-input", component["name"])
-    browser_page.wait_for_timeout(300)
+    browser_page.wait_for_function(
+        "location.hash.includes('q=')", timeout=5_000
+    )  # the debounced filter has run
     row = browser_page.locator(f'#catalog-body tr[data-id="{component["id"]}"]')
     assert row.locator(".is-missing-marker").inner_text() == "(no description)"
     row.click()
@@ -875,7 +885,7 @@ def test_changes_search_filters_rows(browser_page, tmp_path):
     browser_page.wait_for_selector("#catalog-body tr", state="attached", timeout=10_000)
     browser_page.click('.view-button[data-view="changes"]')
     browser_page.fill("#changes-search", "metric two")
-    browser_page.wait_for_timeout(300)  # debounce (120ms) + slack
+    _wait_for_change_rows(browser_page, 1)
     visible = browser_page.evaluate(
         "Array.from(document.querySelectorAll('#changes-body .change-row'))"
         ".filter(function (r) { return !r.hidden; }).length"
@@ -895,14 +905,14 @@ def test_changes_filter_and_progressive_batches_are_bounded(browser_page, tmp_pa
     # Filtering operates on the complete change arrays, not just the
     # currently materialized DOM batch.
     browser_page.fill("#changes-search", "offpage needle")
-    browser_page.wait_for_timeout(300)
+    _wait_for_change_rows(browser_page, 1)
     rows = browser_page.locator("#changes-body .change-row")
     assert rows.count() == 1
     assert "Offpage Needle" in rows.first.inner_text()
 
     # A result set below the hard cap can be disclosed in fixed-size batches.
     browser_page.fill("#changes-search", "batch match")
-    browser_page.wait_for_timeout(300)
+    _wait_for_change_rows(browser_page, 250)
     assert rows.count() == 250
     while browser_page.locator("#changes-show-next").count():
         browser_page.click("#changes-show-next")
@@ -911,7 +921,7 @@ def test_changes_filter_and_progressive_batches_are_bounded(browser_page, tmp_pa
     # An unfiltered result set never creates more than 1,000 rows and offers
     # refinement rather than an unbounded "show all" escape hatch.
     browser_page.fill("#changes-search", "")
-    browser_page.wait_for_timeout(300)
+    _wait_for_change_rows(browser_page, 250)
     while browser_page.locator("#changes-show-next").count():
         browser_page.click("#changes-show-next")
     assert rows.count() == 1_000
@@ -1719,10 +1729,10 @@ def test_changes_keyboard_paging_preserves_expansion(browser_page, tmp_path, kin
     if kind == "modified":
         assert browser_page.locator("#changes-body details").first.get_attribute("open") is not None
     browser_page.fill("#changes-search", "Change 619")
-    browser_page.wait_for_timeout(300)
+    _wait_for_change_rows(browser_page, 1)
     assert browser_page.locator("#changes-body .change-row").count() == 1
     browser_page.fill("#changes-search", "")
-    browser_page.wait_for_timeout(300)
+    _wait_for_change_rows(browser_page, 250)
     assert browser_page.locator("#changes-body .change-row").count() == 250
     assert browser_page.locator("#changes-body details[open]").count() == 0
     browser_page.locator("#changes-show-next").focus()
