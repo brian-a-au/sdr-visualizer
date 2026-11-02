@@ -413,6 +413,7 @@ def main() -> int:
         browser = pw.chromium.launch(headless=True)
         page = browser.new_page()
         with tempfile.TemporaryDirectory() as tmp:
+            warmed_up = False
             for case in FIXTURES:
                 snap = json.loads(case.path.read_text(encoding="utf-8"))
                 implementation = adapters[case.adapter](snap)
@@ -421,6 +422,15 @@ def main() -> int:
                     failures.append(mismatch)
                 html_path = Path(tmp) / f"{case.path.stem}.html"
                 html_path.write_text(render(implementation), encoding="utf-8")
+                if not warmed_up:
+                    # Untimed warm-up load. Every report embeds the same
+                    # JavaScript and D3, so V8 reuses its compiled code from
+                    # the second report on. Without this, only the first
+                    # fixture pays that one-time compile (~60-80ms on CI)
+                    # and its budget measures a different thing from the rest.
+                    page.goto(html_path.as_uri())
+                    page.wait_for_selector("#catalog-body tr", state="attached", timeout=10_000)
+                    warmed_up = True
                 failures += _check(
                     page,
                     html_path,
