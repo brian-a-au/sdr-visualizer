@@ -169,7 +169,10 @@ Build time is the median of three runs.
 
 `scripts/perf_browser_check.py` opens generated reports in headless Chromium
 through Playwright. It measures initial render time, cold and warm catalog
-filtering, and the main-thread pause when the graph initializes.
+filtering, and the main-thread pause when the graph initializes. Every report
+embeds the same JavaScript, so the browser compiles it once and reuses it. The
+gate opens the first report once without timing it, so that one-time compile is
+not charged only to whichever report happens to be measured first.
 
 The browser gate exercises all declared size tiers and enforces a 700 ms graph
 initialization cap, including a deterministic graph of roughly 1,000 nodes and
