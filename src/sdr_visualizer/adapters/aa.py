@@ -380,7 +380,7 @@ def _walk_segment_definition(definition: Any) -> tuple[int, list[str]]:
 # and the historical compatibility corpus; snapshot declarations alone do not
 # establish this marker. Undeclared versions stay unknown and do not warn.
 # The compatibility policy warns about newer declared versions, never refuses.
-TESTED_THROUGH_GENERATOR_VERSION = "1.24.6"
+TESTED_THROUGH_GENERATOR_VERSION = "1.25.0"
 
 
 def generator_version_warning(adapter_version: str) -> str | None:

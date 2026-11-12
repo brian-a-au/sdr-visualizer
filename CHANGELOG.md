@@ -6,6 +6,12 @@ All notable changes to `sdr-visualizer` will be documented here. The format foll
 
 ### Changed
 
+- Raise the newest tested generator versions to `cja_auto_sdr` 3.13.11 and
+  `aa_auto_sdr` 1.25.0, for both catalog snapshots and live lineage. Snapshots
+  from these versions no longer print the "newer than tested" warning. Both
+  versions passed a fresh live qualification run and the full private snapshot
+  check.
+
 - Maintainer tooling only: stop each CI browser install after 5 minutes and
   try once more, so a stalled download fails in about 10 minutes instead of
   holding the job until its 20-minute timeout.
