@@ -288,4 +288,5 @@ Unlike the grader, the visualizer never treats an omitted built-in as an
 available node. Raw segment definitions remain outside snapshot comparison,
 and CJA comparison still uses exported formula summaries and reference arrays;
 this patch does not claim semantic equivalence checking for arbitrary ASTs.
-See [the adapter review](ADAPTER_CORRECTNESS_1.1.2.md) for evidence and limits.
+The 1.1.2 review evidence is recorded in
+[PR #41](https://github.com/brian-a-au/sdr-visualizer/pull/41).

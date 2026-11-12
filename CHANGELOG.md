@@ -4,6 +4,18 @@ All notable changes to `sdr-visualizer` will be documented here. The format foll
 
 ## [Unreleased]
 
+### Changed
+
+- State in the README and on the project site that sdr-visualizer is not
+  affiliated with Adobe, and add a trademark notice.
+- Replace the README's "public preview" label with a plain "Scope and limits"
+  section, and mark the package as production/stable on PyPI. The 1.x semantic
+  versioning promise is unchanged.
+- Remove the 1.1.2 adapter review record from `docs/`. Its evidence stays in
+  pull request #41.
+- Leave the maintainer-only Dependabot and release evidence documents out of
+  the source distribution.
+
 ## [1.2.8] - 2026-10-31
 
 ### Fixed

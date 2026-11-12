@@ -333,7 +333,7 @@ non-critical item is backlog.
 
 ## Requirement evidence matrix
 
-Start from the tracked [release evidence template](RELEASE_EVIDENCE_TEMPLATE.md),
+Start from the tracked [release evidence template](https://github.com/brian-a-au/sdr-visualizer/blob/main/docs/RELEASE_EVIDENCE_TEMPLATE.md),
 copy it into the release pull request, and replace every `pending` with durable
 evidence tied to the candidate SHA. The template is a copy source; this
 checklist remains authoritative.

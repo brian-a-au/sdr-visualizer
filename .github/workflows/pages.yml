@@ -69,6 +69,10 @@ jobs:
               <li><a href="https://github.com/brian-a-au/sdr-visualizer/issues">Usage help and bug reports</a></li>
               <li><a href="https://github.com/brian-a-au/sdr-visualizer/blob/main/SECURITY.md">Report a security vulnerability</a></li>
             </ul>
+            <p class="sub">sdr-visualizer is an independent open source project. It is
+            not affiliated with, endorsed by, or supported by Adobe Inc. Adobe, Adobe
+            Analytics, and Customer Journey Analytics are trademarks or registered
+            trademarks of Adobe Inc. in the United States and other countries.</p>
           </body>
           </html>
           EOF

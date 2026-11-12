@@ -8,6 +8,7 @@ license-files = ["LICENSE", "THIRD_PARTY_LICENSES"]
 authors = [{ name = "Brian Au" }]
 requires-python = ">=3.11"
 classifiers = [
+    "Development Status :: 5 - Production/Stable",
     "Environment :: Console",
     "Intended Audience :: Developers",
     "Programming Language :: Python :: 3",
@@ -84,6 +85,8 @@ exclude = [
     "tests/fixtures/cja_snapshot_large.json",
     "tests/fixtures/cja_snapshot_xl.json",
     "tests/fixtures/aa_snapshot_large.json",
+    "docs/DEPENDABOT_AUTOMATION.md",
+    "docs/RELEASE_EVIDENCE_TEMPLATE.md",
 ]
 
 [tool.pytest.ini_options]
