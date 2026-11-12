@@ -37,9 +37,12 @@ Treat it as derived from the source snapshot. Move, email, post, or attach it
 only in authorized locations and in accordance with your organization's
 confidentiality and data-handling policy.
 
-## Public preview scope
+sdr-visualizer is an independent open source project. It is not affiliated
+with, endorsed by, or supported by Adobe. See [Trademarks](#trademarks).
 
-This project is in public preview. A report shows what a snapshot configures. It
+## Scope and limits
+
+A report shows what a snapshot configures. It
 does not grade the implementation or confirm that it works. Check the details
 against the source implementation before you act on them.
 
@@ -299,8 +302,9 @@ sidecar share one schema, published at
 and validated in CI against every payload shape produced by the bundled
 fixtures. Removing or retyping a field is major; adding optional fields is
 minor. The `segment_trees` / `formula_trees` node internals are documented in
-the schema as loosely specified. Current-generator and private-corpus
-validation is a separate, recorded release gate; see
+the schema as loosely specified. Before each release, the maintainer also
+checks the payload against fresh generator output and a private set of real
+snapshots. Those snapshots contain customer data and are never published. See
 [`docs/RELEASING.md`](https://github.com/brian-a-au/sdr-visualizer/blob/main/docs/RELEASING.md).
 
 **CJA lineage.** `cja-lineage` adds a separate CJA-only command. Its documented
@@ -382,3 +386,13 @@ is governed by the [`CODE_OF_CONDUCT.md`](https://github.com/brian-a-au/sdr-visu
 MIT — see [`LICENSE`](https://github.com/brian-a-au/sdr-visualizer/blob/main/LICENSE). The output bundles [D3](https://d3js.org) v7,
 vendored under the ISC license; see
 [`THIRD_PARTY_LICENSES`](https://github.com/brian-a-au/sdr-visualizer/blob/main/THIRD_PARTY_LICENSES) for the full notice.
+
+## Trademarks
+
+sdr-visualizer is an independent project. It is not affiliated with, endorsed
+by, sponsored by, or supported by Adobe Inc. Adobe, Adobe Analytics, and
+Customer Journey Analytics are trademarks or registered trademarks of Adobe
+Inc. in the United States and other countries. This project uses those names
+only to say which products its input comes from. For help with an Adobe
+product, contact Adobe. For help with this tool, open an issue in this
+repository.

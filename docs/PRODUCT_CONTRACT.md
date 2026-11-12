@@ -221,7 +221,8 @@ unusable, and capped-out members do not warn. The current markers are:
 A marker is evidence of exercised compatibility, not a promise about every
 possible snapshot produced by that version. It may advance only after a
 fresh, production-representative snapshot from that exact upstream version and
-the full historical private corpus pass the release checks in
+the maintainer's private set of real historical snapshots pass the release
+checks in
 [`RELEASING.md`](RELEASING.md). Bundled fixtures and CI do not replace that
 evidence.
 
