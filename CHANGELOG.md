@@ -4,6 +4,12 @@ All notable changes to `sdr-visualizer` will be documented here. The format foll
 
 ## [Unreleased]
 
+### Changed
+
+- Maintainer tooling only: stop each CI browser install after 5 minutes and
+  try once more, so a stalled download fails in about 10 minutes instead of
+  holding the job until its 20-minute timeout.
+
 ## [1.2.9] - 2026-11-12
 
 ### Changed
