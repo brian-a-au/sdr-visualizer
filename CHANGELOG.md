@@ -4,6 +4,8 @@ All notable changes to `sdr-visualizer` will be documented here. The format foll
 
 ## [Unreleased]
 
+## [1.2.10] - 2026-11-12
+
 ### Changed
 
 - Raise the newest tested generator versions to `cja_auto_sdr` 3.13.11 and
@@ -11,7 +13,6 @@ All notable changes to `sdr-visualizer` will be documented here. The format foll
   from these versions no longer print the "newer than tested" warning. Both
   versions passed a fresh live qualification run and the full private snapshot
   check.
-
 - Maintainer tooling only: stop each CI browser install after 5 minutes and
   try once more, so a stalled download fails in about 10 minutes instead of
   holding the job until its 20-minute timeout.
@@ -916,7 +917,8 @@ The following are explicitly internal and may change without notice:
 - Workspace project visualization (v0.4)
 - Schema map view (v0.5)
 
-[Unreleased]: https://github.com/brian-a-au/sdr-visualizer/compare/v1.2.9...HEAD
+[Unreleased]: https://github.com/brian-a-au/sdr-visualizer/compare/v1.2.10...HEAD
+[1.2.10]: https://github.com/brian-a-au/sdr-visualizer/releases/tag/v1.2.10
 [1.2.9]: https://github.com/brian-a-au/sdr-visualizer/releases/tag/v1.2.9
 [1.2.8]: https://github.com/brian-a-au/sdr-visualizer/releases/tag/v1.2.8
 [1.2.7]: https://github.com/brian-a-au/sdr-visualizer/releases/tag/v1.2.7
