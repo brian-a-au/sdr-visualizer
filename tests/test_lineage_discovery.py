@@ -103,7 +103,13 @@ def test_saved_and_live_success_return_the_same_normalized_topology(tmp_path: Pa
 
 @pytest.mark.parametrize(
     "version",
-    ["cja_auto_sdr 3.12.0", "cja_auto_sdr 3.12.2", "cja_auto_sdr 3.12.4", "cja_auto_sdr 3.13.6"],
+    [
+        "cja_auto_sdr 3.12.0",
+        "cja_auto_sdr 3.12.2",
+        "cja_auto_sdr 3.12.4",
+        "cja_auto_sdr 3.13.6",
+        "cja_auto_sdr 3.13.11",
+    ],
 )
 def test_live_312_acquires_enriched_relationship_metadata(tmp_path: Path, version: str) -> None:
     executable, record_path = _fake_executable(
@@ -180,7 +186,8 @@ def test_live_rejects_malformed_or_too_old_versions_before_acquisition(
         ("cja_auto_sdr 3.12.3", False),
         ("cja_auto_sdr 3.13.5", False),
         ("cja_auto_sdr 3.13.6", False),
-        ("cja_auto_sdr 3.13.7", True),
+        ("cja_auto_sdr 3.13.11", False),
+        ("cja_auto_sdr 3.13.12", True),
         ("cja_auto_sdr 3.14.0", True),
         ("cja_auto_sdr 4.0.0", True),
     ],

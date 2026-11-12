@@ -32,7 +32,7 @@ _READ_SIZE = 64 * 1024
 # qualified version. Output is shape-validated like saved discovery, so a
 # version newer than the last one exercised warns instead of failing.
 MINIMUM_LIVE_GENERATOR_VERSION = "3.11.8"
-TESTED_THROUGH_LIVE_GENERATOR_VERSION = "3.13.6"
+TESTED_THROUGH_LIVE_GENERATOR_VERSION = "3.13.11"
 _VERSION_OUTPUT = re.compile(rb"\Acja_auto_sdr (\d{1,6})\.(\d{1,6})\.(\d{1,6})(?:\r?\n)?\Z")
 _VERSION_OUTPUT_LIMIT = 8 * 1024
 _VERSION_TIMEOUT_SECONDS = 10.0

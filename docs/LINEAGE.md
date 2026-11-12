@@ -45,7 +45,7 @@ are mutually exclusive and apply only to `--live`. The executable and explicit
 configuration paths must be absolute. Live discovery accepts
 `cja_auto_sdr` 3.11.8 or newer, reported as a plain `X.Y.Z` version. Older
 versions, pre-release or local builds, and other tools fail closed before
-credentials are used. Versions newer than 3.13.6 run with a warning. Live and
+credentials are used. Versions newer than 3.13.11 run with a warning. Live and
 saved discovery output are both validated by shape. No generator is installed
 automatically.
 

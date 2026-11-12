@@ -215,8 +215,8 @@ unusable, and capped-out members do not warn. The current markers are:
 
 | Platform | Warning threshold |
 |---|---:|
-| CJA (`cja_auto_sdr`) | 3.13.6 |
-| AA (`aa_auto_sdr`) | 1.24.6 |
+| CJA (`cja_auto_sdr`) | 3.13.11 |
+| AA (`aa_auto_sdr`) | 1.25.0 |
 
 A marker is evidence of exercised compatibility, not a promise about every
 possible snapshot produced by that version. It may advance only after a
