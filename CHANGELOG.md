@@ -4,6 +4,8 @@ All notable changes to `sdr-visualizer` will be documented here. The format foll
 
 ## [Unreleased]
 
+## [1.2.9] - 2026-11-12
+
 ### Changed
 
 - State in the README and on the project site that sdr-visualizer is not
@@ -15,6 +17,9 @@ All notable changes to `sdr-visualizer` will be documented here. The format foll
   pull request #41.
 - Leave the maintainer-only Dependabot and release evidence documents out of
   the source distribution.
+- Maintainer tooling only: add a version-sync check and README badge, warm up
+  the browser before the first timed report in the performance gate, and
+  update the pytest and hypothesis development dependencies.
 
 ## [1.2.8] - 2026-10-31
 
@@ -899,7 +904,8 @@ The following are explicitly internal and may change without notice:
 - Workspace project visualization (v0.4)
 - Schema map view (v0.5)
 
-[Unreleased]: https://github.com/brian-a-au/sdr-visualizer/compare/v1.2.8...HEAD
+[Unreleased]: https://github.com/brian-a-au/sdr-visualizer/compare/v1.2.9...HEAD
+[1.2.9]: https://github.com/brian-a-au/sdr-visualizer/releases/tag/v1.2.9
 [1.2.8]: https://github.com/brian-a-au/sdr-visualizer/releases/tag/v1.2.8
 [1.2.7]: https://github.com/brian-a-au/sdr-visualizer/releases/tag/v1.2.7
 [1.2.6]: https://github.com/brian-a-au/sdr-visualizer/releases/tag/v1.2.6
