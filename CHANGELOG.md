@@ -4,6 +4,13 @@ All notable changes to `sdr-visualizer` will be documented here. The format foll
 
 ## [Unreleased]
 
+### Changed
+
+- Update the optional AA Workspace SDK to `aanalytics2==0.5.6` and align its
+  collection version guard with the package pin. The upstream changes cover
+  the scheduler endpoints, project metadata fields, the knowledge graph, and
+  the MCP server. Collection does not use any of them.
+
 ## [1.2.10] - 2026-11-12
 
 ### Changed

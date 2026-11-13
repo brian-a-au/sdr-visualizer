@@ -15,7 +15,7 @@ resolution-markers = [
 
 [[package]]
 name = "aanalytics2"
-version = "0.5.5.post3"
+version = "0.5.6"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "deprecation" },
@@ -25,15 +25,14 @@ dependencies = [
     { name = "openpyxl" },
     { name = "pandas" },
     { name = "pathlib" },
-    { name = "pathlib2" },
     { name = "pytest" },
     { name = "rdflib" },
     { name = "requests" },
     { name = "rich" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/00/ea/8766c0fdbe5f2523fb2c946f2c03dc5547dd8eccd2a1a77d54e7eb413269/aanalytics2-0.5.5.post3.tar.gz", hash = "sha256:da263f2ee210345e04f8f439c69ba95b5e486a993a8062d679c6421160747951", size = 320023, upload-time = "2026-10-24T15:36:47.278Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/07/37/75eaf560b79e7b16da44213ae30fb484d920ac56a0ee1051f3c5ed07e5ee/aanalytics2-0.5.6.tar.gz", hash = "sha256:8eeaf5727b0e7c703ef6135670b6b5ebfe13cb145186641beef1506de5d830d5", size = 331023, upload-time = "2026-11-07T14:04:49.492Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/45/da/8436bf359995378ae4dd55cb50a53aee75981e8d7f87fc019df6bee73f9e/aanalytics2-0.5.5.post3-py3-none-any.whl", hash = "sha256:9e8896d8bd95289f9056041fccfd801fb93f205d0ecf6a3c9b62f29bdf321fc6", size = 188577, upload-time = "2026-10-24T15:36:45.963Z" },
+    { url = "https://files.pythonhosted.org/packages/ed/26/79933c8e08391f757b05b38d1493448731bb8bad1910a571d410168c446a/aanalytics2-0.5.6-py3-none-any.whl", hash = "sha256:9b30bdf991198e43eac5d36940d7bc7e6e05d89b0953867209f1646d842efa51", size = 197663, upload-time = "2026-11-07T14:04:48.121Z" },
 ]
 
 [[package]]
@@ -1814,7 +1813,7 @@ dev = [
 
 [package.metadata]
 requires-dist = [
-    { name = "aanalytics2", marker = "extra == 'workspace-aa'", specifier = "==0.5.5.post3" },
+    { name = "aanalytics2", marker = "extra == 'workspace-aa'", specifier = "==0.5.6" },
     { name = "cjapy", marker = "extra == 'workspace-cja'", specifier = "==0.3.1" },
     { name = "jinja2", specifier = ">=3.1" },
     { name = "requests", marker = "extra == 'workspace-aa'", specifier = ">=2.32" },
