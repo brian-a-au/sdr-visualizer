@@ -4,12 +4,18 @@ All notable changes to `sdr-visualizer` will be documented here. The format foll
 
 ## [Unreleased]
 
+## [1.2.11] - 2026-11-13
+
 ### Changed
 
 - Update the optional AA Workspace SDK to `aanalytics2==0.5.6` and align its
   collection version guard with the package pin. The upstream changes cover
   the scheduler endpoints, project metadata fields, the knowledge graph, and
   the MCP server. Collection does not use any of them.
+- Lock `opentelemetry-api` 1.45.2, which closes a moderate security advisory.
+  It reaches this project only through the AA Workspace SDK.
+- Maintainer tooling only: update the locked versions of `playwright`
+  (1.65.0), `ruff` (0.17.4), and `hypothesis` (6.170.15).
 
 ## [1.2.10] - 2026-11-12
 
@@ -924,7 +930,8 @@ The following are explicitly internal and may change without notice:
 - Workspace project visualization (v0.4)
 - Schema map view (v0.5)
 
-[Unreleased]: https://github.com/brian-a-au/sdr-visualizer/compare/v1.2.10...HEAD
+[Unreleased]: https://github.com/brian-a-au/sdr-visualizer/compare/v1.2.11...HEAD
+[1.2.11]: https://github.com/brian-a-au/sdr-visualizer/releases/tag/v1.2.11
 [1.2.10]: https://github.com/brian-a-au/sdr-visualizer/releases/tag/v1.2.10
 [1.2.9]: https://github.com/brian-a-au/sdr-visualizer/releases/tag/v1.2.9
 [1.2.8]: https://github.com/brian-a-au/sdr-visualizer/releases/tag/v1.2.8
