@@ -4,6 +4,11 @@ All notable changes to `sdr-visualizer` will be documented here. The format foll
 
 ## [Unreleased]
 
+### Changed
+
+- The `workspace-cja` extra now pins `cjapy==0.3.2`, and Workspace collection records that version. cjapy 0.3.2 no longer installs the archived `pathlib2` backport. The CJA matching code that sdr-visualizer uses is the same as in 0.3.1.
+- The credential-free CJA matcher now also denies cjapy's new `getSegments` method, beside the deprecated `getFilters`.
+
 ## [1.2.11] - 2026-11-13
 
 ### Changed
