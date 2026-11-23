@@ -98,7 +98,7 @@ def test_artifact_metadata_parsers_report_only_direct_runtime_requirements(tmp_p
             "Name: sdr-visualizer\n"
             "Version: 1.0.3\n"
             "Requires-Dist: jinja2>=3.1\n"
-            "Requires-Dist: cjapy==0.3.1; extra == 'workspace-cja'\n"
+            "Requires-Dist: cjapy==0.3.2; extra == 'workspace-cja'\n"
             "Requires-Dist: aanalytics2==0.5.5; extra == 'workspace-aa'\n"
             "Requires-Dist: requests>=2.32; extra == 'workspace-aa' or extra == 'workspace-cja'\n",
         )

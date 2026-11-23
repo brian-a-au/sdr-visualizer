@@ -24,7 +24,7 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-workspace-cja = ["cjapy==0.3.1", "requests>=2.32"]
+workspace-cja = ["cjapy==0.3.2", "requests>=2.32"]
 workspace-aa = ["aanalytics2==0.5.6", "requests>=2.32"]
 
 [project.scripts]

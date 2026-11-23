@@ -372,7 +372,7 @@ def test_retrieval_and_sdk_provenance():
     impl, value = example()
     value["collection"]["retrieval"] = retrieval()
     bind(impl, value)
-    value["collection"]["source"] = {"kind": "sdk_candidates", "sdk": "cjapy", "version": "0.3.1"}
+    value["collection"]["source"] = {"kind": "sdk_candidates", "sdk": "cjapy", "version": "0.3.2"}
     with pytest.raises(InvalidSnapshotError, match="unverified"):
         bind(impl, value)
     value["results"][0]["match_basis"] = "unverified_lookup"

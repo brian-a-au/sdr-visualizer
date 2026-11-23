@@ -322,19 +322,16 @@ wheels = [
 
 [[package]]
 name = "cjapy"
-version = "0.3.1"
+version = "0.3.2"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "deprecation" },
     { name = "pandas" },
-    { name = "pathlib" },
-    { name = "pathlib2" },
-    { name = "pytest" },
     { name = "requests" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/c5/3f/5887bb4c14e544671e5fe4e921ea25fbc0bfcd58596845a60d421d89663f/cjapy-0.3.1.tar.gz", hash = "sha256:4336c3d99cc52108374aadbece7055c7b569be90eb45aeb1cca5cb2c62d3c88c", size = 71474, upload-time = "2026-04-23T20:10:46.186Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/92/74/9759c1d3c7c87e008c260132dd63ba8057402a7c18e5744a2344d0791d29/cjapy-0.3.2.tar.gz", hash = "sha256:a50e1fe439bfc9ad5572ec75a877ae9fc3e4dc5f403062379181fc2bcde69f83", size = 86104, upload-time = "2026-11-23T13:29:40.406Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/d2/94/4bddf4b66c764e045707d3f163144f228e0f5a91d369b69fe99ef90a9045/cjapy-0.3.1-py3-none-any.whl", hash = "sha256:423e09e7b42a741cc16c92defdefd7b4187f249ddbd8a24a6e27a4b39387432d", size = 50065, upload-time = "2026-04-23T20:10:44.506Z" },
+    { url = "https://files.pythonhosted.org/packages/28/a1/06b220c3606e09a38be1a604652cc8ef4b5461f6c70fc58b5e26e2d1d0b4/cjapy-0.3.2-py3-none-any.whl", hash = "sha256:3d0618cdbdbd8ceb2b958b0b836be0e9a38af6baa2161573097955977f442e6b", size = 52000, upload-time = "2026-11-23T13:29:39.323Z" },
 ]
 
 [[package]]
@@ -1238,18 +1235,6 @@ wheels = [
 ]
 
 [[package]]
-name = "pathlib2"
-version = "2.3.7.post1"
-source = { registry = "https://pypi.org/simple" }
-dependencies = [
-    { name = "six" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/31/51/99caf463dc7c18eb18dad1fffe465a3cf3ee50ac3d1dccbd1781336fe9c7/pathlib2-2.3.7.post1.tar.gz", hash = "sha256:9fe0edad898b83c0c3e199c842b27ed216645d2e177757b2dd67384d4113c641", size = 211190, upload-time = "2022-02-10T18:01:09.996Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/09/eb/4af4bcd5b8731366b676192675221c5324394a580dfae469d498313b5c4a/pathlib2-2.3.7.post1-py2.py3-none-any.whl", hash = "sha256:5266a0fd000452f1b3467d782f079a4343c63aaa119221fbdc4e39577489ca5b", size = 18027, upload-time = "2022-02-10T18:01:07.751Z" },
-]
-
-[[package]]
 name = "playwright"
 version = "1.65.2"
 source = { registry = "https://pypi.org/simple" }
@@ -1814,7 +1799,7 @@ dev = [
 [package.metadata]
 requires-dist = [
     { name = "aanalytics2", marker = "extra == 'workspace-aa'", specifier = "==0.5.6" },
-    { name = "cjapy", marker = "extra == 'workspace-cja'", specifier = "==0.3.1" },
+    { name = "cjapy", marker = "extra == 'workspace-cja'", specifier = "==0.3.2" },
     { name = "jinja2", specifier = ">=3.1" },
     { name = "requests", marker = "extra == 'workspace-aa'", specifier = ">=2.32" },
     { name = "requests", marker = "extra == 'workspace-cja'", specifier = ">=2.32" },

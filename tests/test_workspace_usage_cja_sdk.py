@@ -1,4 +1,4 @@
-"""CJA 0.3.1 behavior, not claims of exact or complete matching."""
+"""CJA 0.3.2 behavior, not claims of exact or complete matching."""
 
 import copy
 
@@ -65,3 +65,17 @@ def test_cja_regex_error_retains_completed_and_leaves_later_absent():
     assert len(result.results) == 2
     assert result.results[0]["projects"]
     assert result.results[1]["failure"] == "collection_error"
+
+
+def test_cja_prepare_denies_segment_and_filter_lookups():
+    """cjapy 0.3.2 adds getSegments beside the deprecated getFilters; both stay denied."""
+    from sdr_visualizer.usage import cja_sdk
+
+    def deny(*args, **kwargs):
+        raise AssertionError("network access is denied in the SDK worker")
+
+    client, parsed, excluded = cja_sdk.prepare([], deny)
+    assert client.getSegments is deny
+    assert client.getFilters is deny
+    assert client.segments == []
+    assert (parsed, excluded) == ([], False)

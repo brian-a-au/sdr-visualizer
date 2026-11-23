@@ -8,10 +8,13 @@ def prepare(projects, deny):
     client = object.__new__(CJA)
     client.loggingEnabled = False
     client.filters = []
+    client.segments = []
     client.calculatedMetrics = []
     client.projectsDetails = {}
     client.connector = deny
-    client.getFilters = client.getCalculatedMetrics = client.getAllProjectDetails = deny
+    client.getFilters = client.getSegments = client.getCalculatedMetrics = (
+        client.getAllProjectDetails
+    ) = deny
     parsed, excluded = [], False
     for project in projects:
         try:
