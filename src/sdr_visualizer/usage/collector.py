@@ -10,6 +10,7 @@ import signal
 import subprocess
 import sys
 import tempfile
+import threading
 import time
 from collections import Counter
 from datetime import UTC, datetime
@@ -29,7 +30,9 @@ from sdr_visualizer.usage.normalize import (
     EXCLUDED_PROJECTS_LIMITATION,
     MAX_IPC_BYTES,
     SDK_VERSIONS,
+    WORKER_PYTHON_FLAGS,
     bounded_json,
+    bounded_lifetime,
     candidate_record,
     identifier,
     sanitize_projects,
@@ -347,7 +350,16 @@ def collect_api(
     }
 
 
+# Five seconds past the parent's 180-second receive deadline.
+WORKER_LIFETIME_SECONDS = 185
+
+
 def _child():
+    with bounded_lifetime(WORKER_LIFETIME_SECONDS):
+        _api_child()
+
+
+def _api_child():
     output = sys.stdout.buffer
 
     def emit(message):
@@ -635,7 +647,7 @@ def _acquire(request):
         source.write(bounded_json(request))
         source.seek(0)
         with subprocess.Popen(
-            [sys.executable, "-m", __name__],
+            [sys.executable, *WORKER_PYTHON_FLAGS, __name__],
             stdin=source,
             stdout=subprocess.PIPE,
             stderr=subprocess.DEVNULL,
@@ -646,6 +658,30 @@ def _acquire(request):
                 return _receive(process, request)
             finally:
                 _stop(process)
+
+
+def _interrupt(signum, frame):
+    raise KeyboardInterrupt
+
+
+@contextlib.contextmanager
+def _interrupt_on_termination():
+    """Route SIGTERM/SIGHUP to KeyboardInterrupt so worker cleanup always runs."""
+    if threading.current_thread() is not threading.main_thread():
+        yield
+        return
+    previous = {}
+    for name in ("SIGTERM", "SIGHUP"):
+        number = getattr(signal, name, None)
+        if number is not None:
+            handler = signal.getsignal(number)
+            previous[number] = signal.SIG_DFL if handler is None else handler
+            signal.signal(number, _interrupt)
+    try:
+        yield
+    finally:
+        for number, handler in previous.items():
+            signal.signal(number, handler)
 
 
 def collect_workspace_usage(
@@ -667,6 +703,9 @@ def collect_workspace_usage(
         scope=scope,
         project_ids=project_ids,
     )
+    # Fingerprint before credentials or network work: an unfingerprintable
+    # snapshot (for example NaN) is invalid input, not a reason to collect.
+    digest = snapshot_digest(implementation.raw)
     request = {
         "platform": implementation.platform,
         "instance_id": implementation.instance_id,
@@ -676,13 +715,18 @@ def collect_workspace_usage(
         "scope": scope,
         "project_ids": project_ids,
     }
-    acquired = _acquire(request)
-    retrieval = acquired["retrieval"]
-    limitations = list(retrieval["limitations"]) + acquired.get("matching_limitations", [])
-    if acquired["projects"]:
-        matches = match_projects(
-            implementation.platform, acquired["projects"], selected, acquired["checked_at"]
+    with _interrupt_on_termination():
+        acquired = _acquire(request)
+        retrieval = acquired["retrieval"]
+        limitations = list(retrieval["limitations"]) + acquired.get("matching_limitations", [])
+        matches = (
+            match_projects(
+                implementation.platform, acquired["projects"], selected, acquired["checked_at"]
+            )
+            if acquired["projects"]
+            else None
         )
+    if matches is not None:
         results = matches.results
         limitations.extend(matches.limitations)
     elif retrieval["status"] == "complete" and retrieval["projects_discovered"] == 0:
@@ -712,7 +756,7 @@ def collect_workspace_usage(
         "platform": implementation.platform,
         "ims_org_id": organization_context,
         "data_view_id" if implementation.platform == "cja" else "rsid": implementation.instance_id,
-        "snapshot_digest": snapshot_digest(implementation.raw),
+        "snapshot_digest": digest,
     }
     if implementation.platform == "aa":
         target["global_company_id"] = company_context

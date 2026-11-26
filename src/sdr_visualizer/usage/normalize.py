@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
+import contextlib
 import json
 import math
+import signal
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -19,6 +21,29 @@ EXCLUDED_PROJECTS_LIMITATION = "Malformed or unsupported projects were excluded 
 CANDIDATE_LIMITATION = (
     "SDK matching is incomplete; exact component and environment match remain unverified"
 )
+
+
+# Worker interpreters run in safe-path mode (-P) so modules in the caller's
+# working directory never shadow the standard library or SDK imports.
+WORKER_PYTHON_FLAGS = ("-P", "-m")
+
+
+@contextlib.contextmanager
+def bounded_lifetime(seconds: int):
+    """End a worker by SIGALRM if a terminated parent can no longer stop it.
+
+    The parent enforces the real deadline; this ceiling only covers a parent that
+    was killed before its cleanup ran. Platforms without SIGALRM rely on the parent.
+    """
+    alarm = getattr(signal, "alarm", None)
+    if alarm is None:
+        yield
+        return
+    alarm(seconds)
+    try:
+        yield
+    finally:
+        alarm(0)
 
 
 @dataclass

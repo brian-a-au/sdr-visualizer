@@ -323,6 +323,12 @@ file. Staging failure preserves existing outputs. A replacement failure can
 leave earlier complete files replaced; it returns exit 1, names the affected
 artifact, and cleans remaining temporary files.
 Collection interruption terminates workers and writes no new final artifacts.
+Ctrl-C, SIGTERM, and SIGHUP all count as interruption and return exit 1. Each
+worker also ends itself shortly after its deadline if its parent was killed
+before cleanup could run. Workers start in Python safe-path mode, so modules in
+the current directory are never imported. A snapshot that cannot be
+fingerprinted, for example one containing NaN, returns 3 before credentials or
+network access are used.
 Input/schema/identity errors return 3. Recorded API failures return 0 with a
 warning if the truthful failure evidence and report were successfully written.
 
