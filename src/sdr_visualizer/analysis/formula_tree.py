@@ -17,7 +17,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from sdr_visualizer.analysis.segment_tree import parse_validated_segment_subtree
+from sdr_visualizer.analysis.segment_tree import parse_validated_segment_subtree, text_or_none
 from sdr_visualizer.core.models import CalculatedMetric
 from sdr_visualizer.core.structure_limits import validate_definition_structure
 
@@ -47,7 +47,7 @@ def _walk(node: Any) -> dict[str, Any]:
     if not isinstance(node, dict):
         return _unknown(node)
 
-    func = node.get("func")
+    func = text_or_none(node.get("func"))
     if isinstance(node.get("filters"), list) and node["filters"]:
         return {
             "kind": "filtered_formula",
@@ -57,16 +57,16 @@ def _walk(node: Any) -> dict[str, Any]:
     if func == "visualization-group":
         return {"kind": "operation", "op": func, "args": [_walk(node.get("col"))]}
     if func in ("attr", "event"):
-        name = node.get("name") or ""
+        name = text_or_none(node.get("name")) or ""
         return {
             **_metric_ref(name, name),
             "reference_type": "dimension" if func == "attr" else "metric",
         }
     if func == "segment-ref":
-        return {"kind": "segment_ref", "segment_id": node.get("id") or ""}
+        return {"kind": "segment_ref", "segment_id": text_or_none(node.get("id")) or ""}
 
     if func == "metric":
-        name = node.get("name") or ""
+        name = text_or_none(node.get("name")) or ""
         return _metric_ref(name, name)
 
     if func == "segment":
@@ -76,7 +76,7 @@ def _walk(node: Any) -> dict[str, Any]:
             inner = node.get("formula")
         return {
             "kind": "segment_scope",
-            "segment_id": node.get("name") or "",
+            "segment_id": text_or_none(node.get("name")) or "",
             "child": _walk(inner),
         }
 
@@ -117,12 +117,10 @@ def _metric_ref(metric_id: str, label: str) -> dict[str, Any]:
 
 
 def _unknown(node: Any) -> dict[str, Any]:
-    func = None
-    if isinstance(node, dict):
-        func = node.get("func")
+    func = text_or_none(node.get("func")) if isinstance(node, dict) else None
     return {
         "kind": "unknown",
-        "func": str(func) if func else None,
+        "func": func or None,
         "raw_keys": sorted(node.keys()) if isinstance(node, dict) else [],
     }
 

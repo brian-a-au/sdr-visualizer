@@ -56,6 +56,16 @@ COMPARISON_OPS = {
 }
 
 
+def text_or_none(value: Any) -> str | None:
+    """Return a snapshot string, or None for any other JSON value.
+
+    Untrusted definitions can put lists, objects, or numbers where a func, id,
+    context, or label belongs. Only strings may become tree identifiers or
+    labels, so malformed values degrade instead of crashing or leaking a repr.
+    """
+    return value if isinstance(value, str) else None
+
+
 def parse_segment_tree(segment: Segment) -> dict[str, Any]:
     """Return a tree dict suitable for embedding in the HTML payload."""
     definition = segment.definition or {}
@@ -79,10 +89,10 @@ def _walk(node: Any) -> dict[str, Any]:
     if not isinstance(node, dict):
         return _unknown(node)
 
-    func = node.get("func")
+    func = text_or_none(node.get("func"))
 
     if func == "segment-ref":
-        return {"kind": "segment_ref", "segment_id": node.get("id") or ""}
+        return {"kind": "segment_ref", "segment_id": text_or_none(node.get("id")) or ""}
     if func == "container":
         return _container(node)
     if func in LOGICAL_OPS:
@@ -92,7 +102,7 @@ def _walk(node: Any) -> dict[str, Any]:
     ):
         return {
             "kind": "segment_ref",
-            "segment_id": node.get("name") or node.get("id") or "",
+            "segment_id": text_or_none(node.get("name")) or text_or_none(node.get("id")) or "",
         }
     if func in COMPARISON_OPS:
         return _criterion(node, func)
@@ -105,10 +115,11 @@ def _walk(node: Any) -> dict[str, Any]:
             inner = _walk(node[wrapper_key])
             # Don't lose context info from the wrapper node itself if it had a
             # `context`. Wrap it in a container so the visual hierarchy stays.
-            if node.get("context") and inner.get("kind") != "container":
+            context = text_or_none(node.get("context"))
+            if context and inner.get("kind") != "container":
                 return {
                     "kind": "container",
-                    "context": str(node["context"]),
+                    "context": context,
                     "child": inner,
                 }
             return inner
@@ -117,12 +128,12 @@ def _walk(node: Any) -> dict[str, Any]:
 
 
 def _container(node: dict[str, Any]) -> dict[str, Any]:
-    context = node.get("context") or "unspecified"
+    context = text_or_none(node.get("context")) or "unspecified"
     pred = node.get("pred")
     child = _walk(pred) if pred is not None else _unknown({})
     return {
         "kind": "container",
-        "context": str(context),
+        "context": context,
         "child": child,
     }
 
@@ -170,10 +181,11 @@ def _criterion_target(node: dict[str, Any]) -> tuple[str | None, str]:
             val = val.get("evt")
         if not isinstance(val, dict):
             return None, "value"
+        name = text_or_none(val.get("name"))
         if val.get("func") == "attr":
-            return val.get("name"), str(val.get("name") or "attribute")
+            return name, name or "attribute"
         if val.get("func") in ("metric", "event"):
-            return val.get("name"), str(val.get("name") or "metric")
+            return name, name or "metric"
     # AA criteria sometimes carry the dimension via the parent container's
     # context; if we get here we don't have a known target.
     return None, "value"
@@ -218,11 +230,9 @@ def _criterion_summary(op: str, target_label: str, value: Any) -> str:
 
 
 def _unknown(node: Any) -> dict[str, Any]:
-    func = None
-    if isinstance(node, dict):
-        func = node.get("func")
+    func = text_or_none(node.get("func")) if isinstance(node, dict) else None
     return {
         "kind": "unknown",
-        "func": str(func) if func else None,
+        "func": func or None,
         "raw_keys": sorted(node.keys()) if isinstance(node, dict) else [],
     }

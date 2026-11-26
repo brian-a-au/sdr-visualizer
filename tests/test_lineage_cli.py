@@ -146,3 +146,17 @@ def test_module_version(monkeypatch, capsys):
         runpy.run_module("sdr_visualizer.cli.lineage", run_name="__main__")
     assert caught.value.code == 0
     assert f"cja-lineage {__version__}" in capsys.readouterr().out
+
+
+@pytest.mark.parametrize("control", ["‮", "⁦", "‏", "؜"])
+def test_bidi_scope_label_rejected_before_discovery(tmp_path, monkeypatch, control):
+    def acquire(*args, **kwargs):
+        raise AssertionError("discovery must not run for an invalid scope label")
+
+    monkeypatch.setattr(lineage, "acquire_saved", acquire)
+    monkeypatch.setattr(lineage, "acquire_live", acquire)
+    args = ["--saved", str(FIXTURE), "--output", str(tmp_path / "out.html")]
+    with pytest.raises(SystemExit) as caught:
+        lineage.main([*args, "--scope-label", f"Scope{control} x"])
+    assert caught.value.code == 2
+    assert not (tmp_path / "out.html").exists()
