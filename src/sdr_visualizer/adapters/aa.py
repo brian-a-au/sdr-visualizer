@@ -229,6 +229,8 @@ def _calc_from_record(record: Any, *, index: int | None = None) -> CalculatedMet
         formula_text = _stringify_formula(formula)
     else:
         formula_text = ""
+    # Reference extraction walks the whole definition, not only its formula.
+    validate_definition_structure(definition, label=f"calculated metric definition {metric_id!r}")
     references, reference_types = _extract_aa_references(definition, include_args=True)
 
     return CalculatedMetric(
@@ -316,18 +318,18 @@ def _segment_from_record(record: Any, *, index: int | None = None) -> Segment:
     name = _present(record.get("name")) or segment_id
     description = _normalize_description(record.get("description"))
     definition = record.get("definition") or {}
-    if isinstance(definition, dict):
-        validate_definition_structure(definition, label=f"segment definition {segment_id!r}")
+    if not isinstance(definition, dict):
+        # Stored, walked, and reported shapes must agree; a non-object is empty.
+        definition = {}
+    validate_definition_structure(definition, label=f"segment definition {segment_id!r}")
     nesting_depth, container_types = _walk_segment_definition(definition)
-    references, reference_types = _extract_aa_references(
-        definition if isinstance(definition, dict) else {}
-    )
+    references, reference_types = _extract_aa_references(definition)
 
     return Segment(
         id=str(segment_id),
         name=str(name),
         description=description,
-        definition=definition if isinstance(definition, dict) else {},
+        definition=definition,
         nesting_depth=nesting_depth,
         container_types=container_types,
         references=references,
@@ -523,7 +525,10 @@ def _record_context(collection: str, index: int | None) -> str:
 
 
 def _ensure_list(snapshot: dict[str, Any], key: str) -> list[Any]:
-    value = snapshot.get(key) or []
+    """Absent or null is empty; any other non-list value (even a falsy one) is malformed."""
+    value = snapshot.get(key)
+    if value is None:
+        return []
     if not isinstance(value, list):
         raise InvalidSnapshotError(
             f"AA snapshot '{key}' must be a list, got {type(value).__name__}"

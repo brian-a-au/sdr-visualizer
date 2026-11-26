@@ -4,6 +4,24 @@ All notable changes to `sdr-visualizer` will be documented here. The format foll
 
 ## [Unreleased]
 
+### Fixed
+
+- A CJA `definition_json` that decodes to a list or scalar is now held to the
+  same depth-100 and 10,000-node limits as any other definition. Before this,
+  only decoded objects were checked.
+- AA calculated-metric definitions are now limit-checked as a whole, not only
+  their `formula`. An AA segment `definition` that is not an object is now
+  treated as empty everywhere. Before this, its depth and container types
+  were still reported from the unchecked value.
+- An AA snapshot whose `dimensions` or `metrics` is present but not a list, such
+  as `{}` or `""`, is now invalid input (exit 3). Before this, a falsy value was
+  accepted as an empty list.
+- CJA reference lists keep only non-empty strings. Null, objects, and numbers
+  no longer become reference IDs such as `"None"`. CJA attribution, allocation,
+  formula summaries, and container contexts that are not strings are now
+  omitted instead of shown as Python repr text. These match the sdr-grader
+  copies of the same helpers.
+
 ### Changed
 
 - The `workspace-cja` extra now pins `cjapy==0.3.2`, and Workspace collection records that version. cjapy 0.3.2 no longer installs the archived `pathlib2` backport. The CJA matching code that sdr-visualizer uses is the same as in 0.3.1.
