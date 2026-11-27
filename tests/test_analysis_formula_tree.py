@@ -313,3 +313,33 @@ def test_unknown_and_non_mapping_filters_keep_fallback_nodes():
             {"kind": "unknown", "func": "future", "raw_keys": ["func", "x"]},
         ],
     }
+
+
+@pytest.mark.parametrize("func", [[], {}, ["divide"], {"func": "divide"}, 7, True])
+def test_non_string_func_degrades_to_unknown(func):
+    tree = parse_formula_tree(_make_metric({"func": func, "col1": "metrics/a"}))
+    assert tree == {"kind": "unknown", "func": None, "raw_keys": ["col1", "func"]}
+
+
+@pytest.mark.parametrize("bad", [{"x": "metrics/a"}, ["metrics/a"], 12345, True])
+def test_non_string_ids_and_labels_never_reach_tree(bad):
+    formula = {
+        "func": "add",
+        "args": [
+            {"func": "metric", "name": bad},
+            {"func": "attr", "name": bad},
+            {"func": "segment-ref", "id": bad},
+            {"func": "segment", "name": bad, "col": "metrics/b"},
+        ],
+    }
+    metric, dimension, ref, scope = parse_formula_tree(_make_metric(formula))["args"]
+    assert metric == {"kind": "metric_ref", "metric_id": "", "label": ""}
+    assert dimension == {
+        "kind": "metric_ref",
+        "metric_id": "",
+        "label": "",
+        "reference_type": "dimension",
+    }
+    assert ref == {"kind": "segment_ref", "segment_id": ""}
+    assert scope["segment_id"] == ""
+    assert scope["child"]["metric_id"] == "metrics/b"

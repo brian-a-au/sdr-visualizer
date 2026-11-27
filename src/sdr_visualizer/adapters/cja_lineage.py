@@ -37,7 +37,7 @@ MAX_SCOPE_LABEL_LENGTH = 512
 MAX_WARNING_LENGTH = 4_096
 
 _SENTINELS = {"", "n/a", "na", "null", "none"}
-_BIDI_CONTROLS = frozenset(
+BIDI_CONTROLS = frozenset(
     {
         "\u061c",  # Arabic letter mark
         "\u200e",  # Left-to-right mark
@@ -534,11 +534,12 @@ def _validate_text(value: str, *, label: str, maximum: int) -> None:
         raise InvalidSnapshotError(f"{label} exceeds the maximum length of {maximum:,}")
     if any(ord(character) < 32 or 127 <= ord(character) <= 159 for character in value):
         raise InvalidSnapshotError(f"{label} contains a control character")
-    if any(character in _BIDI_CONTROLS for character in value):
+    if any(character in BIDI_CONTROLS for character in value):
         raise InvalidSnapshotError(f"{label} contains a bidirectional control character")
 
 
 __all__ = [
+    "BIDI_CONTROLS",
     "MAX_ID_LENGTH",
     "MAX_NAME_LENGTH",
     "MAX_SCOPE_LABEL_LENGTH",

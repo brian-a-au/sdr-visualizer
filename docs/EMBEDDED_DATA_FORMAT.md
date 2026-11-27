@@ -378,6 +378,12 @@ illustrative and the documented node `kind` values are stable. Node `kind`s:
 { "kind": "unknown", "func": "exotic-op", "raw_keys": ["..."] }
 ```
 
+In both tree types, identifiers, labels, `context`, and `func` are always strings
+or `null`. When a malformed definition puts a list, object, number, or boolean in
+one of those places, the node keeps its shape but carries an empty identifier, the
+default label (`attribute`, `metric`, or `unspecified`), or `null`; a non-string
+`func` produces an `unknown` node with `func: null`.
+
 Anatomy keeps the original reference IDs and labels. Its render metadata carries
 resolved inventory destinations (or missing/ambiguous status) from the same typed
 resolver as the graph; the browser does not invent its own namespace aliases.
