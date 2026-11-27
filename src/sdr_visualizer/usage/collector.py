@@ -25,6 +25,7 @@ from sdr_visualizer.core.workspace_usage import (
     snapshot_digest,
 )
 from sdr_visualizer.usage import aa_api, auth, cja_api
+from sdr_visualizer.usage.credential_source import MASK, mask_client_id, select_source
 from sdr_visualizer.usage.normalize import (
     CANDIDATE_LIMITATION,
     EXCLUDED_PROJECTS_LIMITATION,
@@ -378,6 +379,8 @@ def _api_child():
             credentials = auth.resolve_credentials(
                 request["config_path"], expected_org=request["org_id"]
             )
+            # Only the masked client ID leaves the worker. No part of the secret does.
+            emit({"kind": "credential", "client_id": mask_client_id(credentials.client_id)})
             client = auth.initialize_sdk(
                 request["platform"], credentials, transport, request["company_id"]
             )
@@ -495,6 +498,7 @@ def _receive(process, request, timeout=180):
     retrieval = _initial(request["scope"], request["project_ids"], _now())
     projects, receipts, buffer = [], [], bytearray()
     matching_limitations = []
+    client_id = None
     deadline, transferred = time.monotonic() + timeout, 0
     try:
         with selectors.DefaultSelector() as selector:
@@ -529,6 +533,16 @@ def _receive(process, request, timeout=180):
                         raise InvalidSnapshotError(
                             "Workspace authentication or environment identity is invalid"
                         )
+                    if kind == "credential" and set(message) == {"kind", "client_id"}:
+                        masked = message["client_id"]
+                        if (
+                            client_id is not None
+                            or type(masked) is not str
+                            or not (masked == MASK or (len(masked) == 12 and masked[4:8] == MASK))
+                        ):
+                            raise ValueError
+                        client_id = masked
+                        continue
                     if kind == "limitation" and message == {
                         "kind": "limitation",
                         "value": EXCLUDED_PROJECTS_LIMITATION,
@@ -604,6 +618,7 @@ def _receive(process, request, timeout=180):
                             "checked_at": checked,
                             "failure": message["failure"],
                             "matching_limitations": matching_limitations,
+                            "client_id": client_id,
                         }
                     else:
                         raise ValueError
@@ -629,15 +644,25 @@ def _receive(process, request, timeout=180):
         "checked_at": min(receipts) if receipts else None,
         "failure": "collection_error",
         "matching_limitations": matching_limitations,
+        "client_id": client_id,
     }
 
 
-def _acquire(request):
+def _acquire(request, credentials=None):
     environment = {
         key: os.environ[key]
         for key in ("PATH", "SYSTEMROOT", "WINDIR", "ORG_ID", "CLIENT_ID", "SECRET", "SCOPES")
         if key in os.environ
     }
+    if credentials is not None:
+        # A profile was read by the main process, because the worker has no HOME.
+        # Its four values replace the same four variables, so sources never mix.
+        environment.update(
+            ORG_ID=credentials.org_id,
+            CLIENT_ID=credentials.client_id,
+            SECRET=credentials.secret,
+            SCOPES=credentials.scopes,
+        )
     environment.update(
         PYTHONPATH=str(Path(__file__).resolve().parents[2]),
         PYTHONDONTWRITEBYTECODE="1",
@@ -694,11 +719,18 @@ def collect_workspace_usage(
     organization_context,
     company_context=None,
     config_path=None,
+    profile=None,
     scope="all",
     project_ids=None,
     components=None,
+    report=None,
 ):
-    """Collect optional evidence; return the same bound contract as offline replay."""
+    """Collect optional evidence; return the same bound contract as offline replay.
+
+    ``report`` receives ``(kind, text)`` pairs: a ``notice`` or ``warning`` about
+    the credential source before collection, and one ``info`` line that names the
+    source afterward. No pair ever holds any part of the secret.
+    """
     selected = preflight_collection(
         implementation,
         organization_context=organization_context,
@@ -719,8 +751,30 @@ def collect_workspace_usage(
         "scope": scope,
         "project_ids": project_ids,
     }
+    source = select_source(
+        implementation.platform,
+        config_path=config_path,
+        profile=profile,
+        expected_org=organization_context,
+    )
+    if report is not None:
+        for code, text in source.notices:
+            report("notice", f"{code}: {text}")
+        for _, text in source.warnings:
+            report("warning", text)
     with _interrupt_on_termination():
-        acquired = _acquire(request)
+        try:
+            acquired = (
+                _acquire(request)
+                if source.credentials is None
+                else _acquire(request, source.credentials)
+            )
+        except InvalidSnapshotError:
+            if report is not None:
+                report("info", source.describe())
+            raise
+        if report is not None:
+            report("info", source.describe(acquired.get("client_id")))
         retrieval = acquired["retrieval"]
         limitations = list(retrieval["limitations"]) + acquired.get("matching_limitations", [])
         matches = (

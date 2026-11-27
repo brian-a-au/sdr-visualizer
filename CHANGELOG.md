@@ -4,6 +4,40 @@ All notable changes to `sdr-visualizer` will be documented here. The format foll
 
 ## [Unreleased]
 
+### Added
+
+- `--profile NAME` uses a named credential profile. In the `--dataview` and
+  `--rsid` modes the name is passed to the generator. With
+  `--collect-workspace-usage` the profile is read from `~/.cja/orgs/NAME` for
+  a CJA run and from `~/.aa/orgs/NAME` for an AA run. The main process reads
+  the profile and gives the values to the collection worker in its
+  environment, so the worker still has no home directory.
+- A profile name is checked before any path is built. It holds letters,
+  digits, dots, underscores and hyphens, starts with a letter or a digit, and
+  has 64 characters or fewer.
+- A profile file may hold `sandbox`, which the generators write. It is
+  accepted and ignored. A file given with `--workspace-usage-config` keeps its
+  strict key list.
+- A collection run now prints one line on stderr that names the credential
+  source and the masked client ID, e.g., `abcd****wxyz`. No part of the secret
+  is shown. `--quiet` hides the line.
+- A collection run prints one warning when the config file or the profile file
+  can be read by the group or by other users.
+- When `AA_PROFILE` or `CJA_PROFILE` is set and you gave no credential option,
+  a collection run prints the notice `profile_variable_not_used`. The variable
+  is still not read, and the run uses the same credential as before.
+- `known-differences.json` lists the rules of the Adobe credentials standard
+  v1 that this tool does not meet yet. The shared cases of the standard now
+  run in the test suite.
+
+### Changed
+
+- The lookup order for Workspace usage is now `--workspace-usage-config`, then
+  `--profile`, then the `ORG_ID`, `CLIENT_ID`, `SECRET` and `SCOPES`
+  environment variables. A run that worked before uses the same credential as
+  before. `--profile` and `--workspace-usage-config` together stop the run with
+  exit 3. `.env` is not read.
+
 ## [1.2.12] - 2026-11-27
 
 ### Fixed

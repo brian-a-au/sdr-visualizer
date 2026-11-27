@@ -131,6 +131,10 @@ Live AA mode uses the
 sdr-visualizer --rsid prod_us
 ```
 
+Add `--profile NAME` to either live command to run the generator with a named
+credential profile, e.g., `sdr-visualizer --dataview dv_prod_web --profile
+client-a`. The generator reads the profile from `~/.cja/orgs` or `~/.aa/orgs`.
+
 AA live mode reads the generator's JSON snapshot from stdout and embeds the
 supported normalized component catalog in the report. Keep the original
 generator snapshot when you need platform-specific details that the visualizer
@@ -157,6 +161,11 @@ sdr-visualizer snapshots/aa.json --collect-workspace-usage \
   --workspace-usage-config ../credentials/adobe.json --output aa.html
 ```
 
+You can replace `--workspace-usage-config PATH` with `--profile NAME` to use a
+profile from `~/.cja/orgs` or `~/.aa/orgs`. The run prints the credential source
+and the masked client ID on stderr. See
+[Configure credentials and scope](https://github.com/brian-a-au/sdr-visualizer/blob/main/docs/WORKSPACE_USAGE.md#configure-credentials-and-scope).
+
 Each command automatically writes HTML and `<html-stem>.workspace-usage.json`.
 Existing snapshots and live exporter modes work without exporter changes.
 The catalog shows possible project references separately from component
@@ -176,6 +185,7 @@ for collection scopes, offline replay, identity binding, limits, and privacy.
 | `--json PATH`             | Also emit the embedded payload as a separate JSON file (useful for downstream tooling). |
 | `--collect-workspace-usage` | Collect optional Workspace project-usage evidence; see the [Workspace usage guide](https://github.com/brian-a-au/sdr-visualizer/blob/main/docs/WORKSPACE_USAGE.md). |
 | `--workspace-usage PATH`  | Replay saved Workspace usage evidence with the original snapshot. |
+| `--profile NAME`          | Use a named credential profile for the live generator and for Workspace usage collection. |
 | `--title TEXT`            | Override the document title. |
 | `--color-pack CODE`       | Select `default`, `ADBE`, `OMTR`, or `BLUE` for HTML presentation (case-sensitive). |
 | `--exclude-orphans`       | Default the catalog's references filter to "Referenced" — hides components nothing depends on. |
@@ -292,7 +302,7 @@ synthetic reproduction in a public issue.
 
 From 1.0.0, [semantic versioning](https://semver.org) covers the surface below. Anything not listed is internal and may change in any release.
 
-**Catalog CLI (`sdr-visualizer`).** The argument set: the positional `path` (snapshot file, snapshot directory, or `-` for stdin), `--dataview`, `--rsid`, `--platform`, `--at`, `--compare-to`, `--trend`, `--allow-instance-mismatch`, `--output`, `--title`, `--color-pack`, `--exclude-orphans`, `--max-graph-nodes`, `--json`, `--quiet`, `--version`. Removing or repurposing any of these is a major bump; adding flags is a minor one.
+**Catalog CLI (`sdr-visualizer`).** The argument set: the positional `path` (snapshot file, snapshot directory, or `-` for stdin), `--dataview`, `--rsid`, `--platform`, `--at`, `--compare-to`, `--trend`, `--allow-instance-mismatch`, `--output`, `--title`, `--color-pack`, `--exclude-orphans`, `--max-graph-nodes`, `--json`, `--quiet`, `--version`, `--profile`. Removing or repurposing any of these is a major bump; adding flags is a minor one.
 
 **Catalog exit codes.** `0` success, `1` runtime error, `3` invalid input. `2` is never used.
 

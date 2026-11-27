@@ -55,7 +55,7 @@ def write_json(path, credential, omit=(), extra=None):
     return path
 
 
-def launch(monkeypatch, config_path=None, platform="cja", org=A["org_id"]):
+def launch(monkeypatch, config_path=None, platform="cja", org=A["org_id"], credentials=None):
     """Return the request and the environment the parent hands to the worker."""
     seen = {}
 
@@ -74,7 +74,11 @@ def launch(monkeypatch, config_path=None, platform="cja", org=A["org_id"]):
     }
     with monkeypatch.context() as patch, pytest.raises(_Spawned):
         patch.setattr(collector.subprocess, "Popen", popen)
-        collector._acquire(request)
+        if credentials is None:
+            collector._acquire(request)
+        else:
+            # Added with --profile: the parent hands a profile's values to the worker.
+            collector._acquire(request, credentials)
     return request, seen["env"], seen["argv"]
 
 
