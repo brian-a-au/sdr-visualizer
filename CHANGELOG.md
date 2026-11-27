@@ -30,6 +30,25 @@ All notable changes to `sdr-visualizer` will be documented here. The format foll
   control character as an argument error (exit 2), before discovery runs.
   Before this, discovery ran first, including live discovery, and the run then
   failed with a misleading invalid-structure error (exit 3).
+- A CJA `definition_json` that decodes to a list or scalar is now held to the
+  same depth-100 and 10,000-node limits as any other definition. Before this,
+  only decoded objects were checked.
+- AA calculated-metric definitions are now limit-checked as a whole, not only
+  their `formula`. An AA segment `definition` that is not an object is now
+  treated as empty everywhere. Before this, its depth and container types
+  were still reported from the unchecked value.
+- An AA snapshot whose `dimensions` or `metrics` is present but not a list, such
+  as `{}` or `""`, is now invalid input (exit 3). Before this, a falsy value was
+  accepted as an empty list.
+- CJA reference lists keep only non-empty strings. Null, objects, and numbers
+  no longer become reference IDs such as `"None"`. CJA attribution, allocation,
+  formula summaries, and container contexts that are not strings are now
+  omitted instead of shown as Python repr text. AA segment container contexts
+  and calculated-metric formula functions now follow the same rule. These
+  match the sdr-grader copies of the same helpers.
+- An AA segment reference whose `name` is not a string now falls back to its
+  `id`, as the segment anatomy view already did. Before this, the reference was
+  dropped from the graph while anatomy still linked to it.
 
 ### Changed
 

@@ -167,7 +167,7 @@ All snapshot-controlled string values and mapping keys must contain Unicode
 scalar values; isolated UTF-16 surrogate code points are invalid input.
 Optional definitions, tags, and references may arrive as JSON-encoded strings.
 Ordinary malformed JSON in those optional fields keeps the documented empty
-fallback. Successfully decoded tag and reference fields receive the same
+fallback. Successfully decoded definition, tag, and reference fields receive the same
 depth-100 and 10,000-node embedded-structure validation before shape fallback
 or coercion; decoder resource-limit failures and structure-limit violations
 are invalid input. Values decoded from embedded JSON are checked again because

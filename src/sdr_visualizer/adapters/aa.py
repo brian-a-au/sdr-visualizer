@@ -167,7 +167,7 @@ def _index_classifications(classifications: Any) -> dict[str, list[str]]:
 
 
 def _stringify_formula(formula: dict[str, Any]) -> str:
-    func = formula.get("func")
+    func = _text(formula.get("func"))
     if not func:
         if "formula" in formula:
             return ", ".join(
@@ -199,7 +199,7 @@ def _stringify_formula_arg(arg: Any) -> str:
         # Nested formula: render it the same way instead of leaking a
         # Python dict repr into user-facing formula summaries.
         rendered = _stringify_formula(arg)
-        return rendered or str(arg.get("func") or "?")
+        return rendered or _text(arg.get("func")) or "?"
     if isinstance(arg, str) and arg.startswith(
         ("metrics/", "variables/", "segments/", "calculatedMetrics/")
     ):
@@ -229,6 +229,8 @@ def _calc_from_record(record: Any, *, index: int | None = None) -> CalculatedMet
         formula_text = _stringify_formula(formula)
     else:
         formula_text = ""
+    # Reference extraction walks the whole definition, not only its formula.
+    validate_definition_structure(definition, label=f"calculated metric definition {metric_id!r}")
     references, reference_types = _extract_aa_references(definition, include_args=True)
 
     return CalculatedMetric(
@@ -274,7 +276,7 @@ def _extract_aa_references(
             elif func == "segment" and not any(
                 k in node for k in ("container", "pred", "definition")
             ):
-                add("segment", node.get("name") or node.get("id"))
+                add("segment", _text(node.get("name")) or _text(node.get("id")))
             for key, value in node.items():
                 if include_args and key == "args" and isinstance(value, list):
                     for arg in value:
@@ -316,18 +318,18 @@ def _segment_from_record(record: Any, *, index: int | None = None) -> Segment:
     name = _present(record.get("name")) or segment_id
     description = _normalize_description(record.get("description"))
     definition = record.get("definition") or {}
-    if isinstance(definition, dict):
-        validate_definition_structure(definition, label=f"segment definition {segment_id!r}")
+    if not isinstance(definition, dict):
+        # Stored, walked, and reported shapes must agree; a non-object is empty.
+        definition = {}
+    validate_definition_structure(definition, label=f"segment definition {segment_id!r}")
     nesting_depth, container_types = _walk_segment_definition(definition)
-    references, reference_types = _extract_aa_references(
-        definition if isinstance(definition, dict) else {}
-    )
+    references, reference_types = _extract_aa_references(definition)
 
     return Segment(
         id=str(segment_id),
         name=str(name),
         description=description,
-        definition=definition if isinstance(definition, dict) else {},
+        definition=definition,
         nesting_depth=nesting_depth,
         container_types=container_types,
         references=references,
@@ -355,11 +357,10 @@ def _walk_segment_definition(definition: Any) -> tuple[int, list[str]]:
             if node.get("func") == "container":
                 child_depth = depth + 1
                 max_depth = child_depth
-                if node.get("context"):
-                    ctx = str(node["context"])
-                    if ctx not in seen:
-                        seen.add(ctx)
-                        contexts.append(ctx)
+                ctx = _text(node.get("context"))
+                if ctx and ctx not in seen:
+                    seen.add(ctx)
+                    contexts.append(ctx)
             for value in node.values():
                 max_depth = max(max_depth, visit(value, child_depth))
         elif isinstance(node, list):
@@ -504,6 +505,11 @@ def _as_float(value: Any) -> float:
         raise InvalidSnapshotError(f"expected a number, got {type(value).__name__}") from exc
 
 
+def _text(value: Any) -> str | None:
+    """Return a non-empty string, or None for anything else."""
+    return value if isinstance(value, str) and value else None
+
+
 def _present(value: Any) -> Any:
     """Treat a non-finite float as missing; pandas writes NaN for empty cells."""
     if isinstance(value, float) and not math.isfinite(value):
@@ -523,7 +529,10 @@ def _record_context(collection: str, index: int | None) -> str:
 
 
 def _ensure_list(snapshot: dict[str, Any], key: str) -> list[Any]:
-    value = snapshot.get(key) or []
+    """Absent or null is empty; any other non-list value (even a falsy one) is malformed."""
+    value = snapshot.get(key)
+    if value is None:
+        return []
     if not isinstance(value, list):
         raise InvalidSnapshotError(
             f"AA snapshot '{key}' must be a list, got {type(value).__name__}"

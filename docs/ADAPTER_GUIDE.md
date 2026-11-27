@@ -212,6 +212,37 @@ The fixtures may diverge from sdr-grader's over time — the visualizer wants mo
 - `_optional_timestamp` — guards `created_at`/`modified_at`: keeps the value only if it's already a non-empty string, else `None`, so `_compact` drops a non-string timestamp (an epoch int, say) instead of leaking it into the payload. Present in both `cja.py` and `aa.py` here, and mirrored into the grader's copies of both adapters — a non-string timestamp is *missing*, not a value worth coercing to a numeric string.
 - `_optional_str` (CJA only) — guards `owner` and the derived-field `data_type` at the CJA record builders that previously passed them straight through unguarded (`str(x) if x else None`, the same pattern the metric/dimension `data_type` path already used). No grader-side mirror needed for `owner`: the grader's `_normalize_owner` (governance helper, see below) already reduces a non-string owner to `None` — a different mechanism, the same outcome — so grader `owner` needs no additional guard. AA needs no `_optional_str` mirror either: its three `owner_id` builder sites and its one `data_type` site were already cast (`str(x) if x else None`) before this cycle.
 
+- Definition limits and string-only values — mirrored with
+  [sdr-grader #179](https://github.com/brian-a-au/sdr-grader/pull/179):
+  - `_parse_definition_json` (CJA) limits every decoded `definition_json` value
+    to depth 100 and 10,000 nodes before the object-shape fallback, so a decoded
+    list or scalar cannot skip the definition budget. The budget runs before the
+    unbounded surrogate check of decoded text, as it does for tags and refs. A
+    small non-object still becomes `{}`.
+  - AA definitions are limited wherever they are walked. A calculated-metric
+    `definition` is checked as a whole, not only its `formula`, because
+    reference extraction walks all of it. A segment `definition` that is not an
+    object is treated as `{}` before it is validated, walked, or stored.
+  - `_parse_ref_list` (CJA) keeps only non-empty strings. Null, objects,
+    numbers, and booleans are dropped instead of becoming IDs such as `"None"`.
+  - `_extract_attribution`, the calculated-metric formula summary, and segment
+    container contexts (CJA) keep only non-empty strings. Any other JSON value
+    is treated as missing instead of being stringified into a Python repr.
+  - AA segment container contexts and calculated-metric `func` values keep
+    only non-empty strings. A formula with a non-string `func` renders as an
+    empty summary, and a nested one as `?`.
+- `_ensure_list` (AA) — absent or null `dimensions` / `metrics` is `[]`, but
+  any present non-list value is invalid input, including falsy ones such as
+  `{}`, `""`, `0`, or `false`. The grader also rejects an absent or null
+  required list; the visualizer has not adopted that stricter rule.
+
+**Not yet reviewed:** sdr-grader #63 (`9687fcc`) moved the grader's CJA
+reference reading to `_inventory_ref_list`, which merges definition references
+with exporter inventory fields and splits comma-separated tabular strings. The
+visualizer still reads references through `_parse_ref_list` and its typed
+`reference_types`. Whether to adopt #63 is an open reference-correctness
+question, not a defensive-coercion fix.
+
 **Reviewed for 1.2.8 and not mirrored:** sdr-grader 1.7.0 also changed these
 shared paths. Each is a deliberate project difference, not a missed defensive
 fix:
