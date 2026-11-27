@@ -4,6 +4,8 @@ All notable changes to `sdr-visualizer` will be documented here. The format foll
 
 ## [Unreleased]
 
+## [1.2.12] - 2026-11-27
+
 ### Fixed
 
 - Workspace collection workers no longer import modules from the current
@@ -981,7 +983,8 @@ The following are explicitly internal and may change without notice:
 - Workspace project visualization (v0.4)
 - Schema map view (v0.5)
 
-[Unreleased]: https://github.com/brian-a-au/sdr-visualizer/compare/v1.2.11...HEAD
+[Unreleased]: https://github.com/brian-a-au/sdr-visualizer/compare/v1.2.12...HEAD
+[1.2.12]: https://github.com/brian-a-au/sdr-visualizer/releases/tag/v1.2.12
 [1.2.11]: https://github.com/brian-a-au/sdr-visualizer/releases/tag/v1.2.11
 [1.2.10]: https://github.com/brian-a-au/sdr-visualizer/releases/tag/v1.2.10
 [1.2.9]: https://github.com/brian-a-au/sdr-visualizer/releases/tag/v1.2.9
