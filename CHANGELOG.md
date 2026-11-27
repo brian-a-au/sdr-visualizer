@@ -11,7 +11,8 @@ All notable changes to `sdr-visualizer` will be documented here. The format foll
   file such as `json.py` in the directory where you ran the command could run
   inside the worker that holds API credentials.
 - Stopping a Workspace collection with SIGTERM or SIGHUP now stops its workers
-  and writes nothing, the same as Ctrl-C, and returns exit 1. Each worker also
+  and writes nothing, the same as Ctrl-C, and returns exit 1. A signal that
+  was already ignored, such as SIGHUP under `nohup`, stays ignored. Each worker also
   ends itself shortly after its deadline if the parent was killed before it
   could clean up. Before this, a terminated run could leave a worker making
   authenticated API calls for up to three minutes.

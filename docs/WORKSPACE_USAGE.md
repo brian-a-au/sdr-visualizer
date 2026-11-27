@@ -323,7 +323,9 @@ file. Staging failure preserves existing outputs. A replacement failure can
 leave earlier complete files replaced; it returns exit 1, names the affected
 artifact, and cleans remaining temporary files.
 Collection interruption terminates workers and writes no new final artifacts.
-Ctrl-C, SIGTERM, and SIGHUP all count as interruption and return exit 1. Each
+Ctrl-C, SIGTERM, and SIGHUP all count as interruption and return exit 1. A
+signal that was already ignored when the command started, such as SIGHUP under
+`nohup`, stays ignored. Each
 worker also ends itself shortly after its deadline if its parent was killed
 before cleanup could run. Workers start in Python safe-path mode, so modules in
 the current directory are never imported. A snapshot that cannot be

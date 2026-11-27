@@ -671,13 +671,17 @@ def _interrupt_on_termination():
         yield
         return
     previous = {}
-    for name in ("SIGTERM", "SIGHUP"):
-        number = getattr(signal, name, None)
-        if number is not None:
+    try:
+        for name in ("SIGTERM", "SIGHUP"):
+            number = getattr(signal, name, None)
+            if number is None:
+                continue
             handler = signal.getsignal(number)
+            if handler is signal.SIG_IGN:
+                # Respect an inherited ignore, such as SIGHUP under nohup.
+                continue
             previous[number] = signal.SIG_DFL if handler is None else handler
             signal.signal(number, _interrupt)
-    try:
         yield
     finally:
         for number, handler in previous.items():

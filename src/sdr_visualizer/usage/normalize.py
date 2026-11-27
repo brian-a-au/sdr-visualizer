@@ -39,6 +39,10 @@ def bounded_lifetime(seconds: int):
     if alarm is None:
         yield
         return
+    # An ignored or blocked SIGALRM survives exec and would defeat the ceiling.
+    signal.signal(signal.SIGALRM, signal.SIG_DFL)
+    if hasattr(signal, "pthread_sigmask"):
+        signal.pthread_sigmask(signal.SIG_UNBLOCK, {signal.SIGALRM})
     alarm(seconds)
     try:
         yield

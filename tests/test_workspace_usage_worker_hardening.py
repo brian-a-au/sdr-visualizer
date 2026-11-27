@@ -58,17 +58,25 @@ def test_worker_ignores_modules_planted_in_working_directory(monkeypatch, tmp_pa
     marker = tmp_path / "planted-import-ran"
     # Both workers import json before reading their request.
     (tmp_path / "json.py").write_text(f"open({str(marker)!r}, 'w').close()\n")
-    subprocess.run(
-        argv,
-        cwd=tmp_path,
-        env=env,
-        input=b"",
-        stdout=subprocess.DEVNULL,
-        stderr=subprocess.DEVNULL,
-        timeout=60,
-        check=False,
-    )
+
+    def run(worker_argv):
+        subprocess.run(
+            worker_argv,
+            cwd=tmp_path,
+            env=env,
+            input=b"",
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            timeout=60,
+            check=False,
+        )
+
+    run(argv)
     assert not marker.exists()
+    # Control: the same worker without safe-path mode does run the planted module,
+    # so the assertion above proves -P rather than a worker that never started.
+    run([argv[0], *argv[2:]])
+    assert marker.exists()
 
 
 @pytest.mark.parametrize(
@@ -81,6 +89,7 @@ def test_worker_arms_own_lifetime_past_parent_deadline(
 ):
     calls = []
     monkeypatch.setattr(normalize.signal, "alarm", calls.append)
+    monkeypatch.setattr(normalize.signal, "signal", lambda *args: None)
     body = "_api_child" if module is collector else "_match_child"
     monkeypatch.setattr(module, body, lambda: calls.append("body"))
     module._child()
@@ -91,6 +100,7 @@ def test_worker_arms_own_lifetime_past_parent_deadline(
 def test_worker_lifetime_cancelled_when_body_raises(monkeypatch):
     calls = []
     monkeypatch.setattr(normalize.signal, "alarm", calls.append)
+    monkeypatch.setattr(normalize.signal, "signal", lambda *args: None)
     with pytest.raises(RuntimeError), normalize.bounded_lifetime(5):
         raise RuntimeError
     assert calls == [5, 0]
@@ -117,6 +127,58 @@ def test_orphaned_worker_ends_itself_at_lifetime(tmp_path):
         check=False,
     )
     assert completed.returncode == -signal.SIGALRM
+
+
+@pytest.mark.skipif(not hasattr(signal, "pthread_sigmask"), reason="signal masks unavailable")
+def test_orphaned_worker_lifetime_survives_inherited_sigalrm_ignore_and_block(tmp_path):
+    code = (
+        "import signal, subprocess, sys\n"
+        "signal.signal(signal.SIGALRM, signal.SIG_IGN)\n"
+        "signal.pthread_sigmask(signal.SIG_BLOCK, {signal.SIGALRM})\n"
+        "child = (\n"
+        "    'import time\\n'\n"
+        "    'from sdr_visualizer.usage.normalize import bounded_lifetime\\n'\n"
+        "    'with bounded_lifetime(1):\\n'\n"
+        "    '    time.sleep(30)\\n'\n"
+        ")\n"
+        "sys.exit(-subprocess.run([sys.executable, '-c', child], timeout=20).returncode)\n"
+    )
+    completed = subprocess.run(
+        [sys.executable, "-c", code],
+        env={**os.environ, "PYTHONPATH": str(Path(normalize.__file__).resolve().parents[2])},
+        timeout=30,
+        check=False,
+    )
+    assert completed.returncode == signal.SIGALRM
+
+
+def test_termination_routing_keeps_inherited_ignore(monkeypatch):
+    number = getattr(signal, "SIGHUP", None)
+    if number is None:
+        pytest.skip("SIGHUP unavailable")
+    previous = signal.signal(number, signal.SIG_IGN)
+    try:
+        with collector._interrupt_on_termination():
+            assert signal.getsignal(number) is signal.SIG_IGN
+            assert signal.getsignal(signal.SIGTERM) is collector._interrupt
+        assert signal.getsignal(number) is signal.SIG_IGN
+    finally:
+        signal.signal(number, previous)
+
+
+def test_termination_routing_restores_when_install_is_interrupted(monkeypatch):
+    real_signal = signal.signal
+    before = signal.getsignal(signal.SIGTERM)
+
+    def install(number, handler):
+        if number != signal.SIGTERM and handler is collector._interrupt:
+            raise KeyboardInterrupt
+        return real_signal(number, handler)
+
+    monkeypatch.setattr(collector.signal, "signal", install)
+    with pytest.raises(KeyboardInterrupt), collector._interrupt_on_termination():
+        pass
+    assert signal.getsignal(signal.SIGTERM) == before
 
 
 @pytest.mark.parametrize("name", ["SIGTERM", "SIGHUP"])
@@ -196,3 +258,13 @@ def test_unfingerprintable_snapshot_rejected_before_collection(tmp_path, monkeyp
     assert main(args) == 3
     assert calls == []
     assert not (tmp_path / "report.html").exists()
+
+
+def test_worker_lifetime_without_signal_masks_still_resets_disposition(monkeypatch):
+    calls = []
+    monkeypatch.setattr(normalize.signal, "alarm", calls.append)
+    monkeypatch.setattr(normalize.signal, "signal", lambda *args: calls.append(args))
+    monkeypatch.delattr(normalize.signal, "pthread_sigmask", raising=False)
+    with normalize.bounded_lifetime(5):
+        pass
+    assert calls == [(signal.SIGALRM, signal.SIG_DFL), 5, 0]
