@@ -1,6 +1,6 @@
 {
   "spec": "adobe-credentials/v1",
-  "commit": "26a22a5eeaa06736a45716d220ce7ea96fc10f28",
+  "commit": "5490e71449f78b58a27f58e93745c067f6ec15ab",
   "files": {
     "config-check.json": "e4b1f11fb628c42aed5345dc0c436b1fd83184c23070ee737c3582f2e41a57db",
     "fixtures.json": "650e23490efffb5db90a5ba92d818167a85768237d09f6f150c18a4d8c3903c5",
