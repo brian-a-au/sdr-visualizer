@@ -20,8 +20,10 @@ from sdr_visualizer.core.exceptions import InvalidSnapshotError
 from sdr_visualizer.usage.normalize import (
     EXCLUDED_PROJECTS_LIMITATION,
     MAX_IPC_BYTES,
+    WORKER_PYTHON_FLAGS,
     MatchResult,
     bounded_json,
+    bounded_lifetime,
     candidate_record,
     normalize_findings,
     sanitize_projects,
@@ -86,7 +88,16 @@ def _run_matching(request, emit):
     emit({"kind": "done"})
 
 
+# One second past the parent's maximum 30-second matching timeout.
+WORKER_LIFETIME_SECONDS = 31
+
+
 def _child():
+    with bounded_lifetime(WORKER_LIFETIME_SECONDS):
+        _match_child()
+
+
+def _match_child():
     protocol = sys.stdout.buffer
     size = 0
 
@@ -277,7 +288,7 @@ def match_projects(
         source.write(request)
         source.seek(0)
         with subprocess.Popen(
-            [sys.executable, "-m", __name__],
+            [sys.executable, *WORKER_PYTHON_FLAGS, __name__],
             stdin=source,
             stdout=subprocess.PIPE,
             stderr=subprocess.DEVNULL,

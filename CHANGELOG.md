@@ -4,6 +4,22 @@ All notable changes to `sdr-visualizer` will be documented here. The format foll
 
 ## [Unreleased]
 
+### Fixed
+
+- Workspace collection workers no longer import modules from the current
+  directory. They now start in Python safe-path mode (`-P`). Before this, a
+  file such as `json.py` in the directory where you ran the command could run
+  inside the worker that holds API credentials.
+- Stopping a Workspace collection with SIGTERM or SIGHUP now stops its workers
+  and writes nothing, the same as Ctrl-C, and returns exit 1. A signal that
+  was already ignored, such as SIGHUP under `nohup`, stays ignored. Each worker also
+  ends itself shortly after its deadline if the parent was killed before it
+  could clean up. Before this, a terminated run could leave a worker making
+  authenticated API calls for up to three minutes.
+- A snapshot that cannot be fingerprinted, for example one containing NaN, is
+  now rejected with exit 3 before Workspace collection uses credentials or the
+  network. Before this, it was rejected only after the full collection had run.
+
 ### Changed
 
 - The `workspace-cja` extra now pins `cjapy==0.3.2`, and Workspace collection records that version. cjapy 0.3.2 no longer installs the archived `pathlib2` backport. The CJA matching code that sdr-visualizer uses is the same as in 0.3.1.
