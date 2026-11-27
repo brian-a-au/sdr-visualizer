@@ -148,7 +148,7 @@ def test_module_version(monkeypatch, capsys):
     assert f"cja-lineage {__version__}" in capsys.readouterr().out
 
 
-@pytest.mark.parametrize("control", ["‮", "⁦", "‏", "؜"])
+@pytest.mark.parametrize("control", ["\u202e", "\u2066", "\u200f", "\u061c"])
 def test_bidi_scope_label_rejected_before_discovery(tmp_path, monkeypatch, control):
     def acquire(*args, **kwargs):
         raise AssertionError("discovery must not run for an invalid scope label")

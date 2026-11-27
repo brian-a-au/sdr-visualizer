@@ -8,7 +8,7 @@ import re
 import sys
 from pathlib import Path
 
-from sdr_visualizer.adapters.cja_lineage import MAX_SCOPE_LABEL_LENGTH
+from sdr_visualizer.adapters.cja_lineage import BIDI_CONTROLS, MAX_SCOPE_LABEL_LENGTH
 from sdr_visualizer.cli.lineage_output import (
     LineageOutputFailureCode,
     validate_lineage_destination,
@@ -121,6 +121,7 @@ def _valid_scope_label(value: object) -> bool:
         and len(value) <= MAX_SCOPE_LABEL_LENGTH
         and all(not (ord(character) < 32 or 127 <= ord(character) <= 159) for character in value)
         and all(not 0xD800 <= ord(character) <= 0xDFFF for character in value)
+        and not any(character in BIDI_CONTROLS for character in value)
     )
 
 
