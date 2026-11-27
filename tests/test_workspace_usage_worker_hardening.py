@@ -101,8 +101,12 @@ def test_worker_lifetime_cancelled_when_body_raises(monkeypatch):
     calls = []
     monkeypatch.setattr(normalize.signal, "alarm", calls.append)
     monkeypatch.setattr(normalize.signal, "signal", lambda *args: None)
-    with pytest.raises(RuntimeError), normalize.bounded_lifetime(5):
+
+    def body():
         raise RuntimeError
+
+    with pytest.raises(RuntimeError), normalize.bounded_lifetime(5):
+        body()
     assert calls == [5, 0]
 
 
