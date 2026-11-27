@@ -19,6 +19,17 @@ All notable changes to `sdr-visualizer` will be documented here. The format foll
 - A snapshot that cannot be fingerprinted, for example one containing NaN, is
   now rejected with exit 3 before Workspace collection uses credentials or the
   network. Before this, it was rejected only after the full collection had run.
+- A segment or calculated-metric definition whose `func` is a list or object no
+  longer crashes the run with exit 1. The node now shows as an unknown node,
+  like any other unrecognized shape.
+- Segment and formula trees no longer carry lists, objects, or numbers from a
+  malformed definition as identifiers, labels, or contexts. Before this, those
+  values could appear as Python repr text in the anatomy view, and anatomy
+  links could resolve them outside the typed resolver.
+- `cja-lineage` now rejects a `--scope-label` that contains a bidirectional
+  control character as an argument error (exit 2), before discovery runs.
+  Before this, discovery ran first, including live discovery, and the run then
+  failed with a misleading invalid-structure error (exit 3).
 
 ### Changed
 

@@ -251,3 +251,43 @@ def test_direct_segment_tree_rejects_excessive_depth_before_recursive_walk():
 
     with pytest.raises(InvalidSnapshotError, match=r"segment definition.*depth"):
         parse_segment_tree(_make_segment(definition))
+
+
+@pytest.mark.parametrize("func", [[], {}, ["and"], {"func": "and"}, 7, True])
+def test_non_string_func_degrades_to_unknown(func):
+    tree = parse_segment_tree(_make_segment({"func": func, "args": []}))
+    assert tree == {"kind": "unknown", "func": None, "raw_keys": ["args", "func"]}
+
+
+@pytest.mark.parametrize("bad", [{"x": "segments/s"}, ["segments/s"], 12345, True])
+def test_non_string_ids_and_labels_never_reach_tree(bad):
+    definition = {
+        "func": "container",
+        "context": bad,
+        "pred": {
+            "func": "and",
+            "args": [
+                {"func": "segment-ref", "id": bad},
+                {"func": "segment", "name": bad, "id": bad},
+                {"func": "streq", "val": {"func": "attr", "name": bad}, "str": "x"},
+                {"func": "event-exists", "evt": {"func": "event", "name": bad}},
+            ],
+        },
+    }
+    tree = parse_segment_tree(_make_segment(definition))
+    assert tree["context"] == "unspecified"
+    ref, scoped, criterion, event = tree["child"]["children"]
+    assert ref == {"kind": "segment_ref", "segment_id": ""}
+    assert scoped == {"kind": "segment_ref", "segment_id": ""}
+    assert criterion["target_id"] is None
+    assert criterion["target_label"] == "attribute"
+    assert criterion["refs"] == []
+    assert criterion["summary"] == "attribute equals 'x'"
+    assert event["target_id"] is None
+    assert event["target_label"] == "metric"
+
+
+def test_non_string_wrapper_context_keeps_inner_tree():
+    inner = {"func": "segment-ref", "id": "segments/s"}
+    tree = parse_segment_tree(_make_segment({"context": ["hits"], "definition": inner}))
+    assert tree == {"kind": "segment_ref", "segment_id": "segments/s"}

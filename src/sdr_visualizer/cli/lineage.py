@@ -7,7 +7,7 @@ import sys
 from pathlib import Path
 
 from sdr_visualizer import __version__
-from sdr_visualizer.adapters.cja_lineage import MAX_SCOPE_LABEL_LENGTH
+from sdr_visualizer.adapters.cja_lineage import BIDI_CONTROLS, MAX_SCOPE_LABEL_LENGTH
 from sdr_visualizer.cli.lineage_output import validate_lineage_destination, write_lineage_output
 from sdr_visualizer.input.lineage_discovery import (
     LineageDiscoveryFailure,
@@ -67,6 +67,7 @@ def main(argv: list[str] | None = None) -> int:
         or label != label.strip()
         or len(label) > MAX_SCOPE_LABEL_LENGTH
         or any(ord(c) < 32 or 127 <= ord(c) <= 159 or 0xD800 <= ord(c) <= 0xDFFF for c in label)
+        or any(c in BIDI_CONTROLS for c in label)
     ):
         parser.error("scope")
     protected = tuple(

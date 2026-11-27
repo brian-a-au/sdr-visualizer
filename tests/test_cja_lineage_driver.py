@@ -140,6 +140,8 @@ def test_live_driver_supports_default_and_named_profile_credential_routes(
         ["--saved", "saved.json", "--scope-label", "Scope", "--color-pack", "blue"],
         ["--saved", "saved.json", "--scope-label", "Scope", "--unknown", CANARY],
         ["--saved", "saved.json", "--scope-label", f"Scope\n{CANARY}"],
+        ["--saved", "saved.json", "--scope-label", "Scope\u202e x"],
+        ["--live", "--binary", "/bin/tool", "--scope-label", "Scope\u2066 x"],
     ],
 )
 def test_invalid_modes_and_hostile_arguments_fail_before_acquisition(
