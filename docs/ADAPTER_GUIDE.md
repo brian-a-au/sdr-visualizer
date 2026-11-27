@@ -216,8 +216,9 @@ The fixtures may diverge from sdr-grader's over time — the visualizer wants mo
   [sdr-grader #179](https://github.com/brian-a-au/sdr-grader/pull/179):
   - `_parse_definition_json` (CJA) limits every decoded `definition_json` value
     to depth 100 and 10,000 nodes before the object-shape fallback, so a decoded
-    list or scalar cannot skip the definition budget. A small non-object still
-    becomes `{}`.
+    list or scalar cannot skip the definition budget. The budget runs before the
+    unbounded surrogate check of decoded text, as it does for tags and refs. A
+    small non-object still becomes `{}`.
   - AA definitions are limited wherever they are walked. A calculated-metric
     `definition` is checked as a whole, not only its `formula`, because
     reference extraction walks all of it. A segment `definition` that is not an
@@ -227,6 +228,9 @@ The fixtures may diverge from sdr-grader's over time — the visualizer wants mo
   - `_extract_attribution`, the calculated-metric formula summary, and segment
     container contexts (CJA) keep only non-empty strings. Any other JSON value
     is treated as missing instead of being stringified into a Python repr.
+  - AA segment container contexts and calculated-metric `func` values keep
+    only non-empty strings. A formula with a non-string `func` renders as an
+    empty summary, and a nested one as `?`.
 - `_ensure_list` (AA) — absent or null `dimensions` / `metrics` is `[]`, but
   any present non-list value is invalid input, including falsy ones such as
   `{}`, `""`, `0`, or `false`. The grader also rejects an absent or null

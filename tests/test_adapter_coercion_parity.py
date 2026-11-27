@@ -172,3 +172,62 @@ def test_cja_declared_string_container_type_still_falls_back():
     record = {"segment_id": "s", "definition_json": {}, "container_type": "visit"}
     impl = cja.adapt(_cja(segments=[record]))
     assert impl.segments[0].container_types == ["visit"]
+
+
+# --- the structure budget runs before the unbounded surrogate walk ---
+
+
+def test_cja_decoded_definition_checks_node_budget_before_surrogates():
+    # The surrogate sits past the node budget, so only the budget can see it first.
+    encoded = '["\\ud800",' + ",".join(["0"] * (MAX_DEFINITION_NODES + 5)) + "]"
+    with pytest.raises(InvalidSnapshotError, match="nodes"):
+        cja._parse_definition_json(encoded, label="definition")
+    with pytest.raises(InvalidSnapshotError, match="nodes"):
+        cja._parse_tag_list(encoded)
+
+
+def test_cja_decoded_definition_still_rejects_surrogates_within_budget():
+    with pytest.raises(InvalidSnapshotError, match="surrogate"):
+        cja._parse_definition_json('{"func": "\\ud800"}', label="definition")
+
+
+# --- AA segment contexts and formula functions keep only strings ---
+
+
+@pytest.mark.parametrize("bad", [{"x": 1}, ["hits"], 7, True])
+def test_aa_non_string_contexts_never_become_container_types(bad):
+    definition = {"func": "container", "context": bad, "pred": {"func": "container"}}
+    impl = aa.adapt(_aa(segments=[{"id": "s", "definition": definition}]))
+    assert impl.segments[0].container_types == []
+
+
+def test_aa_string_context_is_still_a_container_type():
+    definition = {"func": "container", "context": "hits", "pred": {"func": "container"}}
+    impl = aa.adapt(_aa(segments=[{"id": "s", "definition": definition}]))
+    assert impl.segments[0].container_types == ["hits"]
+
+
+@pytest.mark.parametrize("bad", [["divide"], {"func": "divide"}, 7, True])
+def test_aa_non_string_formula_func_is_not_rendered(bad):
+    formula = {"func": bad, "args": ["metrics/a"]}
+    record = {"id": "cm", "definition": {"formula": formula}}
+    impl = aa.adapt(_aa(calculated_metrics=[record]))
+    assert impl.calculated_metrics[0].formula_text == ""
+
+
+@pytest.mark.parametrize("bad", [["divide"], {"x": 1}, 7])
+def test_aa_non_string_nested_formula_func_is_a_placeholder(bad):
+    formula = {"func": "add", "args": [{"func": bad}]}
+    record = {"id": "cm", "definition": {"formula": formula}}
+    impl = aa.adapt(_aa(calculated_metrics=[record]))
+    assert impl.calculated_metrics[0].formula_text == "add(?)"
+
+
+def test_aa_segment_reference_recovers_id_after_non_string_name():
+    segments = [
+        {"id": "real", "definition": {}},
+        {"id": "w", "definition": {"func": "segment", "name": ["bad"], "id": "real"}},
+    ]
+    impl = aa.adapt(_aa(segments=segments))
+    wrapper = next(segment for segment in impl.segments if segment.id == "w")
+    assert wrapper.references == ["real"]

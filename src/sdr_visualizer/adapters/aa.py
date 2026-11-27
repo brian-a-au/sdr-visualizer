@@ -167,7 +167,7 @@ def _index_classifications(classifications: Any) -> dict[str, list[str]]:
 
 
 def _stringify_formula(formula: dict[str, Any]) -> str:
-    func = formula.get("func")
+    func = _text(formula.get("func"))
     if not func:
         if "formula" in formula:
             return ", ".join(
@@ -199,7 +199,7 @@ def _stringify_formula_arg(arg: Any) -> str:
         # Nested formula: render it the same way instead of leaking a
         # Python dict repr into user-facing formula summaries.
         rendered = _stringify_formula(arg)
-        return rendered or str(arg.get("func") or "?")
+        return rendered or _text(arg.get("func")) or "?"
     if isinstance(arg, str) and arg.startswith(
         ("metrics/", "variables/", "segments/", "calculatedMetrics/")
     ):
@@ -276,7 +276,7 @@ def _extract_aa_references(
             elif func == "segment" and not any(
                 k in node for k in ("container", "pred", "definition")
             ):
-                add("segment", node.get("name") or node.get("id"))
+                add("segment", _text(node.get("name")) or _text(node.get("id")))
             for key, value in node.items():
                 if include_args and key == "args" and isinstance(value, list):
                     for arg in value:
@@ -357,11 +357,10 @@ def _walk_segment_definition(definition: Any) -> tuple[int, list[str]]:
             if node.get("func") == "container":
                 child_depth = depth + 1
                 max_depth = child_depth
-                if node.get("context"):
-                    ctx = str(node["context"])
-                    if ctx not in seen:
-                        seen.add(ctx)
-                        contexts.append(ctx)
+                ctx = _text(node.get("context"))
+                if ctx and ctx not in seen:
+                    seen.add(ctx)
+                    contexts.append(ctx)
             for value in node.values():
                 max_depth = max(max_depth, visit(value, child_depth))
         elif isinstance(node, list):
@@ -504,6 +503,11 @@ def _as_float(value: Any) -> float:
         return float(value)
     except (TypeError, ValueError, OverflowError) as exc:
         raise InvalidSnapshotError(f"expected a number, got {type(value).__name__}") from exc
+
+
+def _text(value: Any) -> str | None:
+    """Return a non-empty string, or None for anything else."""
+    return value if isinstance(value, str) and value else None
 
 
 def _present(value: Any) -> Any:

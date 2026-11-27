@@ -19,8 +19,12 @@ All notable changes to `sdr-visualizer` will be documented here. The format foll
 - CJA reference lists keep only non-empty strings. Null, objects, and numbers
   no longer become reference IDs such as `"None"`. CJA attribution, allocation,
   formula summaries, and container contexts that are not strings are now
-  omitted instead of shown as Python repr text. These match the sdr-grader
-  copies of the same helpers.
+  omitted instead of shown as Python repr text. AA segment container contexts
+  and calculated-metric formula functions now follow the same rule. These
+  match the sdr-grader copies of the same helpers.
+- An AA segment reference whose `name` is not a string now falls back to its
+  `id`, as the segment anatomy view already did. Before this, the reference was
+  dropped from the graph while anatomy still linked to it.
 
 ### Changed
 
