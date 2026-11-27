@@ -6,6 +6,19 @@ All notable changes to `sdr-visualizer` will be documented here. The format foll
 
 ### Fixed
 
+- Workspace collection workers no longer import modules from the current
+  directory. They now start in Python safe-path mode (`-P`). Before this, a
+  file such as `json.py` in the directory where you ran the command could run
+  inside the worker that holds API credentials.
+- Stopping a Workspace collection with SIGTERM or SIGHUP now stops its workers
+  and writes nothing, the same as Ctrl-C, and returns exit 1. A signal that
+  was already ignored, such as SIGHUP under `nohup`, stays ignored. Each worker also
+  ends itself shortly after its deadline if the parent was killed before it
+  could clean up. Before this, a terminated run could leave a worker making
+  authenticated API calls for up to three minutes.
+- A snapshot that cannot be fingerprinted, for example one containing NaN, is
+  now rejected with exit 3 before Workspace collection uses credentials or the
+  network. Before this, it was rejected only after the full collection had run.
 - A segment or calculated-metric definition whose `func` is a list or object no
   longer crashes the run with exit 1. The node now shows as an unknown node,
   like any other unrecognized shape.
