@@ -8,7 +8,7 @@ from pathlib import Path
 import pytest
 from test_workspace_usage_cli import acquisition, command
 from test_workspace_usage_collection import child, implementation, protocol
-from test_workspace_usage_lookup_pins import A, B, write_json
+from test_workspace_usage_lookup_pins import A, B, launch, write_json
 
 from sdr_visualizer.cli.main import main
 from sdr_visualizer.core.exceptions import InvalidSnapshotError
@@ -250,6 +250,9 @@ def test_worker_reports_only_a_masked_client_id(masked):
     [
         [{"kind": "credential", "client_id": "aaaa1111bbbb2222cccc3333dddd4444"}],
         [{"kind": "credential", "client_id": 7}],
+        [{"kind": "credential", "client_id": "\u001b[2J****\u001b[2J"}],
+        [{"kind": "credential", "client_id": "aaaa****444\u007f"}],
+        [{"kind": "credential", "client_id": "aaaa*****4444"}],
         [{"kind": "credential", "client_id": "aaaa****4444", "secret": "x"}],
         [{"kind": "credential", "client_id": "****"}, {"kind": "credential", "client_id": "****"}],
     ],
@@ -259,6 +262,25 @@ def test_parent_rejects_an_unmasked_or_repeated_client_id(messages):
     assert result["retrieval"]["status"] == "failed"
     assert result["client_id"] in (None, "****")
     assert "aaaa1111" not in json.dumps(result)
+
+
+def test_worker_started_for_a_profile_gets_only_the_allowed_variables(home, monkeypatch):
+    write_json(profile_file(home), PROFILE)
+    monkeypatch.setenv("CJA_PROFILE", "prod")
+    monkeypatch.setenv("ORG_ID", A["org_id"])
+    monkeypatch.setenv("SECRET", A["secret"])
+    source = select_source("cja", profile="prod", expected_org="org")
+    request, environment, argv = launch(monkeypatch, org="org", credentials=source.credentials)
+    allowed = {"PATH", "SYSTEMROOT", "WINDIR", "ORG_ID", "CLIENT_ID", "SECRET", "SCOPES"}
+    added = {"PYTHONPATH", "PYTHONDONTWRITEBYTECODE", "PYTHONIOENCODING"}
+    assert set(environment) <= allowed | added
+    assert "HOME" not in environment and "USERPROFILE" not in environment
+    # All four values come from the profile. None stays from the environment.
+    assert [environment[key] for key in ("ORG_ID", "CLIENT_ID", "SECRET", "SCOPES")] == [
+        PROFILE[key] for key in ("org_id", "client_id", "secret", "scopes")
+    ]
+    sent = json.dumps(request) + " ".join(argv)
+    assert PROFILE["secret"] not in sent and PROFILE["client_id"] not in sent
 
 
 def test_real_worker_code_emits_the_masked_client_id(monkeypatch):

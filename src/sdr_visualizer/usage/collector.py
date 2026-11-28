@@ -25,7 +25,11 @@ from sdr_visualizer.core.workspace_usage import (
     snapshot_digest,
 )
 from sdr_visualizer.usage import aa_api, auth, cja_api
-from sdr_visualizer.usage.credential_source import MASK, mask_client_id, select_source
+from sdr_visualizer.usage.credential_source import (
+    is_masked_client_id,
+    mask_client_id,
+    select_source,
+)
 from sdr_visualizer.usage.normalize import (
     CANDIDATE_LIMITATION,
     EXCLUDED_PROJECTS_LIMITATION,
@@ -535,11 +539,7 @@ def _receive(process, request, timeout=180):
                         )
                     if kind == "credential" and set(message) == {"kind", "client_id"}:
                         masked = message["client_id"]
-                        if (
-                            client_id is not None
-                            or type(masked) is not str
-                            or not (masked == MASK or (len(masked) == 12 and masked[4:8] == MASK))
-                        ):
+                        if client_id is not None or not is_masked_client_id(masked):
                             raise ValueError
                         client_id = masked
                         continue
