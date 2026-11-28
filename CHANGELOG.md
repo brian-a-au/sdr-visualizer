@@ -37,6 +37,8 @@ All notable changes to `sdr-visualizer` will be documented here. The format foll
   environment variables. A run that worked before uses the same credential as
   before. `--profile` and `--workspace-usage-config` together stop the run with
   exit 3. `.env` is not read.
+- `--p` is no longer a short form of `--platform`, because it now also fits
+  `--profile`. Write `--pl` or the full name.
 
 ## [1.2.12] - 2026-11-27
 
