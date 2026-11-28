@@ -643,7 +643,11 @@ def child(monkeypatch, *, failure=None, backwards=False):
         collector, "BoundedTransport", lambda *args, **kwargs: contextlib.nullcontext(transport)
     )
     monkeypatch.setattr(collector.auth, "quiet_sdk", contextlib.nullcontext)
-    monkeypatch.setattr(collector.auth, "resolve_credentials", lambda *args, **kwargs: object())
+    monkeypatch.setattr(
+        collector.auth,
+        "resolve_credentials",
+        lambda *args, **kwargs: SimpleNamespace(client_id="synthetic-client-id"),
+    )
 
     def initialize(*args):
         if failure:

@@ -94,6 +94,16 @@ def main(argv: list[str] | None = None) -> int:
         parser.error("--trend and --compare-to are mutually exclusive")
     if args.trend and (args.dataview or args.rsid):
         parser.error("--trend applies only to snapshot directories")
+    if args.profile is not None:
+        from sdr_visualizer.usage.credential_source import PROFILE_NAME_RULE, valid_profile_name
+
+        # The name is checked before any path is built or any child is started.
+        if not valid_profile_name(args.profile):
+            parser.error("--profile is not valid: " + PROFILE_NAME_RULE)
+        if not (args.dataview or args.rsid or args.collect_workspace_usage):
+            parser.error("--profile requires --dataview, --rsid or --collect-workspace-usage")
+        if args.workspace_usage_config is not None:
+            parser.error("--profile and --workspace-usage-config cannot be used together")
     if (args.dataview or args.rsid) and args.platform:
         # Mode 3 already fixes the platform (--dataview -> CJA, --rsid -> AA);
         # honoring --platform here could force a mismatched adapter. Ignore it
@@ -174,8 +184,18 @@ def main(argv: list[str] | None = None) -> int:
         if args.collect_workspace_usage:
             from sdr_visualizer.usage.collector import collect_workspace_usage
 
+            def report(kind: str, text: str) -> None:
+                if kind == "info" and args.quiet:
+                    return
+                prefix = "" if kind == "info" else f"{kind}: "
+                print(f"sdr-visualizer: {prefix}{_visible_terminal_text(text)}", file=sys.stderr)
+
             bound = collect_workspace_usage(
-                impl, config_path=args.workspace_usage_config, **usage_cli.collection_options(args)
+                impl,
+                config_path=args.workspace_usage_config,
+                profile=args.profile,
+                report=report,
+                **usage_cli.collection_options(args),
             )
             impl.supplementary_data["workspace_usage"] = bound
             usage = bound.evidence
@@ -407,7 +427,20 @@ def _load(args: argparse.Namespace) -> tuple[dict, str]:
                 "sdr-visualizer: --at applies only to snapshot directories; ignoring",
                 file=sys.stderr,
             )
-        return shell_cja(args.dataview) if args.dataview else shell_aa(args.rsid)
+        shell, identifier, tool = (
+            (shell_cja, args.dataview, "cja_auto_sdr")
+            if args.dataview
+            else (shell_aa, args.rsid, "aa_auto_sdr")
+        )
+        if args.profile is None:
+            return shell(identifier)
+        # The generator reads the profile itself. Only its name is passed on.
+        if not args.quiet:
+            print(
+                f"sdr-visualizer: {tool} credential source: profile {args.profile}",
+                file=sys.stderr,
+            )
+        return shell(identifier, profile=args.profile)
     return load_snapshot(args.path, at=args.at)
 
 
@@ -589,7 +622,19 @@ def _build_parser() -> argparse.ArgumentParser:
     p.add_argument(
         "--workspace-usage-config",
         metavar="PATH",
-        help="Collection credentials file; otherwise use the complete environment quartet.",
+        help=(
+            "Collection credentials file. Without it or --profile, collection uses "
+            "the complete environment quartet."
+        ),
+    )
+    p.add_argument(
+        "--profile",
+        metavar="NAME",
+        help=(
+            "Named credential profile in ~/.cja/orgs (CJA) or ~/.aa/orgs (AA). "
+            "It is passed to the generator for --dataview / --rsid and is read for "
+            "--collect-workspace-usage. It cannot be used with --workspace-usage-config."
+        ),
     )
     p.add_argument(
         "--workspace-usage-scope",

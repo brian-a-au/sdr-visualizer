@@ -23,37 +23,37 @@ class Credentials:
         return "Credentials(<redacted>)"
 
 
-def resolve_credentials(config_path=None, *, expected_org, environ=None):
-    """Read only the explicit source. Call inside the isolated API worker."""
-    if config_path is not None:
-        try:
-            fd = os.open(config_path, os.O_RDONLY | os.O_NONBLOCK)
-            with os.fdopen(fd, "rb") as stream:
-                if not stat.S_ISREG(os.fstat(stream.fileno()).st_mode):
-                    raise ValueError
-                raw = stream.read(65537)
-            if len(raw) > 65536:
+FIELDS = ("org_id", "client_id", "secret", "scopes")
+# The SDK legacy technical-account field is ignored, never interpreted.
+CONFIG_KEYS = frozenset((*FIELDS, "tech_id"))
+# The generators write sandbox into a profile. It is accepted there and ignored.
+PROFILE_KEYS = CONFIG_KEYS | {"sandbox"}
+
+
+def read_source_file(path, *, allowed=CONFIG_KEYS):
+    """Return the bounded, strictly keyed JSON object in one credential file."""
+    try:
+        fd = os.open(path, os.O_RDONLY | os.O_NONBLOCK)
+        with os.fdopen(fd, "rb") as stream:
+            if not stat.S_ISREG(os.fstat(stream.fileno()).st_mode):
                 raise ValueError
-            source = decode_json(raw, max_depth=10, max_nodes=1000)
-            if type(source) is not dict:
-                raise ValueError
-            # The SDK legacy technical-account field is ignored, never interpreted.
-            allowed = {
-                "org_id",
-                "client_id",
-                "secret",
-                "scopes",
-                "tech_id",
-            }
-            if set(source) - allowed:
-                raise ValueError
-        except (OSError, ValueError, TransportError):
-            raise InvalidSnapshotError("Invalid Workspace authentication configuration") from None
-    else:
-        env = os.environ if environ is None else environ
-        source = {key: env.get(key.upper()) for key in ("org_id", "client_id", "secret", "scopes")}
+            raw = stream.read(65537)
+        if len(raw) > 65536:
+            raise ValueError
+        source = decode_json(raw, max_depth=10, max_nodes=1000)
+        if type(source) is not dict:
+            raise ValueError
+        if set(source) - allowed:
+            raise ValueError
+    except (OSError, ValueError, TransportError):
+        raise InvalidSnapshotError("Invalid Workspace authentication configuration") from None
+    return source
+
+
+def validate_source(source, *, expected_org):
+    """Check the four fields of one source. Fields never come from a second source."""
     values = {}
-    for key in ("org_id", "client_id", "secret", "scopes"):
+    for key in FIELDS:
         value = source.get(key)
         if key == "scopes" and isinstance(value, list):
             if not value or any(type(v) is not str or not v.strip() for v in value):
@@ -77,6 +77,16 @@ def resolve_credentials(config_path=None, *, expected_org, environ=None):
     if values["org_id"] != expected_org:
         raise InvalidSnapshotError("Workspace authentication organization mismatch")
     return Credentials(**values)
+
+
+def resolve_credentials(config_path=None, *, expected_org, environ=None):
+    """Read only the explicit source. Call inside the isolated API worker."""
+    if config_path is not None:
+        source = read_source_file(config_path)
+    else:
+        env = os.environ if environ is None else environ
+        source = {key: env.get(key.upper()) for key in FIELDS}
+    return validate_source(source, expected_org=expected_org)
 
 
 @contextlib.contextmanager

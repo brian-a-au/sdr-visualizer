@@ -1,0 +1,77 @@
+{
+  "spec": "adobe-credentials/v1",
+  "tool": "sdr-visualizer",
+  "tool_version": "1.3.0",
+  "not_applicable": [
+    {
+      "rule": "L1.3 (write rules)",
+      "reason": "The tool writes no credential file and creates no credential folder, so cases perm-001, perm-002 and perm-003 do not apply. The warning on read applies and is met."
+    },
+    {
+      "rule": "L2.4",
+      "reason": "The tool has no config check command. A run that collects Workspace usage prints one line that names the credential source and the masked client ID. Cases with the config_check command are skipped, except those that test only a profile read."
+    },
+    {
+      "rule": "L2.5",
+      "reason": "The tool has no live test command. Workspace collection is optional and reports a failed lookup as one fixed category."
+    },
+    {
+      "rule": "L2.6",
+      "reason": "The tool has no live test command, so it has no product access message."
+    },
+    {
+      "rule": "L2.2 (AHD_ names)",
+      "reason": "The AHD_ variable names belong to aa-health-duckdb only."
+    }
+  ],
+  "differences": [
+    {
+      "rule": "L1.4",
+      "summary": "cja-lineage --live accepts a profile name of up to 128 characters and passes it to cja_auto_sdr. It builds no path from the name. sdr-visualizer --profile applies the 64 character rule."
+    },
+    {
+      "rule": "L2.1",
+      "summary": "A file with a key that the tool does not know is rejected, not ignored. A profile may also hold sandbox, which is ignored. The tool removes spaces around each scope and removes repeated scopes before it sends them."
+    },
+    {
+      "rule": "L3.1",
+      "cases": [
+        "lookup-004"
+      ],
+      "summary": "Workspace collection does not read AA_PROFILE or CJA_PROFILE. It prints the notice profile_variable_not_used and uses the environment variables."
+    },
+    {
+      "rule": "L3.1",
+      "cases": [
+        "lookup-006",
+        "lookup-009",
+        "partial-004"
+      ],
+      "summary": "Workspace collection does not read .env in the working folder. This is a decision of the tool, made to keep the protection added in 1.2.12. It is not a gap that a release will close."
+    },
+    {
+      "rule": "L3.1",
+      "cases": [
+        "lookup-007",
+        "lookup-008",
+        "partial-006"
+      ],
+      "summary": "Workspace collection has no default config file. A config file is read only when --workspace-usage-config names it. This is a decision of the tool, made to keep the protection added in 1.2.12. It is not a gap that a release will close."
+    },
+    {
+      "rule": "L3.1",
+      "cases": [
+        "lookup-010"
+      ],
+      "summary": "When no source gives a credential, the worker reports one input error that does not name the ways to give one."
+    },
+    {
+      "rule": "L3.2",
+      "cases": [
+        "partial-001",
+        "partial-002"
+      ],
+      "summary": "A partial set of environment variables stops the run, as the rule asks, but the error does not name the missing fields. A partial profile does name them."
+    }
+  ]
+}

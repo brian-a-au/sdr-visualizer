@@ -78,6 +78,7 @@ include = [
     "CONTRIBUTING.md",
     "AGENTS.md",
     "SECURITY.md",
+    "known-differences.json",
 ]
 exclude = [
     "tests/fixtures/cja_snapshot_small.json",

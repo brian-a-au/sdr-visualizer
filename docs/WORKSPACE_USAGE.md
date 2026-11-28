@@ -73,7 +73,9 @@ sdr-visualizer --rsid example-suite --collect-workspace-usage \
 
 Live inventory still invokes `cja_auto_sdr` or `aa_auto_sdr` with its existing
 configuration and 600-second timeout. The visualizer collects usage after the
-exporter finishes; it does not pass usage options to the exporter. No exporter
+exporter finishes; it does not pass usage options to the exporter. The one
+shared option is `--profile NAME`, which goes to the exporter and is also read
+for usage collection. No exporter
 change or new snapshot format is required.
 
 The usage sidecar from a live run is bound to the exporter's original
@@ -139,14 +141,68 @@ activity. Unverified candidates do not establish that exact dependency.
 
 ## Configure credentials and scope
 
-Use an existing authorized account through an explicit config file, or omit
-the config option to use the complete environment quartet `ORG_ID`, `CLIENT_ID`,
-`SECRET`, `SCOPES`. Config wins as one complete source; partial sources are never
-merged, and the visualizer does not search for a default config file.
+Collection looks for the credential in this order and uses the first source it
+finds:
+
+1. `--workspace-usage-config PATH`, an explicit config file.
+2. `--profile NAME`, a named profile.
+3. The complete environment quartet `ORG_ID`, `CLIENT_ID`, `SECRET`, `SCOPES`.
+
+The four fields always come from one source. Partial sources are never merged,
+and the visualizer does not search for a default config file. It does not read
+`.env`. You cannot use `--profile` and `--workspace-usage-config` together; the
+run stops with exit 3.
+
+### Use a named profile
+
+`--profile NAME` reads `~/.cja/orgs/NAME/config.json` for a CJA run and
+`~/.aa/orgs/NAME/config.json` for an AA run. These are the profiles that
+`cja_auto_sdr` and `aa_auto_sdr` create, so you can use one profile for the
+generator and for usage collection:
+
+```bash
+sdr-visualizer --dataview example-dataview --profile example-profile \
+  --collect-workspace-usage --workspace-usage-org 'EXAMPLE@AdobeOrg' \
+  --output reports/cja.html
+```
+
+In the `--dataview` and `--rsid` modes the same `--profile NAME` is passed to
+the generator, which reads the profile itself. A profile name holds letters,
+digits, dots, underscores and hyphens. It starts with a letter or a digit and
+has 64 characters or fewer. The name is checked before any path is built. A
+profile that does not exist, or that lacks one of the four fields, stops the
+run with exit 3. The visualizer does not fall back to the environment.
+
+The main process reads the profile and gives the four values to the collection
+worker in the worker's environment. The worker still has no home directory, and
+no credential value is ever placed in a command line.
+
+`AA_PROFILE` and `CJA_PROFILE` are not read for usage collection in this
+release. When the variable for the run's platform is set and you gave neither
+option, the run prints the notice `profile_variable_not_used` on stderr and uses
+the environment quartet as before. A later major release will use that profile
+first. Pass `--profile` to use it now.
+
+### What the run reports
+
+A collection run prints one line on stderr that names the credential source,
+e.g., `sdr-visualizer: Workspace credential source: profile example-profile
+(/home/you/.cja/orgs/example-profile/config.json), client ID abcd****wxyz,
+secret ****`. The client ID shows its first 4 and last 4 characters. A client
+ID of 8 characters or fewer shows as `****`. No part of the secret is ever
+shown. `--quiet` hides this line.
+
+When the config file or the profile file can be read by the group or by other
+users, the run prints one warning. Run `chmod 600` on the file to remove it.
+This check is skipped on Windows.
+
+### File keys
 
 Supported config keys are `org_id`, `client_id`, `secret`, and `scopes`. Scopes
 accept a nonempty comma-separated string or list of strings. The legacy
-`tech_id` key is ignored; other unknown keys are rejected. Endpoint overrides,
+`tech_id` key is ignored; other unknown keys are rejected. A profile file may
+also hold `sandbox`, which the generators write. It is accepted in a profile and
+ignored. Endpoint overrides,
 key-file loading, logging destinations, and executable configuration are not
 accepted. Credential values and raw SDK diagnostics are never embedded or logged.
 Keep config outside snapshot directories. Do not commit credentials.

@@ -8,6 +8,8 @@ import subprocess
 import sys
 from pathlib import Path
 
+import pytest
+
 REPO = Path(__file__).resolve().parent.parent
 GENERATED_FIXTURES = [
     (
@@ -32,6 +34,24 @@ def pytest_configure(config):  # noqa: ARG001
         if fixture.exists():
             continue
         subprocess.check_call([sys.executable, str(generator)])
+
+
+CREDENTIAL_VARIABLES = (
+    "ORG_ID",
+    "CLIENT_ID",
+    "SECRET",
+    "SCOPES",
+    "SANDBOX",
+    "AA_PROFILE",
+    "CJA_PROFILE",
+)
+
+
+@pytest.fixture(autouse=True)
+def _no_developer_credentials(monkeypatch):
+    """Keep the developer's own credential variables out of every test."""
+    for name in CREDENTIAL_VARIABLES:
+        monkeypatch.delenv(name, raising=False)
 
 
 SDR_DATA_RE = re.compile(

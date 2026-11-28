@@ -20,11 +20,45 @@ from sdr_visualizer.input.json_io import DuplicateJSONKeyError, unique_object
 SHELL_OUT_TIMEOUT_SECONDS = 600
 
 
+def _profile_args(profile: str | None) -> list[str]:
+    """The ``--profile`` option for the child, after a check of the name.
+
+    Mirrors sdr-grader. A valid name starts with a letter or a digit, so the
+    child cannot read it as an option, and it holds no path separator. The
+    message does not repeat the name, because the name can hold control
+    characters.
+    """
+    if profile is None:
+        return []
+    from sdr_visualizer.usage.credential_source import PROFILE_NAME_RULE, valid_profile_name
+
+    if not valid_profile_name(profile):
+        raise InvalidSnapshotError(
+            f"invalid profile name [invalid_profile_name]: {PROFILE_NAME_RULE}"
+        )
+    return ["--profile", profile]
+
+
+def _profile_test_hint(tool: str, profile: str | None) -> str:
+    # The child's own error output is hidden, so name the command that shows
+    # whether the credential works.
+    name = profile if profile is not None else "NAME"
+    return f"To test the credential of a profile, run: {tool} --profile-test {name}"
+
+
 def shell_cja(
-    dataview_id: str, *, extra_args: list[str] | None = None
+    dataview_id: str,
+    *,
+    extra_args: list[str] | None = None,
+    profile: str | None = None,
 ) -> tuple[dict[str, Any], str]:
-    """Shell out to cja_auto_sdr against a CJA data view ID."""
+    """Shell out to cja_auto_sdr against a CJA data view ID.
+
+    ``profile`` is a profile name for the child. It is checked against the
+    profile name rule and added after ``extra_args`` as ``--profile <name>``.
+    """
     _require_positional_id(dataview_id, flag="--dataview")
+    extra = [*(extra_args or []), *_profile_args(profile)]
     try:
         with tempfile.TemporaryDirectory(prefix="sdr-visualizer-cja-") as output_dir:
             return _shell_out(
@@ -37,22 +71,33 @@ def shell_cja(
                     output_dir,
                     "--include-all-inventory",
                     "--quiet",
-                    *(extra_args or []),
+                    *extra,
                 ],
                 flag="--dataview",
                 json_output_dir=Path(output_dir),
+                profile=profile,
             )
     except OSError as exc:
         raise InvalidSnapshotError(f"cja_auto_sdr temporary output handling failed: {exc}") from exc
 
 
-def shell_aa(rsid: str, *, extra_args: list[str] | None = None) -> tuple[dict[str, Any], str]:
-    """Shell out to aa_auto_sdr against an AA report suite ID."""
+def shell_aa(
+    rsid: str,
+    *,
+    extra_args: list[str] | None = None,
+    profile: str | None = None,
+) -> tuple[dict[str, Any], str]:
+    """Shell out to aa_auto_sdr against an AA report suite ID.
+
+    ``profile`` is handled as in :func:`shell_cja`.
+    """
     _require_positional_id(rsid, flag="--rsid")
+    extra = [*(extra_args or []), *_profile_args(profile)]
     return _shell_out(
         "aa_auto_sdr",
-        [rsid, "--format", "json", "--output", "-", *(extra_args or [])],
+        [rsid, "--format", "json", "--output", "-", *extra],
         flag="--rsid",
+        profile=profile,
     )
 
 
@@ -71,6 +116,7 @@ def _shell_out(
     *,
     flag: str,
     json_output_dir: Path | None = None,
+    profile: str | None = None,
 ) -> tuple[dict[str, Any], str]:
     binary = shutil.which(tool)
     if not binary:
@@ -97,7 +143,7 @@ def _shell_out(
         # of diagnostics, as sdr-grader does.
         raise InvalidSnapshotError(
             f"{tool} exited {exc.returncode}; its error output is not shown. "
-            f"Run {tool} directly to see the details."
+            f"Run {tool} directly to see the details. {_profile_test_hint(tool, profile)}"
         ) from None
     except (OSError, UnicodeError) as exc:
         raise InvalidSnapshotError(f"{tool} could not be invoked: {exc}") from exc
