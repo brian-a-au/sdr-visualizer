@@ -201,6 +201,45 @@ def test_profile_errors_have_codes_and_do_not_fall_back(
     assert PROFILE["secret"] not in capsys.readouterr().err
 
 
+@pytest.mark.skipif(os.name == "nt", reason="mode bits do not describe access on Windows")
+@pytest.mark.parametrize(
+    "content,message",
+    [
+        ({**PROFILE, "org_id": A["org_id"]}, "Workspace authentication organization mismatch"),
+        ({**PROFILE, "scopes": ""}, "Profile prod is missing these fields: scopes"),
+        ({**PROFILE, "note": "x"}, "Invalid Workspace authentication configuration"),
+    ],
+)
+def test_profile_that_fails_its_checks_still_gives_the_warning_and_the_source(
+    tmp_path, home, acquired, capsys, content, message
+):
+    path = write_json(profile_file(home), content)
+    path.chmod(0o644)
+    assert main([*command(tmp_path), "--profile", "prod"]) == 3
+    assert acquired == []
+    err = capsys.readouterr().err
+    assert err.splitlines()[-3:] == [
+        f"sdr-visualizer: warning: credential file {path} can be read by the group or by "
+        "other users; run chmod 600 on it",
+        f"sdr-visualizer: Workspace credential source: profile prod ({path})",
+        f"sdr-visualizer: {message}",
+    ]
+    assert err.count("can be read by the group or by other users") == 1
+    assert "client ID" not in err
+    assert PROFILE["secret"] not in err and PROFILE["client_id"] not in err
+    # --quiet hides the source line and keeps the warning.
+    assert main([*command(tmp_path), "--profile", "prod", "--quiet"]) == 3
+    err = capsys.readouterr().err
+    assert err.count("can be read by the group or by other users") == 1
+    assert "credential source" not in err
+    # A library call with no report prints nothing.
+    with pytest.raises(InvalidSnapshotError):
+        collector.collect_workspace_usage(
+            implementation(), organization_context="org", profile="prod"
+        )
+    assert capsys.readouterr().err == ""
+
+
 def test_profile_keeps_the_strict_file_rules(home):
     write_json(profile_file(home), PROFILE, extra={"note": "x"})
     with pytest.raises(InvalidSnapshotError, match="Invalid Workspace authentication config"):

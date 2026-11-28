@@ -751,17 +751,31 @@ def collect_workspace_usage(
         "scope": scope,
         "project_ids": project_ids,
     }
-    source = select_source(
-        implementation.platform,
-        config_path=config_path,
-        profile=profile,
-        expected_org=organization_context,
-    )
-    if report is not None:
-        for code, text in source.notices:
-            report("notice", f"{code}: {text}")
-        for _, text in source.warnings:
-            report("warning", text)
+
+    def announce(chosen):
+        if report is not None:
+            for code, text in chosen.notices:
+                report("notice", f"{code}: {text}")
+            for _, text in chosen.warnings:
+                report("warning", text)
+
+    try:
+        source = select_source(
+            implementation.platform,
+            config_path=config_path,
+            profile=profile,
+            expected_org=organization_context,
+        )
+    except InvalidSnapshotError as error:
+        # A profile file that was found and then failed its checks is reported
+        # as a config file is: the warning, then the source, then the error.
+        failed = getattr(error, "source", None)
+        if failed is not None:
+            announce(failed)
+            if report is not None:
+                report("info", failed.describe())
+        raise
+    announce(source)
     with _interrupt_on_termination():
         try:
             acquired = (

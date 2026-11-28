@@ -11,7 +11,7 @@ from __future__ import annotations
 import os
 import re
 import stat
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from pathlib import Path
 
 from sdr_visualizer.core.exceptions import InvalidSnapshotError
@@ -143,25 +143,30 @@ def select_source(
         path = profile_path(profile, platform, home=home)
         if not path.is_file():
             raise CredentialSourceError("profile_not_found", f"Profile not found: {path}")
-        source = auth.read_source_file(path, allowed=auth.PROFILE_KEYS)
-        missing = [
-            key
-            for key in auth.FIELDS
-            if source.get(key) is None or source.get(key) == "" or source.get(key) == []
-        ]
-        if missing:
-            raise CredentialSourceError(
-                "partial_source",
-                f"Profile {profile} is missing these fields: {', '.join(missing)}",
-                missing,
-            )
-        return CredentialSource(
-            "profile",
-            path=path,
-            profile=profile,
-            credentials=auth.validate_source(source, expected_org=expected_org),
-            warnings=tuple(_file_warnings(path)),
+        # The file exists, so the source is known before its content is checked.
+        # A failed check carries it, so the caller can still report the warning
+        # and name the source. It holds no credential value.
+        chosen = CredentialSource(
+            "profile", path=path, profile=profile, warnings=tuple(_file_warnings(path))
         )
+        try:
+            source = auth.read_source_file(path, allowed=auth.PROFILE_KEYS)
+            missing = [
+                key
+                for key in auth.FIELDS
+                if source.get(key) is None or source.get(key) == "" or source.get(key) == []
+            ]
+            if missing:
+                raise CredentialSourceError(
+                    "partial_source",
+                    f"Profile {profile} is missing these fields: {', '.join(missing)}",
+                    missing,
+                )
+            credentials = auth.validate_source(source, expected_org=expected_org)
+        except InvalidSnapshotError as error:
+            error.source = chosen
+            raise
+        return replace(chosen, credentials=credentials)
     env = os.environ if environ is None else environ
     variable = PROFILE_VARIABLES[platform]
     notices = ()
