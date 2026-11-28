@@ -42,6 +42,20 @@ def mask_client_id(client_id):
     return MASK if len(text) <= 8 else f"{text[:4]}{MASK}{text[-4:]}"
 
 
+def is_masked_client_id(value):
+    """Accept only a value that mask_client_id returns for a client ID in use.
+
+    The parent runs this on what the worker sends. A client ID in use holds no
+    control character, so a value with one is rejected and cannot change the
+    terminal display.
+    """
+    return (
+        type(value) is str
+        and (value == MASK or (len(value) == 12 and value[4:8] == MASK))
+        and not any(ord(character) < 32 or ord(character) == 127 for character in value)
+    )
+
+
 def mask_secret(secret):
     """Show a secret that is set as four stars, whatever its length."""
     return MASK if secret else ""
@@ -99,15 +113,17 @@ class CredentialSource:
 
 
 def _file_warnings(path):
-    if not readable_by_others(path):
-        return ()
-    return (
-        (
-            "file_readable_by_others",
-            f"credential file {path} can be read by the group or by other users; "
-            "run chmod 600 on it",
-        ),
-    )
+    """Return a list of (code, text) pairs: one pair, or none."""
+    warnings = []
+    if readable_by_others(path):
+        warnings.append(
+            (
+                "file_readable_by_others",
+                f"credential file {path} can be read by the group or by other users; "
+                "run chmod 600 on it",
+            )
+        )
+    return warnings
 
 
 def select_source(
@@ -122,7 +138,7 @@ def select_source(
     if config_path is not None:
         # The worker reads the file. Only its mode is checked here.
         path = Path(config_path)
-        return CredentialSource("config", path=path, warnings=_file_warnings(path))
+        return CredentialSource("config", path=path, warnings=tuple(_file_warnings(path)))
     if profile is not None:
         path = profile_path(profile, platform, home=home)
         if not path.is_file():
@@ -144,7 +160,7 @@ def select_source(
             path=path,
             profile=profile,
             credentials=auth.validate_source(source, expected_org=expected_org),
-            warnings=_file_warnings(path),
+            warnings=tuple(_file_warnings(path)),
         )
     env = os.environ if environ is None else environ
     variable = PROFILE_VARIABLES[platform]
