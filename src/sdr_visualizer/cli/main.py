@@ -440,7 +440,7 @@ def _load(args: argparse.Namespace) -> tuple[dict, str]:
                 f"sdr-visualizer: {tool} credential source: profile {args.profile}",
                 file=sys.stderr,
             )
-        return shell(identifier, extra_args=["--profile", args.profile])
+        return shell(identifier, profile=args.profile)
     return load_snapshot(args.path, at=args.at)
 
 

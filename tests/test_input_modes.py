@@ -283,6 +283,31 @@ def test_shell_out_nonzero_exit_preserves_status_and_hides_stderr(monkeypatch, s
     assert "cja_auto_sdr exited 7" in message
     assert "credentials rejected" not in message
     assert "error output is not shown" in message
+    assert message.endswith("run: cja_auto_sdr --profile-test NAME")
+
+
+def test_shell_out_checks_the_profile_name_and_passes_it_to_the_child(monkeypatch):
+    monkeypatch.setattr("sdr_visualizer.input.shell_out.shutil.which", lambda _name: "/bin/tool")
+    seen = []
+
+    def fail(cmd, **_kwargs):
+        seen.append(cmd)
+        raise subprocess.CalledProcessError(7, cmd)
+
+    monkeypatch.setattr("sdr_visualizer.input.shell_out.subprocess.run", fail)
+
+    with pytest.raises(InvalidSnapshotError) as exc_info:
+        shell_aa("rs1", profile="prod")
+    assert seen[0][-2:] == ["--profile", "prod"]
+    assert str(exc_info.value).endswith("run: aa_auto_sdr --profile-test prod")
+
+    # A name that the child could read as an option never reaches it.
+    for shell in (shell_aa, shell_cja):
+        with pytest.raises(InvalidSnapshotError) as exc_info:
+            shell("id1", profile="--config=/tmp/x")
+        assert "[invalid_profile_name]" in str(exc_info.value)
+        assert "--config" not in str(exc_info.value)
+    assert len(seen) == 1
 
 
 def test_shell_out_file_disappearing_after_lookup_is_domain_error(monkeypatch):

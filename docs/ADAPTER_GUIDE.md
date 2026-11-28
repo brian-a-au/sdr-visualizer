@@ -178,8 +178,11 @@ The fixtures may diverge from sdr-grader's over time — the visualizer wants mo
   tool and exit status only; generator stderr is not echoed (sdr-grader
   `011b3d2`). An empty or dash-leading `--dataview` / `--rsid` ID is rejected
   before the generator starts, because it would be read as an option
-  (sdr-grader `90a9b3f`). The grader's capture byte limits and process-group
-  cleanup are not yet mirrored.
+  (sdr-grader `90a9b3f`). `shell_cja` and `shell_aa` take a `profile` name,
+  check it against the profile name rule and pass it to the generator as
+  `--profile`, and a nonzero exit names the generator's `--profile-test`
+  command (sdr-grader pull request 186). The grader's capture byte limits and
+  process-group cleanup are not yet mirrored.
 - `input.loader` stdin — stdin bytes are decoded as UTF-8 whatever the locale
   encoding, and undecodable stdin is invalid input ("stdin is not valid UTF-8"),
   mirrored from sdr-grader `2b18cd1` and `82c742e` in 1.2.8.

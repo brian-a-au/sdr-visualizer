@@ -12,6 +12,9 @@ All notable changes to `sdr-visualizer` will be documented here. The format foll
   a CJA run and from `~/.aa/orgs/NAME` for an AA run. The main process reads
   the profile and gives the values to the collection worker in its
   environment, so the worker still has no home directory.
+- When a generator fails in the `--dataview` or `--rsid` mode, the error now
+  names the command that tests a profile, e.g.,
+  `cja_auto_sdr --profile-test NAME`.
 - A profile name is checked before any path is built. It holds letters,
   digits, dots, underscores and hyphens, starts with a letter or a digit, and
   has 64 characters or fewer.
